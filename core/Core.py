@@ -170,8 +170,8 @@ class Core(object):
         print("\n--- Start Experiment: '{}' ---\n\n".format(self.expname))
 
         # Import experiment class from experiment's folder (e.g.: experiments/experiment_name/runtrial.py)
-        sys.path.append(self.folders['expFolder'])
         try:
+            sys.path.append(self.folders['expFolder'])
             from runtrial import RunTrial
         except ImportError as e:
             print('[{}] Could not import RunTrial')
@@ -187,7 +187,7 @@ class Core(object):
         # Instantiate Trial and experiment
         self.trial = Trial(design=self.design, settings=self.config, userfile=self.user.datafilename,
                            paramsfile=self.files['parameters'], pause_interval=int(self.config['pauseInt']))
-        runtrial = RunTrial(trial=self.trial, screen=self.screen, user=self.user)
+        runtrial = RunTrial(core=self)
 
         # Run experiment
         try:
