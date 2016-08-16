@@ -21,13 +21,13 @@
 from __future__ import print_function
 
 """
-ExpFrame is a Python framework designed for making programing of behavioral experiments easier and more automatic.
+This file is for Design class.
 """
 
 __author__ = "Florian Perdreau"
 __copyright__ = "Copyright 2015, Florian Perdreau"
 __license__ = "GPL"
-__version__ = "0.9.5"
+__version__ = "0.9.0"
 __maintainer__ = "Florian Perdreau"
 __email__ = "f.perdreau@donders.ru.nl"
 __status__ = "Production"
