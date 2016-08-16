@@ -1,0 +1,27 @@
+{
+    "session": 1, 
+    "distance": 1470.0, 
+    "optotrack": false, 
+    "pauseInt": 300, 
+    "demo": true, 
+    "practice": false, 
+    "sled": false, 
+    "max_trials": 10, 
+    "bgcolor": [
+        -1.0, 
+        -1.0, 
+        -1.0
+    ], 
+    "eyetracker": false, 
+    "display_type": "psychopy", 
+    "fullscreen": true, 
+    "movie": false, 
+    "resolution": [
+        1920.0, 
+        1080.0
+    ], 
+    "size": [
+        1206.0, 
+        679.0
+    ]
+}
