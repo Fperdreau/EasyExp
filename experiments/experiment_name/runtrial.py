@@ -29,14 +29,9 @@ import numpy as np
 
 # EasyExp modules
 from core.Core import Core
-from core.Config import ConfigFiles
-from core.User import User
-from core.Trial import Trial
-from core.Screen import Screen
-from core.misc.conversion import pol2cart, deg2m, mm2pix
+from core.misc.conversion import pol2cart, mm2pix
 from core.movie.moviemaker import MovieMaker
 from core.buttons.buttons import Buttons
-from core.system.customlogger import CustomLogger
 from core.display.fpscounter import FpsCounter
 from core.events.timer import Timer
 
@@ -56,7 +51,7 @@ class RunTrial(object):
 
     homeMsg = 'Welcome!'  # Message prompted at the beginning of the experiment
 
-    def __init__(self, core=Core, trial=Trial, screen=Screen, user=User):
+    def __init__(self, core=Core):
         """
         Class constructor
 
@@ -64,12 +59,6 @@ class RunTrial(object):
         ----------
         :param Core core: Core object
         :type core: Core
-        :param Trial trial: instantiation of Trial class
-        :type trial: Trial
-        :param Screen screen: instantiation of Screen class
-        :type screen: Screen
-        :param user: instantiation of User class
-        :type user: User
         """
 
         ##################################
@@ -87,6 +76,7 @@ class RunTrial(object):
         self.state_machine = {
             'current': None,
             'status': False,
+            'timer': None,
             'duration': 0.0,
             'onset': 0.0,
             'offset': 0.0
@@ -97,23 +87,29 @@ class RunTrial(object):
         self.singleShot = True  # Enable single shot events
         self.validTrial = False
 
+        # Dependencies
+        # ============
+        # FPScounter: measures flip duration or simply flips the screen
+        self.fpsCounter = FpsCounter(self.screen.ptw)
+
+        # Logger: verbose level can be set by changing level to 'debug', 'info' or 'warning'
+        self.logger = core.logger
+
         # Stimuli
         # =======
-        self.stimuli = {}
+        self.stimuli = dict()
 
         # Devices
         # =======
-        self.sled = None
-        self.eyetracker = None
-
+        self.devices = dict()
         # Setup devices
-        self.setupDevices()
+        self.init_devices()
 
         # Audio/Video
         # ===========
         # Initialize audio
-        self.sounds = {}
-        self.initAudio()
+        self.sounds = dict()
+        self.init_audio()
         self.movie = None
 
         # Timings
@@ -121,7 +117,6 @@ class RunTrial(object):
         self.timings = self.trial.parameters['durations']
         self.startTime = None
         self.stopTime = None
-        self.timeToMoveOn = False
 
         ################################
         # LINES BELOW CAN BE MODIFIED #
@@ -139,9 +134,10 @@ class RunTrial(object):
 
         # Events triggers
         # ===============
-        # Default triggers are pauseRequested, startTrigger and quitRequested. They should not be modified.
-        # However, you can add new triggers: 'trigger_name': False
+        # Default triggers are moveOnRequested, pauseRequested, startTrigger and quitRequested.
+        # They should not be modified. However, you can add new triggers: 'trigger_name': False
         self.triggers = {
+            'moveOnRequested': False,
             'pauseRequested': False,
             'startTrigger': False,
             'quitRequested': False
@@ -182,14 +178,6 @@ class RunTrial(object):
             'field_name': None
         }
 
-        # Dependencies
-        # ============
-        # FPScounter: measures flip duration or simply flips the screen
-        self.fpsCounter = FpsCounter(self.screen.ptw)
-
-        # Logger: verbose level can be set by changing level to 'debug', 'info' or 'warning'
-        self.logger = core.logger
-
         # Response buttons
         # ================
         self.buttons = dict()
@@ -202,13 +190,7 @@ class RunTrial(object):
         self.staircase = StaircaseASA(settings_file=self.trial.design.conditionFile.pathtofile,
                                       data_file=self.user.datafilename)
 
-        self.devices = {
-            'sled': None,
-            'eyetracker': None,
-            'optotrack': None
-        }
-
-    def setupDevices(self):
+    def init_devices(self):
         """
         Setup devices
         """
@@ -230,8 +212,9 @@ class RunTrial(object):
             self.state = 'calibration'
 
         # Create OptoTrack
-        from core.apparatus.optotrack.optotrak import OptoTrack
-        self.devices['optotrack'] = OptoTrack()
+        if self.trial.settings['optotrack']:
+            from core.apparatus.optotrack.optotrak import OptoTrack
+            self.devices['optotrack'] = OptoTrack()
 
     def init(self):
         """
@@ -247,20 +230,20 @@ class RunTrial(object):
         if status is False:
             # If no more trials to run, then quit the experiment
             self.nextState = 'quit'
-            self.timeToMoveOn = True
+            self.triggers['moveOnRequested'] = True
             return False
         else:
             self.status = status
             if self.status is "pause":
                 self.triggers['pauseRequested'] = True
                 self.nextState = 'pause'
-                self.timeToMoveOn = True
+                self.triggers['moveOnRequested'] = True
                 return 'pause'
 
             # Start a new trial
             # Reset timers
             for timer, value in self.timers.iteritems():
-                self.timers[timer] = None
+                self.timers[timer].reset()
 
             # Reset data
             for data, value in self.data.iteritems():
@@ -272,18 +255,18 @@ class RunTrial(object):
 
             # Send START_TRIAL to eye-tracker
             if self.trial.settings['eyetracker']:
-                self.eyetracker.starttrial(self.trial.id)
+                self.devices['eyetracker'].starttrial(self.trial.id)
 
             # Initialize movie if requested
             if self.trial.settings['movie']:
                 self.movie = MovieMaker(self.ptw, "Dynamic_{}_{}".format(self.trial.params["first"],
                                                                          self.trial.params['timing']), "png")
             # Initialize stimuli
-            self.initStimuli()
+            self.init_stimuli()
 
             return True
 
-    def initStimuli(self):
+    def init_stimuli(self):
         """
         Prepare/Make stimuli
 
@@ -293,9 +276,9 @@ class RunTrial(object):
         Then on every loop, the state machine will automatically call self.stimuli['stimulus_name'].draw() if
         self.stimuliTrigger['stimulus_name'] is set to True.
         """
-        pass
+        self.stimuli['stimulus_name'] = None
 
-    def initAudio(self):
+    def init_audio(self):
         """
         Initialize sounds
         Auditory stimuli are created here and should be stored in RunTrial.sounds dictionary. For example:
@@ -331,44 +314,55 @@ class RunTrial(object):
 
         self.status = False
 
-    def gonext(self):
+    @property
+    def move_on(self):
         """
         Go to next state if SPACE button is pressed or quit experiment if ESCAPE button is pressed
-        :return:
+        :rtype: bool
         """
+        if self.triggers['moveOnRequested']:
+            self.triggers['moveOnRequested'] = False
+            return True
+
         # Does the user want to quit the experiment?
         if self.buttons['gui'].status['quit']:
-            timeToMoveOn = True
             self.triggers['quitRequested'] = True
-            return timeToMoveOn
+            return True
+        elif self.buttons['gui'].status['pause']:
+            self.triggers['pauseRequested'] = True
+            return True
 
         # Shall we go on?
         if self.timings[self.state] is not False:
-            timeToMoveOn = (time.time() - self.state_machine['onset']) >= self.timings[self.state]
+            return self.state_machine['timer'].countdown() > 0.0
         else:
             self.buttons['response'].get()  # Get buttons status
-            timeToMoveOn = self.buttons['response'].status['left'] or self.buttons['response'].status['right']
-
-        return timeToMoveOn
+            return self.buttons['response'].status['left'] or self.buttons['response'].status['right']
 
     def getResponse(self):
         """
         Get subject response
         :return response: 'left' or 'right'
         """
-        if self.data['responseDuration'] is None:
+        if self.timers['responseDuration'] is None:
             # Initialize response timer
-            self.data['responseDuration'] = time.time()
+            self.timers['responseDuration'] = Timer()
+            self.timers['responseDuration'].start()
 
-        self.buttons['response'].get()  # Get buttons status
+        # Get response buttons status
+        self.buttons['response'].get()
         response_received = self.buttons['response'].status['left'] or self.buttons['response'].status['right']
-        if self.triggers['response_given'] is False and response_received:
+        if not self.triggers['response_given'] and response_received:
             if self.buttons['response'].status['left']:
                 self.data['response'] = 'left'
             elif self.buttons['response'].status['right']:
                 self.data['response'] = 'right'
 
-            self.data['responseDuration'] = round( (time.time() - self.data['responseDuration']) * 1000)  # in ms
+            # Stop response timer, store response duration, and reset timer
+            self.timers['responseDuration'].stop()
+            self.data['responseDuration'] = self.timers['responseDuration'].get_time('elapsed')
+            self.timers['responseDuration'].reset()
+
             self.data['correct'] = self.data['response'] == 'right'
             self.triggers['response_given'] = True
 
@@ -380,6 +374,7 @@ class RunTrial(object):
         self.validTrial = self.data['response'] is not False
         self.startTime = None
 
+        # Close movie file is necessary
         if self.trial.settings['movie']:
             self.movie.close()
 
@@ -389,16 +384,17 @@ class RunTrial(object):
             self.logger.logger.info('{}: {}'.format(data, value))
         self.logger.logger.info('valid trial:{}'.format(self.validTrial))
 
+        # Play an auditory feedback to inform whether the trial was valid or not
         if not self.validTrial:
             self.sounds['wrong'].play()
         else:
             self.sounds['valid'].play()
 
         self.trial.stop(self.validTrial)  # Stop routine
-        self.trial.writedata(self.data)
+        self.trial.writedata(self.data)  # Write data
 
         if self.trial.settings['eyetracker']:
-            self.eyetracker.endtrial(self.validTrial)
+            self.devices['eyetracker'].endtrial(self.validTrial)
 
     # =========================================
     # SLED movement
@@ -407,7 +403,7 @@ class RunTrial(object):
         """
         Get viewer (sled) position
         """
-        p = self.sled.getposition(t=self.sled.client.time())
+        p = self.devices['sled'].getposition(t=self.devices['sled'].client.time())
         self.pViewer = (p[0], p[1])
 
     # =========================================
@@ -425,7 +421,7 @@ class RunTrial(object):
 
         t1.join()
 
-    def changeState(self):
+    def changeState(self, force_move_on=False):
         """
         This function handles transition between states
         DO NOT MODIFY
@@ -438,29 +434,31 @@ class RunTrial(object):
         if self.state_machine['current'] is None:
             # If we enter a new state
             self.state_machine['current'] = self.state
-            self.state_machine['onset'] = time.time()
+            self.state_machine['timer'] = Timer(max_duration=self.timings[self.state])
+            self.state_machine['timer'].start()
+            self.state_machine['onset'] = self.state_machine['timer'].get('start')
             self.state_machine['status'] = True
-            self.timeToMoveOn = False
             self.singleShot = True  # Enable single shot events
 
             # Send events to eye-tracker
             if self.trial.settings['eyetracker']:
-                self.eyetracker.el.sendMessage('EVENT_STATE_{}'.format(self.state))
-
-        # Check inputs and timers
-        self.timeToMoveOn = self.gonext() if self.timeToMoveOn is False else True
+                self.devices['eyetracker'].el.sendMessage('EVENT_STATE_{}'.format(self.state))
 
         # If we transition to the next state
-        if self.timeToMoveOn and self.state_machine['status']:
-            self.state_machine['offset'] = time.time()
-            self.state_machine['duration'] = time.time() - self.state_machine['onset']
+        if force_move_on or (self.move_on and self.state_machine['status']):
+            # Stop timer, store timings and then reset timer
+            self.state_machine['timer'].stop()
+            self.state_machine['offset'] = self.state_machine['timer'].get('stop')
+            self.state_machine['duration'] = self.state_machine['timer'].get('elapsed')
+            self.state_machine['timer'].reset()
+
             self.state_machine['status'] = False
+
             state_str = '[STATE]: {0}=>{1} [START: {2:.3f}s | DUR: {3:.3f}s]\r'.format(self.state, self.nextState,
                                                                                        self.state_machine['onset'] - self.startTime,
                                                                                        self.state_machine['duration'])
             self.logger.logger.info(state_str)
             self.state = self.nextState
-            self.timeToMoveOn = False
             self.state_machine['current'] = None
             return True
         else:
@@ -511,9 +509,9 @@ class RunTrial(object):
                     self.triggers['pauseRequested'] = False
 
                     # Move the sled back to its default position
-                    self.sled.move(self.sledHome, self.mvtBackDuration)
+                    self.devices['sled'].move(self.sledHome, self.mvtBackDuration)
                     time.sleep(self.mvtBackDuration)
-                    self.sled.lights(True)  # Turn the lights off
+                    self.devices['sled'].lights(True)  # Turn the lights off
 
             elif self.state == 'calibration':
                 # Eyetracker calibration
@@ -524,7 +522,7 @@ class RunTrial(object):
                 self.nextState = 'start'
                 if self.singleShot is True:
                     self.singleShot = False
-                    self.sled.lights(False)  # Turn the lights off
+                    self.devices['sled'].lights(False)  # Turn the lights off
 
             elif self.state == 'start':
                 self.nextState = 'first'
@@ -534,11 +532,11 @@ class RunTrial(object):
                     status = self.init()  # Get trial parameters
                     if not status:
                         self.nextState = 'quit'
-                        self.timeToMoveOn = True
+                        self.triggers['moveOnRequested'] = True
                     if status is 'pause':
                         self.nextState = 'pause'
-                        self.timeToMoveOn = True
-
+                        self.triggers['moveOnRequested'] = True
+                        self.triggers['pauseRequested'] = True
                         self.data['response'] = False
 
                     # Self motion settings
@@ -562,7 +560,7 @@ class RunTrial(object):
                     if np.abs(self.pViewer[0] - self.sledStart) > 0.01:
                         self.logger.logger.debug('Sled is not at starting position: {} instead of {}'.format(self.pViewer[0],
                                                                                           self.sledStart))
-                        self.sled.move(self.sledStart, self.mvtBackDuration)
+                        self.devices['sled'].move(self.sledStart, self.mvtBackDuration)
                         self.timings['start'] = self.mvtBackDuration + 0.1
                         time.sleep(self.mvtBackDuration)
                         self.getviewerposition()  # Get SLED's position
@@ -576,7 +574,7 @@ class RunTrial(object):
                 if self.singleShot is True:
                     self.singleShot = False
                     self.timers['sled_start'] = time.time()
-                    self.sled.move(self.sledFinal, self.mvtDuration)
+                    self.devices['sled'].move(self.sledFinal, self.mvtDuration)
 
             elif self.state == 'probe1':
                 self.nextState = 'probeInterval'
@@ -600,9 +598,9 @@ class RunTrial(object):
                         # If dynamic, we wait until the sled reaches its final position
                         durationBeforeStart = time.time() - self.timers['sled_start']
                         if durationBeforeStart >= self.trial.parameters['movDuration']:
-                            self.timeToMoveOn = True
+                            self.triggers['moveOnRequested'] = True
                     else:
-                        self.timeToMoveOn = True
+                        self.triggers['moveOnRequested'] = True
 
             elif self.state == 'end':
                 if self.triggers['pauseRequested']:
