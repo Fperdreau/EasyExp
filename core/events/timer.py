@@ -58,11 +58,13 @@ class Timer(object):
     @property
     def elapsed(self):
         if self.__start_time is not None:
-            if self.__max_duration is None:
-                return (time.time() - self.__start_time) * 1000.0
-            else:
-                elapsed = (self.__max_duration - (time.time() - self.__start_time)) * 1000.0
-                return 0.0 if elapsed <= 0.0 else elapsed
+            return (time.time() - self.__start_time) * 1000.0
+
+    @property
+    def countdown(self):
+        if self.__start_time is not None and self.__max_duration is None:
+            elapsed = (self.__max_duration - (time.time() - self.__start_time)) * 1000.0
+            return 0.0 if elapsed <= 0.0 else elapsed
 
     def start(self):
         """
