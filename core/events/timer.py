@@ -18,17 +18,18 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import time
+
 """
 This file is for Timer class
 """
-
-import time
 
 
 class Timer(object):
     """
     Timer class
-    Implements a simple timer with start, stop and reset methods
+    Implements a simple timer with start, stop and reset methods. Timer can works as a timer (returns elapsed time) or
+    as a countdown (if max_duration is specified)
 
     Usage:
     >>># Example:
@@ -43,17 +44,25 @@ class Timer(object):
     >>>timer.reset()
     """
 
-    def __init__(self):
+    def __init__(self, max_duration=None):
         """
         Timer constructor
+        :param max_duration: max duration of timer (in seconds). If not None, then timer will work backward
+        (max_duration => 0)
+        :type max_duration: float
         """
         self._start_time = None
         self._stop_time = None
+        self._max_duration = max_duration
 
     @property
     def elapsed(self):
         if self._start_time is not None:
-            return (time.time() - self._start_time) * 1000.0
+            if self._max_duration is None:
+                return (time.time() - self._start_time) * 1000.0
+            else:
+                elapsed = (self._max_duration - (time.time() - self._start_time)) * 1000.0
+                return 0.0 if elapsed <= 0.0 else elapsed
 
     def start(self):
         """
