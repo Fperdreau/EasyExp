@@ -210,9 +210,9 @@ class QtWindow(QMainWindow):
         Go to next state by pressing SPACE
         """
         try:
-            self.central_widget.gonext()
+            self.central_widget.changeState(force_move_on=True)
         except Exception as e:
-            print 'GO next: {}'.format(e)
+            print('GO next: {}'.format(e))
 
     def stop_exp(self):
         """
@@ -222,7 +222,6 @@ class QtWindow(QMainWindow):
         self.central_widget.destroy(True, True)
         self.run_home()
         duration = round((time.time() - self.timer)/60)
-        print "\n--- End of Experiment '{}' ---" \
-              "\nTotal duration: {} minutes" \
-              "\n---\n"\
-              .format(self.screen.expname, duration)
+        print("\n--- End of Experiment '{}' ---"
+              "\nTotal duration: {} minutes"
+              "\n---\n".format(self.screen.expname, duration))
