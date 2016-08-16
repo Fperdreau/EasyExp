@@ -51,34 +51,56 @@ class Timer(object):
         (max_duration => 0)
         :type max_duration: float
         """
-        self._start_time = None
-        self._stop_time = None
-        self._max_duration = max_duration
+        self.__start_time = None
+        self.__stop_time = None
+        self.__max_duration = max_duration
 
     @property
     def elapsed(self):
-        if self._start_time is not None:
-            if self._max_duration is None:
-                return (time.time() - self._start_time) * 1000.0
+        if self.__start_time is not None:
+            if self.__max_duration is None:
+                return (time.time() - self.__start_time) * 1000.0
             else:
-                elapsed = (self._max_duration - (time.time() - self._start_time)) * 1000.0
+                elapsed = (self.__max_duration - (time.time() - self.__start_time)) * 1000.0
                 return 0.0 if elapsed <= 0.0 else elapsed
 
     def start(self):
         """
         Starts timer
         """
-        if self._start_time is None:
-            self._start_time = time.time()
+        if self.__start_time is None:
+            self.__start_time = time.time()
 
     def stop(self):
         """
         Stops timer
         """
-        self._stop_time = self.elapsed
+        self.__stop_time = self.elapsed
 
     def reset(self):
         """
         Resets timer
         """
-        self._start_time = None
+        self.__start_time = None
+
+    def get_time(self, prop):
+        """
+        Time getter
+
+        Parameters
+        ----------
+        prop: property name (start, stop or elapsed)
+
+        Returns
+        -------
+        :rtype: float
+        """
+        if prop is 'start':
+            return self.__start_time
+        elif prop is 'stop':
+            return self.__stop_time
+        elif prop is 'elapsed':
+            return self.elapsed
+        else:
+            raise AttributeError('{} property does not exist')
+
