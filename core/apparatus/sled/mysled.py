@@ -89,7 +89,7 @@ class MySled(object):
                 self.client.connect(self.server, self.port)
                 self.lights(True)
             except Exception as e:
-                raise '[SLED] Could not connect to the Sled client: {}'.format(e)
+                raise Exception('[{0}] Could not connect to the Sled client: {1}'.format(__name__, e))
         self.client.startStream()
         time.sleep(2)
         self.client.goto(self.home)  # homing sled at -reference
@@ -136,7 +136,7 @@ class MySled(object):
         self.client.sendCommand('{} stop'.format(self.moveType))
         duration = time.time() - self.timer
         self.timer = time.time()
-        print '[SLED] Sled duration: {} seconds'.format(duration)
+        print('[{0}] Sled duration: {1} seconds'.format(__name__, duration))
         return duration
 
     def quit(self):
@@ -152,12 +152,12 @@ class MySled(object):
         self.lights(True)
 
         # Close clients
-        print("[SLED] closing sled client")  # logger may not exist anymore
+        print("[{}] Closing Sled client".format(__name__))  # logger may not exist anymore
         self.client.stopStream()
         if hasattr(self, "positionClient") and hasattr(self.positionClient, "stopStream"):
-            print("[SLED] closing Position client")  # logger may not exist anymore
+            print("[{}] closing Position client".format(__name__))  # logger may not exist anymore
             self.positionClient.stopStream()
-        print('[SLED] Stream successfully stopped')
+        print('[{}] Stream successfully stopped'.format(__name__))
         time.sleep(2.0)
         
         self.client.sendCommand('Bye')
@@ -210,7 +210,7 @@ class DummyClient(SledClientSimulator):
         self._duration = 0.0
         self._distance = 0.0
         self._direction = 1
-        print '\n[SLED] !!! Sled running in dummy mode !!!\n'
+        print('[{}] !!! Sled running in dummy mode !!!'.format(__name__))
 
     def connect(self):
         pass
