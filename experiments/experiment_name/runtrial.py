@@ -23,7 +23,6 @@ from __future__ import print_function
 from __future__ import division
 
 from psychopy import visual, sound
-import pygame
 import time
 import numpy as np
 
@@ -115,8 +114,6 @@ class RunTrial(object):
         # Timings
         # =======
         self.timings = self.trial.parameters['durations']
-        self.startTime = None
-        self.stopTime = None
 
         ################################
         # LINES BELOW CAN BE MODIFIED #
@@ -124,8 +121,7 @@ class RunTrial(object):
         # Experiment settings
         # ===================
         # Sled settings
-        self.pViewer = [0.0, 0.0]  # Sled/User position
-        self.mvtBackDuration = 2.0  # Returning movement duration (in s)
+        self.mvtBackDuration = float(self.trial.parameters['mvtBackDuration'])  # Returning movement duration (in s)
         self.sledHome = 0.0  # Sled home position
         self.sledStart = float(self.trial.parameters['sledStart'])  # Sled starting position
         self.mvtAmplitude = float(self.trial.parameters['movDistance'])  # Movement amplitude
@@ -152,22 +148,25 @@ class RunTrial(object):
         # Timers
         # ======
         # Add your timers to this dictionary.
+        # Default timer is timers['runtime'] and it should not be removed
+        #
         # Example:
         # timers = {'timer_name': Timer()}
         #
-        #  Then, to start the timer
+        # Then, to start the timer
         # timers['timer_name'].start()
         #
         # Stop the timer
         # timers['timer_name'].stop()
         #
         # Get elapsed time
-        # print(timers['timer_name'].elapsed
+        # print(timers['timer_name'].get_time('elapsed')
         #
         # Reset timer
         # timers['timer_name'].reset()
 
         self.timers = {
+            'runtime': Timer(),  # DO NOT MODIFY
             'timer_name': Timer()
         }
 
@@ -200,14 +199,14 @@ class RunTrial(object):
         # Create Eyelink instance
         if self.trial.settings['eyetracker']:
             from core.apparatus.EyeTracker.eyetracker import EyeTracker
-            edfFile = "{}_{}".format(self.user.dftName, time.strftime('%d-%m-%Y_%H%M%S'))
-            self.devices['eyetracker'] = EyeTracker(link='10.0.0.20', dummy=False, sprate=500, thresvel=35, thresacc=9500,
-                                         illumi=2, caltype='HV5', dodrift=False, trackedeye='right',
-                                         display_type='psychopy', name=edfFile,
-                                         ptw=self.ptw, bgcol=(-1, -1, -1), distance=self.screen.distance,
-                                         resolution=self.screen.resolution,
-                                         winsize=self.screen.size, inner_tgcol=(127, 127, 127),
-                                         outer_tgcol=(255, 255, 255), targetsize_out=1.0, targetsize_in=0.25)
+            edf_file = "{}_{}".format(self.user.dftName, time.strftime('%d-%m-%Y_%H%M%S'))
+            self.devices['eyetracker'] = EyeTracker(link='10.0.0.20', dummy=False, sprate=500, thresvel=35,
+                                                    thresacc=9500, illumi=2, caltype='HV5', dodrift=False,
+                                                    trackedeye='right', display_type='psychopy', name=edf_file,
+                                                    ptw=self.ptw, bgcol=(-1, -1, -1), distance=self.screen.distance,
+                                                    resolution=self.screen.resolution,
+                                                    winsize=self.screen.size, inner_tgcol=(127, 127, 127),
+                                                    outer_tgcol=(255, 255, 255), targetsize_out=1.0, targetsize_in=0.25)
             self.devices['eyetracker'].run()
             self.state = 'calibration'
 
@@ -339,7 +338,7 @@ class RunTrial(object):
             self.buttons['response'].get()  # Get buttons status
             return self.buttons['response'].status['left'] or self.buttons['response'].status['right']
 
-    def getResponse(self):
+    def get_response(self):
         """
         Get subject response
         :return response: 'left' or 'right'
@@ -366,13 +365,12 @@ class RunTrial(object):
             self.data['correct'] = self.data['response'] == 'right'
             self.triggers['response_given'] = True
 
-    def endTrial(self):
+    def end_trial(self):
         """
         End trial routine
         :return:
         """
         self.validTrial = self.data['response'] is not False
-        self.startTime = None
 
         # Close movie file is necessary
         if self.trial.settings['movie']:
@@ -399,12 +397,16 @@ class RunTrial(object):
     # =========================================
     # SLED movement
     # =========================================
-    def getviewerposition(self):
+    @property
+    def viewer_position(self):
         """
         Get viewer (sled) position
         """
-        p = self.devices['sled'].getposition(t=self.devices['sled'].client.time())
-        self.pViewer = (p[0], p[1])
+        if self.devices['sled'] is not None:
+            p = self.devices['sled'].getposition(t=self.devices['sled'].client.time())
+            return p[0], p[1]
+        else:
+            return 0.0, 0.0
 
     # =========================================
     # STATE MACHINE
@@ -421,15 +423,16 @@ class RunTrial(object):
 
         t1.join()
 
-    def changeState(self, force_move_on=False):
+    def change_state(self, force_move_on=False):
         """
         This function handles transition between states
         DO NOT MODIFY
 
         :rtype: bool
         """
-        if self.startTime is None:
-            self.startTime = time.time()
+        if self.timers['runtime'] is None or self.timers['runtime'].get_time('start') is None:
+            self.timers['runtime'] = Timer()
+            self.timers['runtime'].start()
 
         if self.state_machine['current'] is None:
             # If we enter a new state
@@ -454,9 +457,11 @@ class RunTrial(object):
 
             self.state_machine['status'] = False
 
-            state_str = '[STATE]: {0}=>{1} [START: {2:.3f}s | DUR: {3:.3f}s]\r'.format(self.state, self.nextState,
-                                                                                       self.state_machine['onset'] - self.startTime,
-                                                                                       self.state_machine['duration'])
+            state_str = '[STATE]: {0}=>{1}' \
+                        ' [START: {2:.3f}s | DUR: {3:.3f}s]\r'.format(self.state, self.nextState,
+                                                                      self.state_machine['onset'] -
+                                                                      self.timers['runtime'].get_time('start'),
+                                                                      self.state_machine['duration'])
             self.logger.logger.info(state_str)
             self.state = self.nextState
             self.state_machine['current'] = None
@@ -480,10 +485,7 @@ class RunTrial(object):
             tic = time.time()
 
             # Check state status
-            self.changeState()
-
-            # Get sled (viewer) position
-            self.getviewerposition()
+            self.change_state()
 
             if self.state == 'idle':
                 """
@@ -522,9 +524,11 @@ class RunTrial(object):
                 self.nextState = 'start'
                 if self.singleShot is True:
                     self.singleShot = False
-                    self.devices['sled'].lights(False)  # Turn the lights off
+                    if self.devices['sled'] is not None:
+                        self.devices['sled'].lights(False)  # Turn the lights off
 
             elif self.state == 'start':
+                # Start trial: get trial information and update trial's parameters accordingly
                 self.nextState = 'first'
 
                 if self.singleShot is True:
@@ -545,6 +549,7 @@ class RunTrial(object):
                     self.mvtAmplitude = float(self.trial.parameters['movDistance'])
                     self.sledFinal = self.sledStart + side * self.mvtAmplitude  # Final sled position
 
+                    # Stimuli Triggers
                     self.triggers['startTrigger'] = True
                     self.stimuliTrigger['fixation'] = True
 
@@ -557,15 +562,13 @@ class RunTrial(object):
                     self.timings['last'] = 0.0
 
                     # Move sled to starting position if it is not there already
-                    if np.abs(self.pViewer[0] - self.sledStart) > 0.01:
-                        self.logger.logger.debug('Sled is not at starting position: {} instead of {}'.format(self.pViewer[0],
-                                                                                          self.sledStart))
+                    if np.abs(self.viewer_position[0] - self.sledStart) > 0.01:
+                        self.logger.logger.debug('Sled is not at starting position: {}'
+                                                 ' instead of {}'.format(self.viewer_position[0], self.sledStart))
                         self.devices['sled'].move(self.sledStart, self.mvtBackDuration)
                         self.timings['start'] = self.mvtBackDuration + 0.1
                         time.sleep(self.mvtBackDuration)
-                        self.getviewerposition()  # Get SLED's position
-                        self.logger.logger.debug('Sled after move command: {}'.format(self.pViewer[0]))
-
+                        self.logger.logger.debug('Sled after move command: {}'.format(self.viewer_position[0]))
                     else:
                         self.timings['start'] = 0.1
 
@@ -581,7 +584,7 @@ class RunTrial(object):
                 self.stimuliTrigger['probe1'] = True
                 if self.singleShot is True:
                     self.singleShot = False
-                    self.data['sled_probe1'] = self.pViewer[0]
+                    self.data['sled_probe1'] = self.viewer_position[0]
                     self.data['time_probe1'] = time.time() - self.timers['sled_start']
                     self.logger.logger.debug('Sled Position at probe1: {}'.format(self.data['sled_probe1']))
 
@@ -590,14 +593,14 @@ class RunTrial(object):
                 self.stimuliTrigger['probe2'] = False
 
             elif self.state == 'response':
-                self.getResponse()
+                self.get_response()
                 self.nextState = 'end'
 
                 if self.triggers['response_given']:
                     if self.trial.params['mvt'] == 'True':
                         # If dynamic, we wait until the sled reaches its final position
-                        durationBeforeStart = time.time() - self.timers['sled_start']
-                        if durationBeforeStart >= self.trial.parameters['movDuration']:
+                        if (time.time() - self.timers['sled_start'].get_time('start'))\
+                                >= self.trial.parameters['movDuration']:
                             self.triggers['moveOnRequested'] = True
                     else:
                         self.triggers['moveOnRequested'] = True
@@ -620,9 +623,10 @@ class RunTrial(object):
                         stim.setAutoDraw(False)
 
                     # End trial routine
-                    self.endTrial()
+                    self.end_trial()
 
             toc = time.time() - tic
+            print('[{}] Elapsed time: {} ms'.format(__name__, round(toc*1000.0)))
 
     def graphics_state_machine(self):
         """
@@ -654,16 +658,16 @@ class RunTrial(object):
                 y += 0.5 * self.screen.resolution[1]
 
                 # Start calibration
-                self.eyetracker.calibration.custom_calibration(x=x, y=y, ctype='HV9')
-                self.eyetracker.calibration.calibrate()
+                self.devices['eyetracker'].calibration.custom_calibration(x=x, y=y, ctype='HV9')
+                self.devices['eyetracker'].calibration.calibrate()
 
         ##################################
         # DO NOT MODIFY THE LINES BELLOW #
         ##################################
         # Draw stimuli
         if self.triggers['startTrigger']:
-            fixationPos = mm2pix(1000*self.pViewer[0], 0.0, self.screen.resolution, self.screen.size)
-            self.stimuli['fixation'].setPos(fixationPos)  # Update fixation position
+            fixation_position = mm2pix(1000 * self.viewer_position[0], 0.0, self.screen.resolution, self.screen.size)
+            self.stimuli['fixation'].setPos(fixation_position)  # Update fixation position
             for stim, status in self.stimuliTrigger.iteritems():
                 if status:
                     self.stimuli[stim].draw()
