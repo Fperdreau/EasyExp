@@ -210,7 +210,7 @@ class QtWindow(QMainWindow):
         Go to next state by pressing SPACE
         """
         try:
-            self.central_widget.changeState(force_move_on=True)
+            self.central_widget.change_state(force_move_on=True)
         except Exception as e:
             print('GO next: {}'.format(e))
 
