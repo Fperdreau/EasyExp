@@ -52,7 +52,7 @@ class FpsCounter(object):
         t0 = core.getTime()
         self.__ptw.flip(clearBuffer=clear_buffer)
         t1 = core.getTime()
-        self.__samples = np.append(self.__samples, [(t1 - t0) * 1000])
+        self.__samples = np.append(self.__samples, [round((t1 - t0) * 1000)])
         self.__frame_count += 1
 
     @property
@@ -68,5 +68,5 @@ class FpsCounter(object):
         return np.mean(self.__samples)
 
     def __str__(self):
-        return 'fps: {} [{} samples, t={} s] -- frame duration: {} ms'.format(self.fps, self.__frame_count, self._time,
+        return 'FPS: {} [{} samples, t={} s] -- frame duration: {} ms'.format(self.fps, self.__frame_count, self._time,
                                                                               self._frame_duration)
