@@ -38,15 +38,11 @@ __status__ = "Production"
 from .Config import ConfigFiles
 
 # Import useful libraries
-import time
 import sys
 from os.path import isfile
 
 # Data I/O
 import csv
-
-# Numpy
-import numpy as np
 
 # Logger
 from .system.customlogger import CustomLogger
@@ -74,23 +70,27 @@ class Design(object):
         :param string folder: path to experiment folder (where the custom_design.py lies)
         :return:
         """
-        self.max_trials = max_trials
-        self.practice = practice
-        self.folder = folder
-        self.custom = custom
-        self.expname = expname
-        self.userfile = userfile
+        self.max_trials = max_trials  # Maximum number of trials in practice mode
+        self.practice = practice  # Enable practice mode (True, False)
+        self.folder = folder  # path to experiment folder
+        self.custom = custom  # Enable custom experiment design
+        self.demo = demo  # Enable demo mode
+        self.expname = expname  # Name of the experiment
+        self.userfile = userfile  # path to user's file
+
+        # Initialize attributes
         self.headers = None
-        self.conditionFile = ConfigFiles(conditionfile)
-        self.demo = demo
         self.dtfName = None
-        self.allconditions = {}
+        self.allconditions = dict()
         self.conditions = []
         self.factors = []
         self.ntrials = None
-        self.design = []
+        self.design = dict()
+        self.method = None
 
-        self.loadConditions()
+        # Initialize design
+        self.conditionFile = ConfigFiles(conditionfile)
+        self.load_conditions()
         self.parseconditions()
 
     def parseconditions(self):
@@ -114,17 +114,15 @@ class Design(object):
             self.allconditions['method'] = "Constant"
 
         # Import method implementation
-        from .methods.MethodBase import MethodBase
         method_name = "core.methods.{}.{}".format(self.allconditions['method'], self.allconditions['method'])
         try:
             mod = __import__(method_name, fromlist=self.allconditions['method'])
-            MethodClass = getattr(mod, self.allconditions['method'])
+            self.method = getattr(mod, self.allconditions['method'])
 
-            self.design, self.conditions = MethodClass.make_design(self.factors, self.allconditions['options'],
+            self.design, self.conditions = self.method.make_design(self.factors, self.allconditions['options'],
                                                                    self.conditions)
         except ImportError as e:
-            print('[{}] Could not import "{}": {}'.format(__name__, method_name, e))
-            raise e
+            raise ImportError('[{}] Could not import "{}": {}'.format(__name__, method_name, e))
 
         # Number of trials
         self.ntrials, nfactors = self.design.shape
@@ -147,7 +145,7 @@ class Design(object):
         # Save design into file
         self.save()
 
-    def loadConditions(self):
+    def load_conditions(self):
         """
         Get experimental design from the design file
         """
@@ -176,36 +174,6 @@ class Design(object):
             new_design.append(trial)
         self.design = new_design
 
-    def fullfact(self, factors, repetition):
-        """
-        Generates full factorial design
-        Parameters
-        ----------
-        factors: list
-        repetition: int - Number of repetitions
-
-        Returns
-        -------
-        design: 2d-array
-
-        """
-        factors = np.array(factors)
-        cols = len(factors)
-        ssize = np.prod(factors)
-        ncycles = ssize
-        design = np.zeros((ssize, cols))
-        for k in range(cols):
-            settings = np.array(range(0, factors[k]))  # settings for kth factor
-            nreps = ssize / ncycles  # repeats of consecutive values
-            ncycles = ncycles / factors[k]  # repeats of sequence
-            settings = np.tile(settings, (nreps, 1))  # repeat each value nreps times
-            settings = np.reshape(settings, (1, settings.size), 'F')  # fold into a column
-            settings = np.tile(settings, (1, ncycles))  # repeat sequence to fill the array
-            design[:, k] = settings[:]
-
-        design = np.tile(design, (repetition, 1))  # Make repetitions
-        return design
-
     def randomize_list(self, design):
         """
         Randomize trials list either using a standard shuffling method or calling a custom randomizing function.
@@ -222,22 +190,21 @@ class Design(object):
                 print('[{}] Importing CUSTOM DESIGN from: {}'.format(__name__, self.folder))
                 sys.path.append(self.folder)
                 from custom_design import custom_design
-            except ImportError as e:
-                print('[{}] Could not import custom design'.format(__name__))
-                raise e
+            except ImportError:
+                raise ImportError('[{}] Could not import custom design'.format(__name__))
             design = custom_design(design)
 
         return design
 
-    def update(self, trialID, data_to_update):
+    def update(self, trial_id, data_to_update):
         """
         Update trials info
-        :param trialID:
+        :param trial_id:
         :param data_to_update:
         :return:
         """
         for trial in self.design:
-            if trial['TrialID'] == str(trialID):
+            if trial['TrialID'] == str(trial_id):
                 for key, value in data_to_update.iteritems():
                     trial[key] = value
 
@@ -263,9 +230,8 @@ class Design(object):
                 reader = csv.DictReader(csvfile)
                 for row in reader:
                     self.design.append(row)
-        except IOError as e:
-            print('[{} Could not read "{}"]'.format(__name__, self.userfile))
-            raise e
+        except IOError:
+            raise IOError('[{} Could not read "{}"]'.format(__name__, self.userfile))
         return self.design
 
     def save(self, update=False):
@@ -278,8 +244,7 @@ class Design(object):
             try:
                 open(self.userfile, "wb", 0)
             except (IOError, TypeError):
-                print("[{}] Could not write into the user's datafile: {}".format(__name__, self.userfile))
-                raise
+                raise IOError("[{}] Could not write into the user's datafile: {}".format(__name__, self.userfile))
             else:
                 with open(self.userfile, "wb", 0) as csvfile:
                     writer = csv.DictWriter(csvfile, fieldnames=self.headers)
