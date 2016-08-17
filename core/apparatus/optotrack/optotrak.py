@@ -157,7 +157,7 @@ class OptoTrack(object):
         # Init and instantiate sensors
         self.initTracked()
 
-    def quit(self):
+    def close(self):
         """
         Exit routine (close used socket and stop streaming)
         :return:
@@ -753,7 +753,7 @@ if __name__ == '__main__':
 
     # Stop
     optotrak.stop_trial(1)
-    optotrak.quit()
+    optotrak.close()
 
     # Close window
     win.close()
