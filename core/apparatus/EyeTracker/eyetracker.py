@@ -194,13 +194,12 @@ class EyeTracker(object):
         :return:
         """
         if not self.dummy and self.link is not None:
+            print('[{0}] Connecting to the EyeLink at {1}'.format(__name__, self.link))
             try:
-                print('[Eyetracker] Connecting to the EyeLink at {}'.format(self.link))
                 self.el = EyeLink(self.link)
-                print('[Eyetracker] Connection successful!')
-            except:
-                print("[Eyetracker] Connection - Unexpected error:", sys.exc_info()[0])
-                raise
+                print('[{0}] Connection successful!'.format(__name__))
+            except Exception:
+                raise Exception("[{0}] Connection - Unexpected error:", __name__, sys.exc_info()[0])
         else:
             self.el = DummyMode()
 
@@ -212,18 +211,18 @@ class EyeTracker(object):
         self.el.sendCommand(cmd)
         error = self.el.commandResult()
         if error != 0:
-            print(error)
+            raise Exception('[{}] Command ({}) could not be sent to eyetracker: {1}'.format(__name__, cmd, error))
 
     def run(self):
         """
         Startup routine
         """
-        print('\n..:: Startup routine ::..')
+        print('[{}] Eyetracker is starting up...'.format(__name__))
         self.el.setOfflineMode()
         self.getconnectionstatus()
         self.setup()
         self.file.open()
-        print('\n--- Startup routine done ---\n')
+        print('[{}] Done ---'.format(__name__))
 
     def getconnectionstatus(self, verbose=False):
         """
@@ -239,10 +238,10 @@ class EyeTracker(object):
         elif self.status == 1:
             msg = 'connected'
         else:
-            print('The eyetracker retrieved an unknown status: {}'.format(self.status))
+            print('[{0}] The eyetracker retrieved an unknown status: {1}'.format(__name__, self.status))
             self.close()
         self.status = {self.status, msg}
-        print('Eyelink Status: {}'.format(self.status))
+        print('[{0}] Eyelink Status: {1}'.format(__name__, self.status))
 
     def getStatus(self):
         """
@@ -263,10 +262,9 @@ class EyeTracker(object):
         """
         Setup routine
         """
-        print('Eye tracker setup...')
+        print('[{}] Eye tracker setup...'.format(__name__))
         self.setup_tracker()
         self.setup_filters()
-        print('...End of setup\n')
 
     def setup_tracker(self):
         """
@@ -276,7 +274,7 @@ class EyeTracker(object):
         self.softvs = 0
         self.vs = self.el.getTrackerVersion()
 
-        print('Eyelink version: %d' % self.vs)
+        print('[{0}] Eyelink version: {1}'.format(__name__, self.vs))
         if self.vs >= 3:
             tvstr = self.el.getTrackerVersionString()
             vindex = tvstr.find("EYELINK CL")
@@ -324,7 +322,7 @@ class EyeTracker(object):
         :return self.trackedeye: id of tracked eye(s) ('left' or 'right')
         """
         eu = self.el.eyeAvailable()
-        print(eu)
+        print('{[]} Eye used: {}'.format(__name__, eu))
         if eu > 4:
             eu = 0
         self.trackedeye = self.eye_list[eu] if eu >= 0 else None
@@ -385,7 +383,7 @@ class EyeTracker(object):
 
         # Check for data availability
         if not self.el.waitForBlockStart(100, 1, 0):
-            print("ERROR: No link samples received!")
+            print("[{}] ERROR: No link samples received!".format(__name__))
             return "ABORT_EXPT"
 
         # Get tracked eye and create Eye instance
@@ -409,7 +407,7 @@ class EyeTracker(object):
         """
         Close routine: shutdown the EyeLink, close data file and receive data file
         """
-        print('\n..:: Closing routine ::.. \n')
+        print('[{}] Closing Eyetracker ...'.format(__name__))
         if self.el is not None:
             # File transfer and cleanup!
             self.el.setOfflineMode()
@@ -421,12 +419,11 @@ class EyeTracker(object):
             # Close connection
             try:
                 self.el.close()
-                print("[Eyetracker] Connection closed successfully")
-            except:
-                print('[Eyetracker] Could not close connection')
-                raise
+                print("[{}] Connection closed successfully".format(__name__))
+            except Exception:
+                raise Exception('[{}] Could not close connection'.format(__name__))
         else:
-            print("[Eyetracker] Eyelink not available, not closed properly")
+            raise Exception("[{}] Eyelink not available, not closed properly".format(__name__))
 
 
 class EDFfile(object):
@@ -451,7 +448,7 @@ class EDFfile(object):
         """
         Open EDF file
         """
-        print('[Eyetracker] Opening data file {}'.format(self.edfname))
+        print('[{0}] Opening data file "{1}"'.format(__name__, self.edfname))
 
         try:
             self.tracker.el.openDataFile(self.edfname)
@@ -462,7 +459,7 @@ class EDFfile(object):
         """
         Close data file
         """
-        print('[Eyetracker] Closing data file {}'.format(self.edfname))
+        print('[{0}] Closing data file {1}'.format(__name__, self.edfname))
         self.tracker.el.closeDataFile()
         self.retrieve()
 
@@ -517,8 +514,8 @@ class DummyMode(object):
         self.elDummyMode = lambda: True
         self.elCurrentMode = lambda: IN_RECORD_MODE
         self.waitForBlockStart = lambda a, b, c: 1
-        print('\n!!! You are entering the Dummy Mode !!!'
-        '\nEye movements will be simulated with the mouse.\n\n')
+        print('[{}] !!! You are entering the Dummy Mode: '
+              'Eye movements will be simulated with the mouse !!!'.format([__name__]))
 
     def sendMessage(self, msg):
         """
@@ -528,7 +525,7 @@ class DummyMode(object):
         """
         if not isinstance(msg, str):
             raise TypeError('msg must be str')
-        print('Message sent to eyelink: %s' % msg)
+        print('[{0}] Message sent to eyelink: {1}'.format(__name__, msg))
 
     def sendCommand(self, cmd):
         """
@@ -538,7 +535,7 @@ class DummyMode(object):
         """
         if not isinstance(cmd, str):
             raise TypeError('msg must be str')
-        print('Command sent to eyelink: %s' % cmd)
+        print('[{0}] Command sent to eyelink: {1}'.format(__name__, cmd))
 
     def getTrackerVersion(self):
         """
@@ -737,7 +734,7 @@ class Calibration(object):
         :return:
         """
         # Calibration settings
-        print('[EyeTracker] Set Calibration type to %s' % self.ctype)
+        print('[{0}] Calibration type set to {1}'.format(__name__, self.ctype))
 
         # Set display coordinates
         self.getgraphicenv()
@@ -782,9 +779,9 @@ class Calibration(object):
         # Generates validation targets list
         validation_targets = ' '.join(['{0:d},{1:d}'.format(int(x[i]), int(y[i])) for i in range(len(x))])
 
-        print('### Using custom calibration ###')
-        print('sequence index: {}'.format(sequence_index))
-        print('calibration targets: {}'.format(calibration_targets))
+        print('[{}] ### Using custom calibration ###'.format(__name__))
+        print('[{0}] Sequence index: {1}'.format(__name__, sequence_index))
+        print('[{0}]calibration targets: {1}'.format(__name__, calibration_targets))
 
         # Set graphics
         self.getgraphicenv()
@@ -822,7 +819,7 @@ class Calibration(object):
         """
         Perform a calibration
         """
-        print('*** Enter Calibration Mode ***')
+        print('[{}] Start Calibration'.format(__name__))
 
         # Switch calibration display on
         env = self.display.gui
@@ -835,7 +832,7 @@ class Calibration(object):
         self.tracker.el.doTrackerSetup()
 
         # Close calibration display
-        print('*** Exit Calibration Mode ***')
+        print('[{}} Exit Calibration Mode'.format(__name__))
 
     def driftcorrection(self, x, y, draw=1):
         """
@@ -844,7 +841,6 @@ class Calibration(object):
         :param x: horizontal position of target
         :param draw:
         """
-        print("\n Perform a drift correction...")
         # The following does drift correction at the begin of each trial
         while 1:
             # Checks whether we are still connected to the tracker
@@ -854,16 +850,15 @@ class Calibration(object):
             # Does drift correction and handles the re-do camera setup situations
             try:
                 error = self.tracker.el.doDriftCorrect(x, y, draw)
-            except:
-                print("Drift correction failed")
-                raise
+            except Exception:
+                raise Exception("[{}] Drift correction failed".format(__name__))
             else:
-                print("Drift result: {}".format(error))
+                print("[{0}] Drift result: {1}".format(__name__, error))
                 if error != 27:
                     break
                 else:
                     self.calibrate()
-        print("Drift correction successfully performed\n")
+        print("[{}] Drift correction successfully performed".format(__name__))
 
 
 class Checking(object):
@@ -918,7 +913,7 @@ class Checking(object):
         :param ry: vertical coordinate of fixation point
         :return bool fix:
         """
-        print ('*** Start fixation test ***')
+        print('[{}] Start fixation test'.format(__name__))
         self.tracker.el.sendMessage('EVENT_FIXATION_TEST_START')
 
         if radius is not None:
@@ -945,7 +940,8 @@ class Checking(object):
                 rx = random.choice(range(0, self.display.resolution[0], 10))
                 ry = random.choice(range(0, self.display.resolution[1], 10))
             else:
-                error('"%s" is not a valid option. Please, choose either "fix" or "rnd"', opt)
+                raise AttributeError('[{0}] "{1}" is not a valid option. '
+                                     'Please, choose either "fix" or "rnd"'.format(__name__, opt))
 
             # Draw Fixation Point
             self.display.gui.draw_cal_target(rx, ry)
@@ -1029,14 +1025,14 @@ class Checking(object):
         keys = self.display.gui.get_input_key()
         for key in keys:
             if key:
-                print ("Key {} has been pressed".format(key))
+                print ('[{0}] Key "{1}" has been pressed'.format(__name__, key))
                 if key.__key__ == ord('c'):
-                    print('\nCalibration requested by the user \n')
+                    print('[{0}] Calibration requested by the user'.format(__name__))
                     self.tracker.calibration.calibrate()
                     self.tracker.startrecording()
                     return True
                 elif key.__key__ == ESC_KEY:
-                    print('\nEsc pressed, exiting fixation test\n')
+                    print('[{}} Esc pressed, exiting fixation test'.format(__name__))
                     self.tracker.el.sendMessage('EVENT_FIXATION_TEST_ABORTED')
                     return True
                 return False
