@@ -43,13 +43,16 @@ class MySled(object):
     >>>init_time = time.time()
     >>>while time.time() <= (init_time + duration):
     >>>     print('Sled position: {}'.format(sled.getposition(t=sled.client.time())))  # Get and print SLED's position
-    >>>sled.quit()  # Quit and disconnect SLED client
+    >>>sled.close()  # Quit and disconnect SLED client
 
     Requirements:
     - FPClient
     - SledClient
     - sledclientsimulator
     """
+
+    mvt_back_duration = 2.0
+    home = 0.0
 
     def __init__(self, status=False, server=False, port=3375):
         """
@@ -68,11 +71,10 @@ class MySled(object):
         self.positionClient = None
         self.port = port
         self.position = 0.0
-        self.home = 0
         self.server = server
         self.timer = None
         self.lightStatus = True  # The Sled lights should be off before initialization
-        self.moveType = 'Sinusoid' # Default profile
+        self.moveType = 'Sinusoid'  # Default profile
 
         # Connect to sled server
         self.connectSledServer()
@@ -139,27 +141,35 @@ class MySled(object):
         print('[{0}] Sled duration: {1} seconds'.format(__name__, duration))
         return duration
 
-    def quit(self):
+    def close(self):
         """
         Close connection with the Sled Client
 
         :return: void
         """
         # Return to home position
-        self.move(0.0, 2.0)
+        self.move(self.home, self.mvt_back_duration)
+        time.sleep(self.mvt_back_duration)
 
         # Switch lights on
         self.lights(True)
 
         # Close clients
         print("[{}] Closing Sled client".format(__name__))  # logger may not exist anymore
-        self.client.stopStream()
+        try:
+            self.client.stopStream()
+        except Exception:
+            raise Exception('[{}] Could not stop client stream')
+
         if hasattr(self, "positionClient") and hasattr(self.positionClient, "stopStream"):
             print("[{}] closing Position client".format(__name__))  # logger may not exist anymore
-            self.positionClient.stopStream()
+            try:
+                self.positionClient.stopStream()
+            except Exception:
+                raise Exception('[{}] Could not stop positionClient stream')
+
         print('[{}] Stream successfully stopped'.format(__name__))
-        time.sleep(2.0)
-        
+
         self.client.sendCommand('Bye')
         self.client.__del__()
 
@@ -312,4 +322,4 @@ if __name__ == '__main__':
     print('Center: Sled position: {}'.format(sled.position[0]))
 
     sled.lights(True)  # Turn the lights ON
-    sled.quit()
+    sled.close()
