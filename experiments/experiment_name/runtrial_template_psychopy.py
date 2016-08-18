@@ -305,6 +305,10 @@ class RunTrial(object):
             for label, value in self.stimuliTrigger.iteritems():
                 self.stimuliTrigger[label] = False
 
+            # Reset event triggers
+            for label, value in self.triggers.iteritems():
+                self.stimuliTrigger[label] = False
+
             # Send START_TRIAL to eye-tracker
             if self.trial.settings['eyetracker']:
                 self.devices['eyetracker'].starttrial(self.trial.id)
@@ -420,7 +424,7 @@ class RunTrial(object):
         :return:
         """
         # Did we get a response from the participant?
-        self.validTrial = self.triggers['response_given']
+        self.validTrial = self.triggers['response_given'] is not False
         self.timers['runtime'].reset()
 
         # Close movie file is necessary
