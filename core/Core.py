@@ -44,7 +44,7 @@ from .Screen import Screen
 # Import useful libraries
 import time
 import sys
-from os import listdir
+from os import listdir, mkdir
 from os.path import isdir, join
 
 # Dialog UI
@@ -71,7 +71,7 @@ class Core(object):
     >>># Open main window and run the experiment
     >>>Exp.run()
     """
-    appname = "ExpFrame"
+    appname = "EasyExp"
     version = __version__
     logger = None
 
@@ -93,22 +93,10 @@ class Core(object):
         self.experimentsFolder = None
         self.status = True
 
-        self.timer = None
         self.startTime = None
         self.stopTime = None
 
         self.expname = None
-
-    def get_logger(self):
-        """
-        Logger factory
-        Returns
-        -------
-        rtype: CustomLogger
-        """
-        if not Core.logger:
-            Core.logger = CustomLogger(__name__, file_name=self.experimentsFolder, level='warning')
-        return Core.logger
 
     def getexp(self, folder):
         """
@@ -136,6 +124,12 @@ class Core(object):
 
         self.experimentsFolder = "{}/experiments/".format(rootfolder)
         self.expname = self.getexp(self.experimentsFolder)
+        if not isdir('{}/logs'.format(rootfolder)):
+            mkdir('{}/logs'.format(rootfolder))
+
+        # Set application's logger
+        log_file = '{}/logs/{}_{}.log'.format(rootfolder, self.expname, time.strftime("%d%m%y_%H%M%S"))
+        self.logger = CustomLogger(__name__, file_name=log_file, level='debug')
 
         # Get and set configuration
         config = Config(rootfolder=rootfolder, expname=self.expname)
@@ -167,19 +161,18 @@ class Core(object):
         Run and time experiment
         """
 
-        print("\n--- Start Experiment: '{}' ---\n\n".format(self.expname))
+        self.logger.logger.info("[{}] --- Start Experiment: '{}' ---".format(__name__, self.expname))
 
         # Import experiment class from experiment's folder (e.g.: experiments/experiment_name/runtrial.py)
         try:
             sys.path.append(self.folders['expFolder'])
-            from runtrial import RunTrial
+            from runtrial_threaded import RunTrial
         except ImportError as e:
-            print('[{}] Could not import RunTrial')
+            self.logger.logger.fatal('[{}] Could not import RunTrial: {}'.format(__name__, e))
             raise e
 
         # Start timer
-        self.timer = time.time()
-        self.startTime = self.timer
+        self.startTime = time.time()
 
         # Open window
         self.screen.open()
@@ -187,7 +180,7 @@ class Core(object):
         # Instantiate Trial and experiment
         self.trial = Trial(design=self.design, settings=self.config, userfile=self.user.datafilename,
                            paramsfile=self.files['parameters'], pause_interval=int(self.config['pauseInt']))
-        runtrial = RunTrial(core=self)
+        runtrial = RunTrial(exp_core=self)
 
         # Run experiment
         try:
@@ -197,9 +190,10 @@ class Core(object):
                 sys.exit(self.screen.QTapp.exec_())
             elif self.screen.display_type == 'psychopy':
                 runtrial.run()
-        except (Exception, TypeError) as e:
-            print('[{}] An unexpected error has occurred')
-            raise e
+        except Exception as e:
+            msg = '[{0}] An unexpected error has occurred: {1}'.format(__name__, e)
+            self.logger.logger.fatal(msg)
+            raise Exception(msg)
 
         # Stop experiment
         self.stop()
@@ -212,7 +206,7 @@ class Core(object):
             self.screen.close()
         self.stopTime = time.time()
 
-        duration = round((self.stopTime - self.startTime) / 60)
-        print("\n--- End of Experiment '{}' ---"
-              "\nTotal duration: {} minutes"
-              "\n---\n".format(self.expname, duration))
+        duration = round((self.stopTime - self.startTime) / 60.0)
+        self.logger.logger.info("[{}] End of Experiment '{}'".format(__name__, self.expname))
+        self.logger.logger.info("[{0}] Total duration: {1} minutes".format(__name__, duration))
+        exit()
