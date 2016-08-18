@@ -1,4 +1,5 @@
 {
+  "mvtBackDuration": 2.0,
   "sledStart": -0.20,
   "movDistance": 0.40,
   "movDuration": 1.0,
