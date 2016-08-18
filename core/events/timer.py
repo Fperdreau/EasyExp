@@ -32,16 +32,18 @@ class Timer(object):
     as a countdown (if max_duration is specified)
 
     Usage:
-    >>># Example:
-    >>>timer = Timer()
-    >>>#  Then, to start the timer
-    >>>timer.start()
-    >>># Stop the timer
-    >>>timer.stop()
-    >>># Get elapsed time
-    >>>timer.elapsed
-    >>># Reset timer
-    >>>timer.reset()
+    >>> # Example:
+    >>> timer = Timer()
+    >>> # Then, to start the timer
+    >>> timer.start()
+    >>> # Stop the timer
+    >>> time.sleep(2.0)
+    >>> timer.stop()
+    >>> # Get elapsed time
+    >>> print(timer.get_time('elapsed'))
+    2.0
+    >>> # Reset timer
+    >>> timer.reset()
     """
 
     def __init__(self, max_duration=None):
@@ -58,12 +60,12 @@ class Timer(object):
     @property
     def elapsed(self):
         if self.__start_time is not None:
-            return (time.time() - self.__start_time) * 1000.0
+            return (time.time() - self.__start_time)
 
     @property
     def countdown(self):
-        if self.__start_time is not None and self.__max_duration is None:
-            elapsed = (self.__max_duration - (time.time() - self.__start_time)) * 1000.0
+        if self.__start_time is not None and self.__max_duration is not None:
+            elapsed = (self.__max_duration - (time.time() - self.__start_time))
             return 0.0 if elapsed <= 0.0 else elapsed
 
     def start(self):
@@ -106,3 +108,13 @@ class Timer(object):
         else:
             raise AttributeError('{} property does not exist')
 
+if __name__ == '__main__':
+    # Countdown
+    max_duration = 2000
+    timer = Timer(max_duration=max_duration)
+    timer.start()
+    print(timer.countdown)
+    while timer.countdown > 0.0:
+        print(timer.countdown)
+    timer.stop()
+    timer.reset()
