@@ -6,7 +6,7 @@
     "demo": true, 
     "practice": false, 
     "sled": false, 
-    "max_trials": 10, 
+    "max_trials": 30,
     "bgcolor": [
         -1.0, 
         -1.0, 
@@ -14,7 +14,7 @@
     ], 
     "eyetracker": false, 
     "display_type": "psychopy", 
-    "fullscreen": true, 
+    "fullscreen": true,
     "movie": false, 
     "resolution": [
         1920.0, 

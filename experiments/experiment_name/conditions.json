@@ -1,34 +1,13 @@
 {
-  "timing": [
-    0.150,
-    0.400,
-    0.650
-  ],
-  "first": [
-    "bottom",
-    "top"
-  ],
-  "repetition": 1,
-  "side": [
+  "factor_name_with_multiple_level": [
     "left",
     "right"
   ],
-  "mvt": [
-      true
-  ],
-  "method": "StaircaseASA",
+  "factor_name_with_single_level": [true],
+  "repetition": 1,
+  "method": "method_name",
   "options": {
-    "stimRange": [
-      -2.8,
-      2.8
-    ],
-    "maxInitialStepSize": 1.5,
-    "stoppingStep": 0.1,
-    "threshold": 0.50,
     "nTrials": 40,
-    "limits": true,
-    "nbStairs": 2,
-    "warm_up": 2,
     "response_field": "correct",
     "intensity_field": "intensity"
   }
