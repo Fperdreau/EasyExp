@@ -3,7 +3,7 @@
 #
 # This file is part of EasyExp
 #
-# Copyright (C) 2015 Florian Perdreau, Radboud University Nijmegen
+# Copyright (C) 2016 Florian Perdreau, Radboud University Nijmegen
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,18 +19,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import print_function
-
-"""
-ExpFrame is a Python framework designed for making programing of behavioral experiments easier and more automatic.
-"""
-
-__author__ = "Florian Perdreau"
-__copyright__ = "Copyright 2015, Florian Perdreau"
-__license__ = "GPL"
-__version__ = "0.9.5"
-__maintainer__ = "Florian Perdreau"
-__email__ = "f.perdreau@donders.ru.nl"
-__status__ = "Production"
 
 # IMPORTS
 # =======

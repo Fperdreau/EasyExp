@@ -3,7 +3,7 @@
 #
 # This file is part of EasyExp
 #
-# Copyright (C) 2015 Florian Perdreau, Radboud University Nijmegen
+# Copyright (C) 2016 Florian Perdreau, Radboud University Nijmegen
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -23,14 +23,6 @@ from __future__ import print_function
 """
 This file is for Design class.
 """
-
-__author__ = "Florian Perdreau"
-__copyright__ = "Copyright 2015, Florian Perdreau"
-__license__ = "GPL"
-__version__ = "0.9.0"
-__maintainer__ = "Florian Perdreau"
-__email__ = "f.perdreau@donders.ru.nl"
-__status__ = "Production"
 
 # IMPORTS
 # =======

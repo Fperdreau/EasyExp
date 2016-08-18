@@ -24,16 +24,11 @@ from __future__ import print_function
 EasyExp is a Python framework designed to ease the implementation of behavioral experiments.
 """
 
-__author__ = "Florian Perdreau"
-__copyright__ = "Copyright 2016, Florian Perdreau"
-__license__ = "GPL"
-__version__ = "0.9.0"
-__maintainer__ = "Florian Perdreau"
-__email__ = "f.perdreau@donders.ru.nl"
-__status__ = "Development"
-
 # IMPORTS
 # =======
+# Version
+import core.version as v
+
 # Core
 from .Config import Config
 from .User import User
@@ -72,7 +67,7 @@ class Core(object):
     >>>Exp.run()
     """
     appname = "EasyExp"
-    version = __version__
+    version = v.__version__
     logger = None
 
     def __init__(self):
@@ -117,8 +112,8 @@ class Core(object):
         :type custom: bool
         """
         print("\n##############################\n")
-        print("# Welcome to {} (version {})\n".format(self.appname, __version__))
-        print("# {}\n".format(__copyright__))
+        print("# Welcome to {} (version {})\n".format(self.appname, v.__version__))
+        print("# {}\n".format(v.__copyright__))
         print("# Date: {}".format(time.strftime("%d-%m-%y %H:%M:%S")))
         print("\n##############################\n")
 
