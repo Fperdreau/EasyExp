@@ -1,0 +1,28 @@
+{
+  "mvtBackDuration": 2.0,
+  "sledStart": -0.20,
+  "movDistance": 0.40,
+  "movDuration": 1.0,
+  "probeSize": 0.39,
+  "LineWidth": 2,
+  "probeTop": 100,
+  "probeBottom": -100,
+  "probeDuration": 0.050,
+  "probeInterval": 0.100,
+  "fixationSize": 0.30,
+  "durations": {
+    "quit": 0.0,
+    "idle": false,
+    "pause": false,
+    "calibration": 0.0,
+    "start": 0.1,
+    "iti": 0.500,
+    "first": 0.100,
+    "probe1": 0.300,
+    "probeInterval": 0.200,
+    "probe2": 0.300,
+    "last": 0.100,
+    "response": 1.0,
+    "end": 0.0
+  }
+}
