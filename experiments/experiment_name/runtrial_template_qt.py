@@ -449,9 +449,9 @@ class RunTrial(QGLWidget):
         self.textToDraw = "Experiment is over!"
 
         # Shutdown the SLED
-        self.sled.quit()
+        self.sled.close()
 
-        self.optotrack.quit()
+        self.optotrack.close()
 
     # =========================================
     # State Machine (Trial procedure)
