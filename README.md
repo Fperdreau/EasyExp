@@ -1,6 +1,7 @@
 # EasyExp - A Simple way of coding behavioral experiments in Python
-Version: 0.9.0
-Status: Development
+**Version**: 1.0.0 - Alpha
+
+**Status**: Development
 
 ## Author:
 Florian Perdreau - [www.florianperdreau.fr](http://www.florianperdreau.fr)
@@ -35,9 +36,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 * pyMouse: Copyright 2010 Pepijn de Vos [Apache License 2.0 ] (http://www.apache.org/licenses/LICENSE-2.0)
 
 ## To do
-* Write documentation
-* It would perhaps be better to move ExpCore and its associated dependencies out of this project and make a separated
-one.
+* Complete documentation and API description
+* Better handling of user inputs
+* Make a full command line version (basically create a command line view for core/gui/dialog.py)
+* Think about a more efficient way of handling devices used in the experiment (maybe a common interface)
 
 ## Framework structure
 ```
