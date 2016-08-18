@@ -14,7 +14,7 @@
     ], 
     "eyetracker": false, 
     "display_type": "psychopy", 
-    "fullscreen": true,
+    "fullscreen": true, 
     "movie": false, 
     "resolution": [
         1920.0, 
