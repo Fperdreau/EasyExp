@@ -28,11 +28,13 @@ class CustomLogger(object):
 
     Usage:
     >>> # Instantiate CustomLogger
-    >>> mylogger = CustomLogger(__name__, 'log_file.log', 'info')
+    >>> mylogger = CustomLogger(__name__, 'log_file.log', 'debug')
     >>> # Output a message
-    >>> mylogger.logger.info('Hello, world!')
-    >>> mylogger.logger.debug('Hello, world!')
-    >>> mylogger.logger.warning('Hello, world!')
+    >>> mylogger.logger.debug('debug message')
+    >>> mylogger.logger.info('info message')
+    >>> mylogger.logger.warn('warn message')
+    >>> mylogger.logger.error('error message')
+    >>> mylogger.logger.critical('critical message')
     """
 
     default_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -56,18 +58,23 @@ class CustomLogger(object):
         self._name = name
         self._file_name = file_name
 
+        # Set verbose level
+        self._set_level(level)
+
         # Set logger
         self.logger = logging.getLogger(self._name)
 
         # Set output format
         formatter = logging.Formatter(format_str)
 
+        # create console handler and set level to debug
+        self.__ch = logging.StreamHandler()
+        self.__ch.setLevel(self._level)
+        self.__ch.setFormatter(formatter)
+
         # Set handler and output format
         self._handler = logging.FileHandler(self._file_name)
         self._handler.setFormatter(formatter)
-
-        # Set verbose level
-        self._set_level(level)
         self.logger.setLevel(self._level)
         self._handler.setLevel(self._level)
 
@@ -87,7 +94,7 @@ class CustomLogger(object):
         """
         if level not in CustomLogger.allowed_level:
             raise AttributeError('"{}" is not a valid verbose level. '
-                                 'Possible options are debug, info, warning, critical or fatal')
+                                 'Possible options are debug, info, warning, critical or fatal'.format(level))
         if level == 'debug':
             self._level = logging.DEBUG
         elif level == 'info':
