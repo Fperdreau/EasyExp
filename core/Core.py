@@ -166,9 +166,10 @@ class Core(object):
         # Import experiment class from experiment's folder (e.g.: experiments/experiment_name/runtrial.py)
         try:
             sys.path.append(self.folders['expFolder'])
-            from runtrial_threaded import RunTrial
+            from runtrial import RunTrial
         except ImportError as e:
-            self.logger.logger.fatal('[{}] Could not import RunTrial: {}'.format(__name__, e))
+            self.logger.logger.fatal('[{}] Could not import RunTrial. Make sure you changed the name of '
+                                     '"runtrial_template.py" to "runtrial.py": {}'.format(__name__, e))
             raise e
 
         # Start timer
