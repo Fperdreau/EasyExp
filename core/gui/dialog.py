@@ -26,13 +26,18 @@ class DialogGUI(object):
     Display a dialog GUI
     """
 
-    def __init__(self, defaultfields, title="DialogUI"):
+    def __init__(self, default_fields, title="DialogUI"):
+        """
+
+        :param defaultfields:
+        :param title:
+        """
         self.root = Tk()
         self.entries = []
         self.out = {}
         self.types = []
         self.title = title
-        self.fields = defaultfields
+        self.fields = default_fields
         self.makeform()
         self.displayform()
 
@@ -80,10 +85,8 @@ class DialogGUI(object):
             self.entries.append((field, ent))
 
     def displayform(self):
-        self.root.bind('<Return>', (lambda event,
-                                           e=self.entries: self.fetch()))
-        b1 = Button(self.root, text='Ok',
-                    command=(lambda e=self.entries: self.fetch()))
+        self.root.bind('<Return>', (lambda event, e=self.entries: self.fetch()))
+        b1 = Button(self.root, text='Ok', command=(lambda e=self.entries: self.fetch()))
         b1.pack(side=LEFT, padx=5, pady=5)
         b2 = Button(self.root, text='Quit', command=self.root.destroy)
         b2.pack(side=LEFT, padx=5, pady=5)
