@@ -11,7 +11,7 @@ EasyExp is a framework designed to ease the programming of experiments using Pyt
 classes that handles routines to use equipments present in the sled lab (Sled, Eyetracker, Optotrak, Shutter glasses or LEDs)
 
 ## License:
-Copyright (C) 2015 Florian Perdreau, Radboud University Nijmegen
+Copyright (C) 2016 Florian Perdreau, Radboud University Nijmegen
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ## To do
 * Complete documentation and API description
-* Better handling of user inputs
+* Better handling of user inputs (testing phase)
 * Make a full command line version (basically create a command line view for core/gui/dialog.py)
 * Think about a more efficient way of handling devices used in the experiment (maybe a common interface)
 
