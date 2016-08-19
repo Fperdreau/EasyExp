@@ -58,80 +58,27 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
              'runtrial.py' and replace the standard runtrial.py file.
             /settings.json: EasyExp settings
     /libs: this folder should contain librairies used by your experiments if they are not Python's built-in modules.
+    /logs: Experiment's logs will be stored here.
     /tests: this folder should contain your test scripts.
 ```
 
-### Built-in libraries
-#### Apparatus
-This folder contains wrapper classes handling routines to use equipments.
-- Eyetracker
-- LEDS
-- Optotrack
-- Shutter glasses
-- Sled
-
-#### Buttons
-- Buttons: Implementation of the response interface that can be used similarly whether it implements a mouse or a keyboard.
-
-#### COM
-This folders contains useful classes handling communication
-- FPClient
-- Rusocsci
-
-#### Display
-- QtWindow: Base class implementing QT-OpenGL application.
-- Icon: folders including different icons for QT GUI
-
-#### Events
-This folder contains classes/modules implementing experiments' events.
-- Pause: Implement breaks
-
-#### GUI
-This folder contains implementation of experiment's GUI
-- DialogGUI: Dialog window
-
-#### Methods
-- Constant: implements constant stimuli design
-- PsiMarginal: implements psi-method
-- Random: implements random sampling method
-- StaircaseASA: implements Accelerated Stochastic Approximation method
-
-#### MISC
-This folder contains miscellaneous classes/modules.
-- Conversion: collection of conversion functions
-
-#### Movie
-- MovieMaker: handles the creation of movie demos
-
-#### OpenGL
-This folder contains classes handling the creation and use of OpenGL object.
-- MyObject: wrapper class that creates OpenGL object callable by OpenGL operations
-- Objects: collection of functions handling the creation of object's shapes.
-- Shader: implements OpenGL shaders
-- Transforms: handles object transformations.
-
-#### Sound
-This folder contains a collection of audio stimuli.
-
-#### Stimuli
-- Stimulus: handles stimulus-related routines.
-
-#### System
-This folder contains system-related classes.
-- CustomLogger: wrapper class implementing Python's logger.
-
-### Core Modules
-Every classes/modules of EasyExp can be used separately, either within an object-oriented programming framework or simply in procedural scripts.
-
-#### Core
-#### Trial
-#### User
-#### Design
-#### Trial
-#### Config
-#### ConfigFiles
-
 ## Setting up an experiment
+### Demo
+A demo is provided along with the EasyExp.
+To run it:
+1. Start your console
+2. Go to your project folder
+3. Type
+    ```
+    python main.py
+    ```
+4. You will be prompted with an experiment selection dialog window: choose demo and click "Ok"
+5. Then, you will be prompted with the settings dialog window. If you 
+are not running this demo in the lab but on your desk computer, make sure
+ that the equipments (sled, eyetracker, optotrak) are set to off.
+6. At the beginning of the experiment, the message "Welcome" will be displayed. Simply click on the left button of the mouse to start
+7. So trigger a break, simply press the space bar. If you want to quit the experiment, press Q ("A" on azerty keyboards)
+ 
 ### Settings file
 #### conditions.json
 Experiment design's parameters should be specified in this JSON file. This file is a JSON file and therefore it should respect the JSON format.
@@ -217,4 +164,73 @@ or when the user press the "quit" key.
 - RunTrial.fast_state_machine(): Real-time state machine.
 - RunTrial.graphics_state_machine(): Slow state machine.
 
+### API
+#### Apparatus
+This folder contains wrapper classes handling routines to use equipments.
+- Eyetracker
+- LEDS
+- Optotrack
+- Shutter glasses
+- Sled
+
+#### Buttons
+- Buttons: Implementation of the response interface that can be used similarly whether it implements a mouse or a keyboard.
+
+#### COM
+This folders contains useful classes handling communication
+- FPClient
+- Rusocsci
+
+#### Display
+- QtWindow: Base class implementing QT-OpenGL application.
+- Icon: folders including different icons for QT GUI
+
+#### Events
+This folder contains classes/modules implementing experiments' events.
+- Pause: Implement breaks
+
+#### GUI
+This folder contains implementation of experiment's GUI
+- DialogGUI: Dialog window
+
+#### Methods
+- Constant: implements constant stimuli design
+- PsiMarginal: implements psi-method
+- Random: implements random sampling method
+- StaircaseASA: implements Accelerated Stochastic Approximation method
+
+#### MISC
+This folder contains miscellaneous classes/modules.
+- Conversion: collection of conversion functions
+
+#### Movie
+- MovieMaker: handles the creation of movie demos
+
+#### OpenGL
+This folder contains classes handling the creation and use of OpenGL object.
+- MyObject: wrapper class that creates OpenGL object callable by OpenGL operations
+- Objects: collection of functions handling the creation of object's shapes.
+- Shader: implements OpenGL shaders
+- Transforms: handles object transformations.
+
+#### Sound
+This folder contains a collection of audio stimuli.
+
+#### Stimuli
+- Stimulus: handles stimulus-related routines.
+
+#### System
+This folder contains system-related classes.
+- CustomLogger: wrapper class implementing Python's logger.
+
+### Core Modules
+Every classes/modules of EasyExp can be used separately, either within an object-oriented programming framework or simply in procedural scripts.
+
+#### Core
+#### Trial
+#### User
+#### Design
+#### Trial
+#### Config
+#### ConfigFiles
 
