@@ -3,7 +3,7 @@
 #
 # This file is part of EasyExp
 #
-# Copyright (C) 2015 Florian Perdreau, Radboud University Nijmegen
+# Copyright (C) 2016 Florian Perdreau, Radboud University Nijmegen
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

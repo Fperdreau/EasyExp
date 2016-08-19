@@ -1,7 +1,22 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Author: Florian Perdreau (f.perdreau@donders.ru.nl)
-# Date: 15/03/2015
+#
+# This file is part of EasyExp
+#
+# Copyright (C) 2016 Florian Perdreau, Radboud University Nijmegen
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import math
 import numpy as np
@@ -11,11 +26,14 @@ def deg2pix(angle=float, direction=1, distance=550, screen_res=(800, 600), scree
 
     """
     Convert visual angle to pixels or pixels to visual angle.
+    :param screen_size: Screen size (in mm)
+    :type screen_size: tuple
+    :param screen_res: Screen resolution (in pixels)
+    :type screen_res: tuple
     :param direction: direction of the conversion (1: Visual angle to
      pixels; 2= pixels to visual angle).
     :param angle: size to convert
     :param distance: distance eye-screen in mm
-    :param window: object providing screen's information
     :return: wdth: width expressed in pixels or visual angles.
              hght: height expressed in pixels or visual angles.
     """
@@ -30,23 +48,19 @@ def deg2pix(angle=float, direction=1, distance=550, screen_res=(800, 600), scree
         wdth = rad2deg(math.atan(((angle/2)/(distance*(widthres/widthscr)))))*2
         hght = rad2deg(math.atan(((angle/2)/(distance*(heightres/heightscr)))))*2
 
-    print 'Resolution: {}, Size: {}'.format(screen_res,screen_size)
-    print 'Angle to convert: {}, returned: {}'.format(angle, wdth)
     return int(wdth)
 
 
 def deg2rad(angle):
-
     """
     Convert degrees to radians
     :param angle: angle to convert (in degree)
     :return: converted angle in radians
     """
-    return (angle*(math.pi/180))
+    return angle*(math.pi/180)
 
 
 def rad2deg(angle):
-
     """
     Convert radians to degrees
     :param angle: angle to convert (in radians)
@@ -56,7 +70,6 @@ def rad2deg(angle):
 
 
 def cart2pol(x, y):
-
     """
     Convert cartesian coordinates (x,y) to polar coordinates (rho, theta)
     :param x:
@@ -71,14 +84,9 @@ def cart2pol(x, y):
 def pol2cart(rho, phi):
     """
     Converts polar to cartesian
-    Parameters
-    ----------
-    rho
-    phi
-
-    Returns
-    -------
-
+    :param rho: norm
+    :param phi: angle
+    :return: cartesian coordinates
     """
     x_output = rho * np.cos(phi)
     y_output = rho * np.sin(phi)
@@ -86,7 +94,6 @@ def pol2cart(rho, phi):
 
 
 def pix2cm(size, direction, window=None):
-
     """
     Convert pixels to centimeters or conversely
     :param size: size to convert (pixels or centimeters)
@@ -119,7 +126,6 @@ def pix2cm(size, direction, window=None):
 
 
 def roundn(x, n):
-
     """
     Rounds a value to the nearest multiple of 10^n.
     :param x:
@@ -132,7 +138,6 @@ def roundn(x, n):
 
 
 def visdist(distance, py, yc, a, window):
-
     """
     Compute Distance of a particular point on the screen according to the distance from the center of the screen,
     the relative position of the target from this center, and the slant of the screen.
