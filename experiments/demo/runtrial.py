@@ -33,7 +33,7 @@ import numpy as np
 # EasyExp modules
 from core.Core import Core
 from core.movie.moviemaker import MovieMaker
-from core.buttons.buttons import Buttons
+from core.buttons.buttons import UserInput
 from core.display.fpscounter import FpsCounter
 from core.events.timer import Timer
 
@@ -241,10 +241,39 @@ class RunTrial(object):
             'time_probe2': None
         }
 
-        # Keyboard/Mouse buttons
+        # Keyboard/Mouse Inputs
+        # Calls UserInput observer
+        # Usage:
+        # # Create instance
+        # Inputs = UserInput()
+        # Inputs.add_device('keyboard')  # arguments are (device type, device arguments: optional)
+        # Inputs.add_device('mouse', visible=False, newPos=None, win=win)
+        #
+        # # Add listeners
+        # Inputs.add_listener('keyboard', 'a', K_a)  # arguments are: device_type, key label, key code (Pygame constant)
+        # Inputs.add_listener('keyboard', 'quit', K_ESCAPE)
+        # Inputs.add_listener('mouse', 'left', 0)
+        #
+        # Update status
+        # Inputs.update()
+
+        # Access watched key's status
+        # Inputs.get_status('a')  # returns True or False
         # ================
-        self.buttons = dict()
-        self.responseButton = Buttons(self.ptw, 'mouse', {'left': 0, 'right': 2})
+        self.buttons = UserInput()
+        # Input devices used in the experiment
+        self.buttons.add_device('keyboard')
+        self.buttons.add_device('mouse', visible=False, newPos=None, win=self.ptw)
+
+        # GUI related keys (quit, pause)
+        self.buttons.add_listener('keyboard', 'pause', pygame.K_SPACE)
+        self.buttons.add_listener('keyboard', 'quit', pygame.K_q)
+        self.buttons.add_listener('mouse', 'move_on', 0)
+
+        # Response keys
+        # Add your response keys below
+        self.buttons.add_listener('mouse', 'left', 0)
+        self.buttons.add_listener('mouse', 'right', 2)
 
         # Staircase
         # =========
@@ -317,6 +346,10 @@ class RunTrial(object):
             for label, value in self.stimuliTrigger.iteritems():
                 self.stimuliTrigger[label] = False
 
+            # Reset event triggers
+            for label, value in self.triggers.iteritems():
+                self.triggers[label] = False
+
             # Send START_TRIAL to eye-tracker
             if self.trial.settings['eyetracker']:
                 self.devices['eyetracker'].starttrial(self.trial.id)
@@ -340,7 +373,7 @@ class RunTrial(object):
         Then on every loop, the state machine will automatically call self.stimuli['stimulus_name'].draw() if
         self.stimuliTrigger['stimulus_name'] is set to True.
         """
-
+        # Get new stimulus intensity estimated by staircase method
         self.data['intensity'] = self.staircase.update(int(self.trial.params['staircaseID']),
                                                        int(self.trial.params['staircaseDir']))
 
@@ -425,21 +458,22 @@ class RunTrial(object):
         file.
         :rtype: bool
         """
+        # Update input devices state
+        self.buttons.update()
+
         # Does the user want to quit the experiment?
-        pygame.event.pump()
-        keys = pygame.key.get_pressed()
-        pygame.event.clear()
-        if keys[pygame.K_q]:
-            timeToMoveOn = True
+        if self.buttons.get_status('quit'):
             self.triggers['quitRequested'] = True
-            return timeToMoveOn
+
+        # Does the user want a break?
+        if self.buttons.get_status('pause'):
+            self.triggers['pauseRequested'] = True
 
         # Shall we go on?
         if self.timings[self.state] is not False:
             timeToMoveOn = (time.time() - self.state_machine['onset']) >= self.timings[self.state]
         else:
-            self.responseButton.get()  # Get buttons status
-            timeToMoveOn = self.responseButton.status['left'] or self.responseButton.status['right']
+            timeToMoveOn = self.buttons.get_status('move_on')
 
         return timeToMoveOn
 
@@ -453,8 +487,7 @@ class RunTrial(object):
             self.timers['responseDuration'].start()
 
         # Get response buttons status
-        self.responseButton.get()
-        response_received = self.responseButton.status['left'] or self.responseButton.status['right']
+        response_received = self.buttons.get_status('left') or self.buttons.get_status('right')
 
         if not self.triggers['response_given'] and response_received:
             self.triggers['response_given'] = True
@@ -465,7 +498,7 @@ class RunTrial(object):
             self.timers['responseDuration'].reset()
 
             # Code response
-            self.data['response'] = 'left' if self.responseButton.status['left'] else 'right'
+            self.data['response'] = 'left' if self.buttons.get_status('left') else 'right'
             self.data['correct'] = self.data['response'] == 'right'
 
     def end_trial(self):
@@ -474,7 +507,7 @@ class RunTrial(object):
         :return:
         """
         # Did we get a response from the participant?
-        self.validTrial = self.triggers['response_given']
+        self.validTrial = self.triggers['response_given'] is not False
         self.timers['runtime'].reset()
 
         # Close movie file is necessary
