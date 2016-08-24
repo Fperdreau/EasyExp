@@ -166,7 +166,7 @@ class User(object):
         else:
             info = GuiWrapper.factory(cli, 'simple', fields, title="Participant Initials")
 
-        return info.out['initials']
+        return info.out['initials'].upper()
 
     def getinfo(self, cli):
         """
