@@ -34,11 +34,15 @@ def main():
     """
     Main function: call experiment's routines
     """
+
+    # Get CLI arguments
+    cli = True if len(sys.argv) > 1 and sys.argv[1] == 'cli' else False
+
     # Create new experiment
     experiment = Core()
 
     # Initialize experiment
-    experiment.init(root_folder, custom=True)
+    experiment.init(root_folder, custom=True, cli=cli)
 
     # Open main window and run the experiment
     experiment.run()
