@@ -63,8 +63,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ```
 
 ## Setting up an experiment
+
 ### Demo
-A demo is provided along with the EasyExp.
+
+A demo is provided along with the EasyExp. The demo experiments uses the SR-Research Eyelink 100 to control fixation, 
+and the Sled to move the participant. However, you can run this demo on your office computer if you do not have access to the lab.
+ To do so, when the settings dialog window is displayed (step 5), set "Sled" and "Eyetracker" settings to "Off", 
+then the Sled will run in dummy mode (will simulate the observer's displacement and update the fixation point accordingly),
+whereas the eye-tracker will not be used at all.
+
 To run it:
 1. Start your console
 2. Go to your project folder
@@ -79,49 +86,185 @@ are not running this demo in the lab but on your desk computer, make sure
 6. At the beginning of the experiment, the message "Welcome" will be displayed. Simply click on the left button of the mouse to start
 7. So trigger a break, simply press the space bar. If you want to quit the experiment, press Q ("A" on azerty keyboards)
  
-### Settings file
+### Configuration files
+
+#### settings.json
+
+The "settings" file is a JSON file structured in 3 different sections ('Setup', 'Devices' and 'Display').
+Every settings stored in these sections is structured as follows:
+
+```
+"setting_name": {
+    "type": field_type,
+    "value": current_value,
+    "label": "input_label",
+    "options": ["option 1", 2, true]
+}
+```
+
+* type: defines how this input field should be rendered ("text": a simple text input, "select": a selection menu 
+displaying the possible options specified by the "options" field, "checkbox": display one checkbox per options)
+
+* value: default or previously selected value
+
+* label: Label (string) that will be displayed next to the input field.
+
+* options (optional): list of possible options. Options can be of any type (string, boolean, int, float)
+```
+{
+    "setup": {
+        "pauseInt": {
+            "type": "text",
+            "value": 300,
+            "label": "Break interval"
+        },
+        "demo": {
+            "type": "checkbox",
+            "options": [
+                true,
+                false
+            ],
+            "value": false,
+            "label": "Demo"
+        },
+        "practice": {
+            "type": "checkbox",
+            "options": [
+                true,
+                false
+            ],
+            "value": false,
+            "label": "Practice"
+        },
+        "max_trials": {
+            "type": "text",
+            "value": 30,
+            "label": "# practice trials"
+        },
+        "session": {
+            "type": "text",
+            "value": 1,
+            "label": "Session ID"
+        },
+        "movie": {
+            "type": "checkbox",
+            "options": [
+                true,
+                false
+            ],
+            "value": false,
+            "label": "Movie"
+        }
+    },
+    "display": {
+        "distance": {
+            "type": "text",
+            "value": 1470.0,
+            "label": "Distance"
+        },
+        "fullscreen": {
+            "type": "checkbox",
+            "options": [
+                true,
+                false
+            ],
+            "value": false,
+            "label": "Full screen"
+        },
+        "bgcolor": {
+            "type": "text",
+            "value": [
+                -1.0,
+                -1.0,
+                -1.0
+            ],
+            "label": "Background color"
+        },
+        "display_type": {
+            "type": "select",
+            "options": [
+                "psychopy",
+                "qt",
+                "pygame"
+            ],
+            "value": "psychopy",
+            "label": "Display type"
+        },
+        "freq": {
+            "type": "text",
+            "value": 60,
+            "label": "frequency"
+        },
+        "resolution": {
+            "type": "text",
+            "value": [
+                1920.0,
+                1080.0
+            ],
+            "label": "Resolution"
+        },
+        "size": {
+            "type": "text",
+            "value": [
+                1206.0,
+                679.0
+            ],
+            "label": "Screen size"
+        }
+    },
+    "devices": {
+        "optotrack": {
+            "type": "checkbox",
+            "options": [
+                true,
+                false
+            ],
+            "value": false,
+            "label": "Optotrak"
+        },
+        "eyetracker": {
+            "type": "checkbox",
+            "options": [
+                true,
+                false
+            ],
+            "value": false,
+            "label": "EyeTracker"
+        },
+        "sled": {
+            "type": "checkbox",
+            "options": [
+                true,
+                false
+            ],
+            "value": false,
+            "label": "Sled"
+        }
+    }
+}
+```
+
 #### conditions.json
+
 Experiment design's parameters should be specified in this JSON file. This file is a JSON file and therefore it should respect the JSON format.
 The general format is: "property_name": property_value. property_value can be any type of variables (scalar, string, array, nested arrays, ...)
 
 ```
 {
-  "timing": [
-    0.150,
-    0.400,
-    0.650
-  ],
-  "first": [
-    "bottom",
-    "top"
-  ],
-  "repetition": 1,
-  "side": [
+  "factor_name_with_multiple_level": [
     "left",
     "right"
   ],
-  "mvt": [
-      true
-  ],
-  "method": "StaircaseASA",
+  "factor_name_with_single_level": [true],
+  "repetition": 1,
+  "method": "method_name",
   "options": {
-    "stimRange": [
-      -2.8,
-      2.8
-    ],
-    "maxInitialStepSize": 1.5,
-    "stoppingStep": 0.1,
-    "threshold": 0.50,
     "nTrials": 40,
-    "limits": true,
-    "nbStairs": 2,
-    "warm_up": 2,
     "response_field": "correct",
     "intensity_field": "intensity"
   }
 
 }
-
 ```
 
 ### RunTrial class (Implementation of trial routine)
