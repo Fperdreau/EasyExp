@@ -37,7 +37,7 @@ from os.path import isfile
 import csv
 
 # Logger
-from .system.customlogger import CustomLogger
+import logging
 
 
 class Design(object):
@@ -114,7 +114,9 @@ class Design(object):
             self.design, self.conditions = self.method.make_design(self.factors, self.allconditions['options'],
                                                                    self.conditions)
         except ImportError as e:
-            raise ImportError('[{}] Could not import "{}": {}'.format(__name__, method_name, e))
+            msg = ImportError('[{}] Could not import "{}": {}'.format(__name__, method_name, e))
+            logging.getLogger('EasyExp').critical(msg)
+            raise msg
 
         # Number of trials
         self.ntrials, nfactors = self.design.shape
@@ -124,12 +126,13 @@ class Design(object):
 
         # Shorten trials list if practice
         if self.practice and self.max_trials is not None and len(self.design) > self.max_trials:
-            print('[{}] PRACTICE MODE - Max # of trials: {}'.format(__name__, self.max_trials))
+            logging.getLogger('EasyExp').info('[{}] PRACTICE MODE - Max # of trials: {}'.format(__name__,
+                                                                                                self.max_trials))
             self.design = self.design[0:self.max_trials]
 
         # Compute total number of trials for this session
         self.ntrials = len(self.design)
-        print('[{}] Total number of trials: {}'.format(__name__, self.ntrials))
+        logging.getLogger('EasyExp').info('[{}] Total number of trials: {}'.format(__name__, self.ntrials))
 
         # Randomize trials list
         self.design = self.randomize_list(self.design)
@@ -179,11 +182,13 @@ class Design(object):
         else:
             # Import custom design if requested
             try:
-                print('[{}] Importing CUSTOM DESIGN from: {}'.format(__name__, self.folder))
+                logging.getLogger('EasyExp').info('[{}] Importing CUSTOM DESIGN from: {}'.format(__name__, self.folder))
                 sys.path.append(self.folder)
                 from custom_design import custom_design
             except ImportError:
-                raise ImportError('[{}] Could not import custom design'.format(__name__))
+                msg = ImportError('[{}] Could not import custom design'.format(__name__))
+                logging.getLogger('EasyExp').critical(msg)
+                raise msg
             design = custom_design(design)
 
         return design
@@ -223,7 +228,9 @@ class Design(object):
                 for row in reader:
                     self.design.append(row)
         except IOError:
-            raise IOError('[{} Could not read "{}"]'.format(__name__, self.userfile))
+            msg = IOError('[{} Could not read "{}"]'.format(__name__, self.userfile))
+            logging.getLogger('EasyExp').critical(msg)
+            raise msg
         return self.design
 
     def save(self, update=False):
@@ -236,7 +243,9 @@ class Design(object):
             try:
                 open(self.userfile, "wb", 0)
             except (IOError, TypeError):
-                raise IOError("[{}] Could not write into the user's datafile: {}".format(__name__, self.userfile))
+                msg = IOError("[{}] Could not write into the user's datafile: {}".format(__name__, self.userfile))
+                logging.getLogger('EasyExp').critical(msg)
+                raise msg
             else:
                 with open(self.userfile, "wb", 0) as csvfile:
                     writer = csv.DictWriter(csvfile, fieldnames=self.headers)

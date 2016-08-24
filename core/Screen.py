@@ -33,8 +33,7 @@ from .display.qtwindow import QtWindow
 from PyQt4.QtGui import *
 
 # Logger
-from .system.customlogger import CustomLogger
-
+import logging
 
 class Screen(object):
     """
@@ -69,7 +68,8 @@ class Screen(object):
 
         # Set display type
         if display_type not in Screen.allowed_displays:
-            raise Exception('[{}] "{}" is not a valid display type'.format(__name__, display_type))
+            msg = Exception('[{}] "{}" is not a valid display type'.format(__name__, display_type))
+            logging.getLogger('EasyExp').critical(msg)
         self.display_type = display_type
 
         self.scrRes = None
@@ -82,7 +82,7 @@ class Screen(object):
 
         # Get screen resolution
         self.getScrRes()
-        print(self)
+        logging.getLogger('EasyExp').info(self)
 
     def __str__(self):
         """
@@ -126,8 +126,9 @@ class Screen(object):
                     fullscr=self.fullscreen)
                 self.ptw.setMouseVisible(False)
         except Exception as e:
-            print('[{} Could not open a "{}" window]'.format(__name__, self.display_type))
-            raise e
+            msg = Exception('[{}] Could not open a "{}" window: {}'.format(__name__, self.display_type, e))
+            logging.getLogger('EasyExp').critical(msg)
+            raise msg
 
     def close(self):
         """
@@ -141,8 +142,9 @@ class Screen(object):
                 self.ptw.setMouseVisible(True)
                 self.ptw.close()
         except Exception as e:
-            print('[{} Could not close a "{}" window]'.format(__name__, self.display_type))
-            raise e
+            msg = Exception('[{}] Could not close a "{}" window: {}'.format(__name__, self.display_type, e))
+            logging.getLogger('EasyExp').critical(msg)
+            raise msg
 
     def setptw(self, ptw):
         """
@@ -157,7 +159,13 @@ class Screen(object):
         Get full screen resolution
         :return: tuple providing horizontal and vertical screen resolution
         """
-        import Tkinter as Tk
+        try:
+            import Tkinter as Tk
+        except ImportError as e:
+            msg = ImportError(e)
+            logging.getLogger('EasyExp').critical(msg)
+            raise msg
+
         root = Tk.Tk()
         screen_width = root.winfo_screenwidth()
         screen_height = root.winfo_screenheight()

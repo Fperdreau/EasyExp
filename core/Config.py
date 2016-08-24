@@ -26,11 +26,14 @@ from __future__ import print_function
 from os import mkdir
 from os.path import isdir, isfile
 
+# EasyExp
+
 # Data I/O
 import json
 
 # Dialog UI
-from .gui.dialog import DialogGUI
+from core.gui.gui_wrapper import GuiWrapper
+import logging
 
 
 class Config(object):
@@ -45,7 +48,7 @@ class Config(object):
     :required: settings.json
     """
 
-    def __init__(self, rootfolder='/', expname=''):
+    def __init__(self, rootfolder='/', expname='', cli=False):
         """
         Constructor of Config Class
         :param rootfolder: path to root folder
@@ -54,6 +57,9 @@ class Config(object):
         :type expname: str
         """
         self.expname = expname
+        self.__cli = cli
+        self.__logger = logging.getLogger('EasyExp')
+
         self.folders = {
             'rootFolder': rootfolder,
             'experimentFolder': "{}/experiments".format(rootfolder),
@@ -81,6 +87,7 @@ class Config(object):
         self.getexpsetting()  # Display settings and allow user to modify them
         if len(self.settings) > 0:
             self.saveSettings()  # Save settings
+        self.dispatch()
 
     def createfolders(self):
         """
@@ -95,9 +102,9 @@ class Config(object):
             if isdir(folder) == 0:
                 try:
                     mkdir(folder)
-                    print('[{}] Creating Folder "{}"'.format(__name__, folder))
+                    self.__logger.info('[{}] Creating Folder "{}"'.format(__name__, folder))
                 except Exception as e:
-                    print('[{}] Could not create folder "{}"'.format(__name__, folder))
+                    self.__logger.critical('[{}] Could not create folder "{}"'.format(__name__, folder))
                     raise e
         return True
 
@@ -107,7 +114,10 @@ class Config(object):
         :return:
         """
         self.settingsFile.load()
-        self.settings = self.settingsFile.data
+
+    def dispatch(self):
+        for section, setting in self.settingsFile.data.iteritems():
+            self.settings[section] = Section(setting)
 
     def saveSettings(self):
         """
@@ -120,8 +130,21 @@ class Config(object):
         """
         Get experiment's settings
         """
-        self.settingsFile.display()
+        self.settingsFile.display(cli=self.__cli)
         self.settings = self.settingsFile.data
+
+
+class Section(dict):
+
+    def __init__(self, data):
+        super(Section, self).__init__()
+        self._data = data
+
+    def __getitem__(self, item):
+        if item in self._data and 'value' in self._data[item]:
+            return self._data[item]['value']
+        else:
+            raise KeyError('Setting {} does not exist'.format(item))
 
 
 class ConfigFiles(object):
@@ -150,10 +173,13 @@ class ConfigFiles(object):
                 self.data = json.load(json_info)
                 json_info.close()
             except IOError as e:
-                print('[{}] Could not open "{}"'.format(__name__, self.pathtofile))
-                raise e
+                msg = IOError('[{}] Could not open "{}": {}'.format(__name__, self.pathtofile, e))
+                logging.getLogger('EasyExp').critical(msg)
+                raise msg
         else:
-            print("[{}] The settings file '{}' cannot be found!".format(__name__, self.pathtofile))
+            msg = IOError("[{}] The settings file '{}' cannot be found!".format(__name__, self.pathtofile))
+            logging.getLogger('EasyExp').critical(msg)
+            raise msg
         return self.data
 
     def save(self):
@@ -166,14 +192,17 @@ class ConfigFiles(object):
                 with open(self.pathtofile, 'w', 0) as fid:
                     json.dump(self.data, fid, indent=4)
             except IOError as e:
-                print('[{}] Could not write into "{}"'.format(__name__, self.pathtofile))
+                msg = IOError('[{}] Could not write into "{}": {}'.format(__name__, self.pathtofile, e))
+                logging.getLogger('EasyExp').critical(msg)
+                raise msg
 
-    def display(self):
+    def display(self, cli=False):
         """
         Get experiment's settings
         """
-        expinfo = DialogGUI(self.data)
-        self.data = {}
-        for key, value in expinfo.out.iteritems():
-            setattr(self, key, expinfo.out[key])
-            self.data[key] = expinfo.out[key]
+        if cli:
+            expinfo = GuiWrapper.factory(cli, 'nested', self.data, title="Experiment setup", mandatory=False)
+        else:
+            expinfo = GuiWrapper.factory(cli, 'nested', self.data, title="Experiment setup")
+
+        self.data = expinfo.out

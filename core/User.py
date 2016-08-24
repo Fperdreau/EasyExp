@@ -19,22 +19,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import print_function
-
-# IMPORTS
-# =======
-# Import useful libraries
+import json
 import time
 from os import mkdir
 from os.path import isdir, isfile
 
-# Data I/O
-import json
-
-# Dialog UI
-from .gui.dialog import DialogGUI
-
-# Logger
-from .system.customlogger import CustomLogger
+# GUI
+from core.gui.gui_wrapper import GuiWrapper
 
 
 class User(object):
@@ -107,13 +98,13 @@ class User(object):
                "\t\tDesign file: {6}\n".format(self.name, self.age, self.hand, self.eye, self.infofile,
                                                self.datafilename, self.designfile)
 
-    def setup(self):
+    def setup(self, cli):
         """
         Get user's information
         """
         # Get name if not demo mode. Otherwise, use default name
         if self.demo is False:
-            self.name = self.get_user_name()
+            self.name = self.get_user_name(cli)
 
         # Set folders and files
         self.subfolder = "%s/%s" % (self.datafolder, self.name)
@@ -129,7 +120,7 @@ class User(object):
         self.datafilename = '{}_data.txt'.format(self.dftName)
         self.logfilename = '{}_log.txt'.format(self.dftName)
 
-        self.make()
+        self.make(cli)
 
     def checkuser(self):
         """
@@ -145,7 +136,7 @@ class User(object):
             self.exist = 0
         return self.exist
 
-    def make(self):
+    def make(self, cli):
         """
         Create user: If either the info file is missing or the subject's folder does not exist yet
         """
@@ -156,7 +147,7 @@ class User(object):
                 # We create the folder
                 mkdir(self.subfolder)
                 self.exist = 1
-            self.getinfo()
+            self.getinfo(cli)
         # Else, we simply load and read the info file and display its content.
         else:
             print("[{}] User '{}' already exists.".format(__name__, self.name))
@@ -164,23 +155,31 @@ class User(object):
             self.loadinfo()
         print(self)
 
-    def get_user_name(self):
+    def get_user_name(self, cli):
         """
         Show Tkinter dialog to get subject's initials
         :rtype : str User's initials
         """
         fields = {'initials': self.name}
-        info = DialogGUI(fields)
+        if cli:
+            info = GuiWrapper.factory(cli, 'simple', fields, title="Participant Initials", mandatory=True)
+        else:
+            info = GuiWrapper.factory(cli, 'simple', fields, title="Participant Initials")
+
         return info.out['initials']
 
-    def getinfo(self):
+    def getinfo(self, cli):
         """
         Show Tkinter dialog to get subject's information
         :rtype : object: instance of User
         """
         fields = {'date': self.date, 'name': self.name, 'age': self.age, 'hand': self.hand, 'eye': self.eye,
                   'dEye': self.dEye, 'gender': self.gender}
-        info = DialogGUI(fields)
+
+        if not cli:
+            info = GuiWrapper.factory(cli, 'simple', fields, title="Participant info")
+        else:
+            info = GuiWrapper.factory(cli, 'simple', fields, title="Participant info", mandatory=True)
 
         datatowrite = {}
         for key, value in info.out.iteritems():

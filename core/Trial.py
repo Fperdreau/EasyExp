@@ -34,7 +34,7 @@ from os.path import isfile
 import csv
 
 # Logger
-from .system.customlogger import CustomLogger
+import logging
 
 
 class Trial(object):
@@ -60,6 +60,7 @@ class Trial(object):
         self.design = design
         self.settings = settings
         self.userfile = userfile
+        self.__logger = logging.getLogger('EasyExp')
 
         # Initialize attributes
         self.id = 0  # Trial ID
@@ -116,10 +117,8 @@ class Trial(object):
                 self.pause_time = time.time()
                 return False
             elif (time.time() - self.pause_time) >= self.pauseInt:
-                print('\n[{}] Pause Requested\n'.format(__name__))
-                print('\t{0:1.2f} min have elapsed since last break'.format((time.time() - self.pause_time) / 60))
-                print('\tTake a break, have a KitKat')
-                print('\tYou have had %d break(s) sor far' % self.nbPause)
+                self.__logger.info('[{0}] Pause Requested - {1:1.2f} min have elapsed since last break [{2}]'.format(
+                    __name__, (time.time() - self.pause_time) / 60, self.nbPause))
                 self.pause_time = None
                 self.nbPause += 1
                 return True
@@ -178,7 +177,7 @@ class Trial(object):
                 self.start()
                 self.status = True
             else:
-                print('\n[Trial] The experiment is over!')
+                self.__logger.info('\n[{}] The experiment is over!'.format(__name__))
                 self.status = False
         return self.status
 
@@ -242,7 +241,7 @@ class Trial(object):
         :return:
         """
         self.inittime = time.time()
-        print(self)
+        self.__logger.info(self)
 
     def valid(self):
         """
@@ -263,7 +262,7 @@ class Trial(object):
         else:
             self.valid()
         self.endtime = time.time() - self.inittime
-        print("\n[{0}] Trial {1}: END (duration: {2:.2f})".format(__name__, self.id, self.endtime))
+        self.__logger.info("\n[{0}] Trial {1}: END (duration: {2:.2f})".format(__name__, self.id, self.endtime))
 
     def replay(self):
         """
@@ -271,7 +270,7 @@ class Trial(object):
         of the file
         :return: bool
         """
-        print('[{}] Trial {} => INVALID!'.format(__name__, self.id))
+        self.__logger.info('[{}] Trial {} => INVALID!'.format(__name__, self.id))
         self.nreplay += 1
         self.replayed = 'replay'
         self.design.update(self.id, {'Replay': 'replay'})
@@ -288,9 +287,11 @@ class Trial(object):
                 with open(self.userfile, 'w', 0) as csvfile:
                     writer = csv.DictWriter(csvfile, fieldnames=self.defaultfieldsname)
                     writer.writeheader()
-            except (IOError, TypeError):
-                print("[{}] Could not write into the user's datafile: {}".format(__name__, self.userfile))
-                raise
+            except (IOError, TypeError) as e:
+                msg = IOError("[{}] Could not write into the user's datafile '{}': {}".format(
+                    __name__, self.userfile, e))
+                self.__logger.critical(msg)
+                raise msg
 
     def writedata(self, datatowrite=None):
         """
@@ -305,14 +306,16 @@ class Trial(object):
         self.defaultfieldsname = data.keys()
 
         if not isfile(self.userfile):
-            print('[{}] User Data filename does not exist yet. We start from scratch!'.format(__name__))
+            self.__logger.warning('[{}] User Data filename does not exist yet. We start from scratch!'.format(__name__))
             self.openfile()
         try:
             with open(self.userfile, 'a') as csvfile:
                 writer = csv.DictWriter(csvfile, fieldnames=self.defaultfieldsname)
                 writer.writerow(data)
-        except (IOError, TypeError):
-            raise '[{}] User Data filename could not be read: {}'.format(__name__, IOError)
+        except (IOError, TypeError) as e:
+            msg = IOError('[{}] User Data filename could not be read: {}'.format(__name__, e))
+            self.__logger.critical(msg)
+            raise msg
 
     def loadData(self):
         """
@@ -326,5 +329,5 @@ class Trial(object):
                 for row in reader:
                     data.append(row)
         except (IOError, TypeError):
-            print('[{}] User Data filename does not exist yet'.format(__name__))
+            self.__logger.warning('[{}] User Data filename does not exist yet'.format(__name__))
         return data

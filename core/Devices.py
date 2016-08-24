@@ -27,6 +27,7 @@ import sys
 import types
 
 from core.Config import ConfigFiles
+import logging
 
 
 class Devices(object):
@@ -43,6 +44,7 @@ class Devices(object):
         """
         self.devices = dict()
         self.settingsFile = ConfigFiles(file_name)
+        self.__logger = logging.getLogger('EasyExp')
 
     def init(self):
         """

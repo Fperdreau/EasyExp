@@ -20,6 +20,7 @@
 
 from __future__ import print_function
 
+
 """
 EasyExp is a Python framework designed to ease the implementation of behavioral experiments.
 """
@@ -43,7 +44,7 @@ from os import listdir, mkdir
 from os.path import isdir, join
 
 # Dialog UI
-from .gui.dialog import DialogGUI
+from core.gui.gui_wrapper import GuiWrapper
 
 # Logger
 from .system.customlogger import CustomLogger
@@ -68,7 +69,7 @@ class Core(object):
     """
     appname = "EasyExp"
     version = v.__version__
-    logger = None
+    __logger = None
 
     def __init__(self):
         """
@@ -80,13 +81,15 @@ class Core(object):
         self.user = None
         self.trial = None
         self.screen = None
-        self.window = None
         self.design = None
 
+        self.__cli = False
+
         self.folders = {'rootFolder': None, 'data': None, 'expFolder': None}
-        self.files = {}
+        self.files = dict()
         self.experimentsFolder = None
         self.status = True
+        self.settings = None
 
         self.startTime = None
         self.stopTime = None
@@ -99,17 +102,45 @@ class Core(object):
         :return:
         """
         # Folders to exclude
-        dirs_list = {f for f in listdir(folder) if isdir(join(folder, f))}
-        selectexp = DialogGUI({'expname': dirs_list}, 'Select Experiment')
-        return selectexp.out['expname']
+        dirs_list = [f for f in listdir(folder) if isdir(join(folder, f))]
+        data = {'Experiment selection': {
+            'expname': {
+                'value': dirs_list[0],
+                'options': dirs_list,
+                'type': 'select',
+                'label': 'Select an experiment'
+            }
+        }}
 
-    def init(self, rootfolder, custom=False):
+        if self.cli:
+            selectexp = GuiWrapper.factory(self.cli, 'nested', data, title='Select Experiment', mandatory=True)
+        else:
+            selectexp = GuiWrapper.factory(self.cli, 'nested', data, title='Select Experiment')
+        return selectexp.out['Experiment selection']['expname']['value']
+
+    @staticmethod
+    def get_logger(rootfolder, expname):
+        """
+        Get application logger
+        :param rootfolder:
+        :param expname:
+        :return:
+        """
+        if Core.__logger is None:
+            # Set application's logger
+            log_file = '{}/logs/{}_{}.log'.format(rootfolder, expname, time.strftime("%d%m%y_%H%M%S"))
+            Core.__logger = CustomLogger(Core.appname, file_name=log_file, level='debug')
+        return Core.__logger
+
+    def init(self, rootfolder, custom=False, cli=False):
         """
         Initialize dependencies
         :param string rootfolder: full path to root folder
         :type rootfolder: str
         :param custom: import custom design from custom_design.py
         :type custom: bool
+        :param cli: Run in command line (True)
+        :type cli: bool
         """
         print("\n##############################\n")
         print("# Welcome to {} (version {})\n".format(self.appname, v.__version__))
@@ -117,39 +148,44 @@ class Core(object):
         print("# Date: {}".format(time.strftime("%d-%m-%y %H:%M:%S")))
         print("\n##############################\n")
 
+        self.cli = cli
         self.experimentsFolder = "{}/experiments/".format(rootfolder)
         self.expname = self.getexp(self.experimentsFolder)
         if not isdir('{}/logs'.format(rootfolder)):
             mkdir('{}/logs'.format(rootfolder))
 
-        # Set application's logger
-        log_file = '{}/logs/{}_{}.log'.format(rootfolder, self.expname, time.strftime("%d%m%y_%H%M%S"))
-        self.logger = CustomLogger(__name__, file_name=log_file, level='debug')
+        # Get logger
+        self.logger = self.get_logger(rootfolder, self.expname)
 
         # Get and set configuration
-        config = Config(rootfolder=rootfolder, expname=self.expname)
-        config.setup()
-        self.config = config.settings
-        self.folders = config.folders
-        self.files = config.files
+        self.config = Config(rootfolder=rootfolder, expname=self.expname, cli=self.cli)
+        self.config.setup()
+
+        self.settings = self.config.settings
+        self.folders = self.config.folders
+        self.files = self.config.files
 
         # Create user
-        self.user = User(datafolder=self.folders['data'], expname=self.expname, session=self.config['session'],
-                         demo=self.config['demo'], practice=self.config['practice'])
-        self.user.setup()
+        self.user = User(datafolder=self.folders['data'], expname=self.expname,
+                         session=self.settings['setup']['session'],
+                         demo=self.settings['setup']['demo'],
+                         practice=self.settings['setup']['practice'])
+        self.user.setup(cli=self.cli)
+
         self.files['design'] = self.user.designfile
 
         # Make factorial design
         self.design = Design(expname=self.expname, conditionfile=self.files['conditions'],
-                             userfile=self.files['design'], demo=self.config['demo'], practice=self.config['practice'],
-                             max_trials=self.config['max_trials'], custom=custom, folder=self.folders['expFolder'])
+                             userfile=self.files['design'], folder=self.folders['expFolder'], custom=custom,
+                             demo=self.settings['setup']['demo'], practice=self.settings['setup']['practice'],
+                             max_trials=self.settings['setup']['max_trials'])
         self.design.make()
 
         # Screen
-        self.screen = Screen(display_type=self.config['display_type'], resolution=self.config['resolution'],
-                             size=self.config['size'], distance=self.config['distance'],
-                             fullscreen=self.config['fullscreen'], bgcolor=self.config['bgcolor'],
-                             expfolder=self.folders['expFolder'])
+        self.screen = Screen(expfolder=self.folders['expFolder'], expname=self.expname, display_type=self.settings['display']['display_type'],
+                             resolution=self.settings['display']['resolution'], size=self.settings['display']['size'],
+                             fullscreen=self.settings['display']['fullscreen'], freq=self.settings['display']['freq'],
+                             distance=self.settings['display']['distance'], bgcolor=self.settings['display']['bgcolor'])
 
     def run(self):
         """
@@ -174,8 +210,8 @@ class Core(object):
         self.screen.open()
 
         # Instantiate Trial and experiment
-        self.trial = Trial(design=self.design, settings=self.config, userfile=self.user.datafilename,
-                           paramsfile=self.files['parameters'], pause_interval=int(self.config['pauseInt']))
+        self.trial = Trial(design=self.design, settings=self.settings, userfile=self.user.datafilename,
+                           paramsfile=self.files['parameters'], pause_interval=int(self.settings['setup']['pauseInt']))
         runtrial = RunTrial(exp_core=self)
 
         # Run experiment
