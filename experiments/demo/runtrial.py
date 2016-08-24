@@ -265,7 +265,8 @@ class RunTrial(object):
         self.buttons.add_device('keyboard')
         self.buttons.add_device('mouse', visible=False, newPos=None, win=self.ptw)
 
-        # GUI related keys (quit, pause)
+        # GUI related keys
+        # quit, pause and move on keys must be specified
         self.buttons.add_listener('keyboard', 'pause', pygame.K_SPACE)
         self.buttons.add_listener('keyboard', 'quit', pygame.K_q)
         self.buttons.add_listener('mouse', 'move_on', 0)
