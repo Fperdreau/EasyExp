@@ -1,0 +1,126 @@
+{
+    "Setup": {
+        "pauseInt": {
+            "type": "text", 
+            "value": 600, 
+            "label": "Break interval"
+        }, 
+        "movie": {
+            "type": "checkbox", 
+            "options": [
+                true, 
+                false
+            ], 
+            "value": true, 
+            "label": "Movie"
+        }, 
+        "practice": {
+            "type": "checkbox", 
+            "options": [
+                true, 
+                false
+            ], 
+            "value": true, 
+            "label": "Practice"
+        }, 
+        "max_trials": {
+            "type": "text", 
+            "value": 30, 
+            "label": "# practice trials"
+        }, 
+        "session": {
+            "type": "text", 
+            "value": 1, 
+            "label": "Session ID"
+        }, 
+        "demo": {
+            "type": "checkbox", 
+            "options": [
+                true, 
+                false
+            ], 
+            "value": false, 
+            "label": "Demo"
+        }
+    }, 
+    "Display": {
+        "distance": {
+            "type": "text", 
+            "value": 1470.0, 
+            "label": "Distance"
+        }, 
+        "fullscreen": {
+            "type": "checkbox", 
+            "options": [
+                true, 
+                false
+            ], 
+            "value": false, 
+            "label": "Full screen"
+        }, 
+        "bgcolor": {
+            "type": "text", 
+            "value": [
+                -1.0, 
+                -1.0, 
+                -1.0
+            ], 
+            "label": "Background color"
+        }, 
+        "display_type": {
+            "type": "select", 
+            "options": [
+                "psychopy", 
+                "qt", 
+                "pygame"
+            ], 
+            "value": "psychopy", 
+            "label": "Display type"
+        }, 
+        "resolution": {
+            "type": "text", 
+            "value": [
+                1920.0, 
+                1080.0
+            ], 
+            "label": "Resolution"
+        }, 
+        "size": {
+            "type": "text", 
+            "value": [
+                1206.0, 
+                679.0
+            ], 
+            "label": "Screen size"
+        }
+    }, 
+    "Devices": {
+        "optotrack": {
+            "type": "checkbox", 
+            "options": [
+                true, 
+                false
+            ], 
+            "value": false, 
+            "label": "Optotrak"
+        }, 
+        "eyetracker": {
+            "type": "checkbox", 
+            "options": [
+                true, 
+                false
+            ], 
+            "value": false, 
+            "label": "EyeTracker"
+        }, 
+        "sled": {
+            "type": "checkbox", 
+            "options": [
+                true, 
+                false
+            ], 
+            "value": false, 
+            "label": "Sled"
+        }
+    }
+}

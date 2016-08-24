@@ -1,0 +1,7 @@
+{
+    "simple_input_int": 1,
+    "simple_input_str": "some text",
+    "bool_input": false,
+    "select_input_str": ["option1", "option2", "option3"],
+    "select_input_int": [0, 1, 2]
+}

@@ -1,0 +1,91 @@
+{
+    "Display": {
+        "distance": {
+            "label": "Distance",
+            "type": "text",
+            "value": 1470.0
+        },
+        "fullscreen": {
+            "label": "Full screen",
+            "type": "checkbox",
+            "options": [true, false],
+            "value": false
+        },
+        "display_type": {
+            "label": "Display type",
+            "type": "select",
+            "options": ["psychopy", "qt", "pygame"],
+            "value": "psychopy"
+        },
+        "resolution": {
+            "label": "Resolution",
+            "type": "text",
+            "value": [1920.0, 1080]
+        },
+        "size": {
+            "label": "Screen size",
+            "type": "text",
+            "value": [1206.0, 679.0]
+        },
+        "bgcolor": {
+            "label": "Background color",
+            "type": "text",
+            "value": [-1.0, -1.0, -1.0]
+        }
+    },
+    "Devices": {
+        "optotrack": {
+            "label": "Optotrak",
+            "type": "checkbox",
+            "options": [true, false],
+            "value": false
+        },
+        "eyetracker": {
+            "label": "EyeTracker",
+            "type": "checkbox",
+            "options": [true, false],
+            "value": false
+        },
+        "sled": {
+            "label": "Sled",
+            "type": "checkbox",
+            "options": [true, false],
+            "value": false
+        }
+    },
+    "Setup": {
+        "session": {
+            "label": "Session ID",
+            "type": "text",
+            "value": 1
+        },
+        "movie": {
+            "label": "Movie",
+            "type": "checkbox",
+            "options": [true, false],
+            "value": true
+        },
+        "practice": {
+            "label": "Practice",
+            "type": "checkbox",
+            "options": [true, false],
+            "value": true
+        },
+        "demo": {
+            "label": "Demo",
+            "type": "checkbox",
+            "options": [true, false],
+            "value": false
+        },
+        "max_trials": {
+            "label": "# practice trials",
+            "type": "text",
+            "value": 30
+        },
+        "pauseInt": {
+            "label": "Break interval",
+            "type": "text",
+            "value": 600
+        }
+    }
+}
