@@ -288,10 +288,10 @@ class RunTrial(object):
         Devices should have a close() method, as it is called during the closing routine of the application
         """
         # Create Sled instance
-        self.devices['sled'] = MySled(status=self.trial.settings['sled'], server='sled')
+        self.devices['sled'] = MySled(status=self.trial.settings['devices']['sled'], server='sled')
 
         # Create eye-tracker instance
-        if self.trial.settings['eyetracker']:
+        if self.trial.settings['devices']['eyetracker']:
             from core.apparatus.EyeTracker.eyetracker import EyeTracker
             edf_file = "{}_{}".format(self.user.dftName, time.strftime('%d-%m-%Y_%H%M%S'))
             self.devices['eyetracker'] = EyeTracker(link='10.0.0.20', dummy=False, sprate=500, thresvel=35,
@@ -305,7 +305,7 @@ class RunTrial(object):
             self.state = 'calibration'
 
         # Create OptoTrack
-        if self.trial.settings['optotrack']:
+        if self.trial.settings['devices']['optotrack']:
             from core.apparatus.optotrack.optotrak import OptoTrack
             self.devices['optotrack'] = OptoTrack()
 
@@ -319,7 +319,6 @@ class RunTrial(object):
         """
         # Check experiment status
         status = self.trial.setup()
-
         if status is False:
             # If no more trials to run, then quit the experiment
             self.nextState = 'quit'
@@ -351,11 +350,11 @@ class RunTrial(object):
                 self.triggers[label] = False
 
             # Send START_TRIAL to eye-tracker
-            if self.trial.settings['eyetracker']:
+            if self.trial.settings['devices']['eyetracker']:
                 self.devices['eyetracker'].starttrial(self.trial.id)
 
             # Initialize movie if requested
-            if self.trial.settings['movie']:
+            if self.trial.settings['setup']['movie']:
                 self.movie = MovieMaker(self.ptw, "Dynamic_{}_{}".format(self.trial.params["first"],
                                                                          self.trial.params['timing']), "png")
             # Initialize stimuli
@@ -511,7 +510,7 @@ class RunTrial(object):
         self.timers['runtime'].reset()
 
         # Close movie file is necessary
-        if self.trial.settings['movie']:
+        if self.trial.settings['setup']['movie']:
             self.movie.close()
 
         # Replay the trial if the user did not respond fast enough or moved the hand before the response phase
@@ -579,7 +578,7 @@ class RunTrial(object):
             self.state_machine['singleshot'] = True  # Enable single shot events
 
             # Send events to eye-tracker
-            if self.trial.settings['eyetracker']:
+            if self.trial.settings['devices']['eyetracker']:
                 self.devices['eyetracker'].el.sendMessage('EVENT_STATE_{}'.format(self.state))
 
         # Check inputs and timers
@@ -840,5 +839,5 @@ class RunTrial(object):
         self.fpsCounter.flip()
 
         # Make Movie
-        if self.triggers['startTrigger'] and self.trial.settings['movie']:
+        if self.triggers['startTrigger'] and self.trial.settings['setup']['movie']:
             self.movie.run()

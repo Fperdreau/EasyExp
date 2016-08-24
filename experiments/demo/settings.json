@@ -1,27 +1,131 @@
 {
-    "session": 1, 
-    "distance": 1470.0, 
-    "optotrack": false, 
-    "pauseInt": 300, 
-    "demo": true, 
-    "practice": false, 
-    "sled": false, 
-    "max_trials": 10, 
-    "bgcolor": [
-        -1.0, 
-        -1.0, 
-        -1.0
-    ], 
-    "eyetracker": false, 
-    "display_type": "psychopy", 
-    "fullscreen": true, 
-    "movie": false, 
-    "resolution": [
-        1920.0, 
-        1080.0
-    ], 
-    "size": [
-        1206.0, 
-        679.0
-    ]
+    "setup": {
+        "pauseInt": {
+            "type": "text", 
+            "value": 300, 
+            "label": "Break interval"
+        }, 
+        "demo": {
+            "type": "checkbox", 
+            "options": [
+                true, 
+                false
+            ], 
+            "value": false, 
+            "label": "Demo"
+        }, 
+        "practice": {
+            "type": "checkbox", 
+            "options": [
+                true, 
+                false
+            ], 
+            "value": false, 
+            "label": "Practice"
+        }, 
+        "max_trials": {
+            "type": "text", 
+            "value": 30, 
+            "label": "# practice trials"
+        }, 
+        "session": {
+            "type": "text", 
+            "value": 1, 
+            "label": "Session ID"
+        }, 
+        "movie": {
+            "type": "checkbox", 
+            "options": [
+                true, 
+                false
+            ], 
+            "value": false, 
+            "label": "Movie"
+        }
+    }, 
+    "display": {
+        "distance": {
+            "type": "text", 
+            "value": 1470.0, 
+            "label": "Distance"
+        }, 
+        "fullscreen": {
+            "type": "checkbox", 
+            "options": [
+                true, 
+                false
+            ], 
+            "value": false, 
+            "label": "Full screen"
+        }, 
+        "bgcolor": {
+            "type": "text", 
+            "value": [
+                -1.0, 
+                -1.0, 
+                -1.0
+            ], 
+            "label": "Background color"
+        }, 
+        "display_type": {
+            "type": "select", 
+            "options": [
+                "psychopy", 
+                "qt", 
+                "pygame"
+            ], 
+            "value": "psychopy", 
+            "label": "Display type"
+        }, 
+        "freq": {
+            "type": "text", 
+            "value": 60, 
+            "label": "frequency"
+        }, 
+        "resolution": {
+            "type": "text", 
+            "value": [
+                1920.0, 
+                1080.0
+            ], 
+            "label": "Resolution"
+        }, 
+        "size": {
+            "type": "text", 
+            "value": [
+                1206.0, 
+                679.0
+            ], 
+            "label": "Screen size"
+        }
+    }, 
+    "devices": {
+        "optotrack": {
+            "type": "checkbox", 
+            "options": [
+                true, 
+                false
+            ], 
+            "value": false, 
+            "label": "Optotrak"
+        }, 
+        "eyetracker": {
+            "type": "checkbox", 
+            "options": [
+                true, 
+                false
+            ], 
+            "value": false, 
+            "label": "EyeTracker"
+        }, 
+        "sled": {
+            "type": "checkbox", 
+            "options": [
+                true, 
+                false
+            ], 
+            "value": false, 
+            "label": "Sled"
+        }
+    }
 }
