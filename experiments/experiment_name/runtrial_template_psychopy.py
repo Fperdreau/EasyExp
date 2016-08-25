@@ -25,6 +25,10 @@
 from __future__ import print_function
 from __future__ import division
 
+# psychopy
+# Use pyo library instead of pygame
+from psychopy import prefs
+prefs.general['audioLib'] = ['pygame']
 from psychopy import visual, sound
 import pygame
 import time
@@ -367,10 +371,10 @@ class RunTrial(object):
         :return:
         """
         # Sound
-        self.sounds['valid'] = sound.SoundPygame(secs=0.1, value=880)
+        self.sounds['valid'] = sound.Sound(secs=0.1, value=880)
         self.sounds['valid'].setVolume(1)
 
-        self.sounds['wrong'] = sound.SoundPygame(secs=0.1, value=440)
+        self.sounds['wrong'] = sound.Sound(secs=0.1, value=440)
         self.sounds['wrong'].setVolume(1)
 
     def quit(self):
