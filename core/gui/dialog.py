@@ -78,7 +78,7 @@ class BaseGui(object):
 
         # Main canvas
         self.canvas = Canvas(self.mainFrame, bd=1, scrollregion=(0, 0, 1000, 1000), height=600)
-        self.canvas.grid(row=0, column=0, sticky=N + S + E + W)
+        self.canvas.pack(side=TOP, fill=BOTH)
 
         # creates canvas so that screen can be scrollable
         self.scrollbar = Scrollbar(self.mainFrame, command=self.canvas.yview)
@@ -178,8 +178,8 @@ class BaseGui(object):
             group = self.root
 
         Btnframe = Frame(group)
-        Btnframe.grid(row=2, column=0, columnspan=2)
-        Btnframe.pack(fill=X)
+        Btnframe.pack(side=LEFT)
+
 
         col = 0
         for option in options:
