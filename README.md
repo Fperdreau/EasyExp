@@ -90,7 +90,11 @@ are not running this demo in the lab but on your desk computer, make sure
 
 #### settings.json
 
-The "settings" file is a JSON file structured in 3 different sections ('Setup', 'Devices' and 'Display').
+The "settings" file is a JSON file structured in 3 different section:
+- Setup: contains experiment-related settings (demo mode, session id, etc.)
+- Display: contains display-related settings (screen resolution and size, refresh rate, windows type, etc)
+- Devices: contains devices switches.
+
 Every settings stored in these sections is structured as follows:
 
 ```
@@ -110,6 +114,9 @@ displaying the possible options specified by the "options" field, "checkbox": di
 * label: Label (string) that will be displayed next to the input field.
 
 * options (optional): list of possible options. Options can be of any type (string, boolean, int, float)
+
+Here is a complete example:
+
 ```
 {
     "setup": {
