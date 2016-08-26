@@ -58,7 +58,7 @@ class Constant(MethodBase):
 
     # Default options
     options = {
-        'repetition': 25,            # Number of trials per stimulus intensity
+        'nTrials': 25,            # Number of trials per stimulus intensity
         "response_field": "response",   # Name of response field in data file
         "intensity_field": "intensity"  # Name of intensity field in data file
     }
@@ -69,7 +69,7 @@ class Constant(MethodBase):
 
     # Default options
     _options = {
-        'repetition': 30,                # Number of decimals
+        'nTrials': 30,                # Number of decimals
         "response_field": "response",   # Name of response field in data file
         "intensity_field": "intensity"  # Name of intensity field in data file
     }
@@ -141,7 +141,7 @@ class Constant(MethodBase):
             settings = np.tile(settings, (1, ncycles))  # repeat sequence to fill the array
             design[:, k] = settings[:]
 
-        design = np.tile(design, (options['repetition'], 1))  # Make repetitions
+        design = np.tile(design, (options['nTrials'], 1))  # Make repetitions
 
         return design, conditions_name
 
