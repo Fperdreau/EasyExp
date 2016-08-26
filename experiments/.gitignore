@@ -1,5 +1,8 @@
 # Created by .ignore support plugin (hsz.mobi)
 *
-!/demo/
+!/demo
+!/demo/*
 !/experiment_name/
+!/experiment_name/*
 !__init__.py
+*.pyc
