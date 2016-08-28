@@ -56,17 +56,29 @@ class Timer(object):
         self.__start_time = None
         self.__stop_time = None
         self.__max_duration = max_duration
+        self.__lapse = None
 
     @property
     def elapsed(self):
         if self.__start_time is not None:
-            return (time.time() - self.__start_time)
+            return time.time() - self.__start_time
 
     @property
     def countdown(self):
         if self.__start_time is not None and self.__max_duration is not None:
             elapsed = (self.__max_duration - (time.time() - self.__start_time))
             return 0.0 if elapsed <= 0.0 else elapsed
+
+    @property
+    def lapse(self):
+        """
+        Time since last lapse
+        """
+        lapse = 0.0
+        if self.__start_time is not None and self.__lapse is not None:
+            lapse = time.time() - self.__lapse
+        self.__lapse = time.time()
+        return lapse
 
     def start(self):
         """
@@ -105,6 +117,8 @@ class Timer(object):
             return self.__stop_time
         elif prop is 'elapsed':
             return self.elapsed
+        elif prop is 'lapse':
+            return self.lapse
         else:
             raise AttributeError('{} property does not exist')
 
