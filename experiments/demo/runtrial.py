@@ -356,7 +356,7 @@ class RunTrial(object):
 
             # Send START_TRIAL to eye-tracker
             if self.trial.settings['devices']['eyetracker']:
-                self.devices['eyetracker'].starttrial(self.trial.id)
+                self.devices['eyetracker'].start_trial(self.trial.id)
 
             # Initialize movie if requested
             if self.trial.settings['setup']['movie']:
@@ -711,13 +711,14 @@ class RunTrial(object):
 
                     # Move sled to starting position if it is not there already
                     if np.abs(self.pViewer[0] - self.sledStart) > 0.01:
-                        print('Sled is not at starting position: {} instead of {}'.format(self.pViewer[0],
-                                                                                          self.sledStart))
+                        self.logger.logger.debug(
+                            'Sled is not at starting position: {} instead of {}'.format(self.pViewer[0],
+                                                                                        self.sledStart))
                         self.devices['sled'].move(self.sledStart, self.mvtBackDuration)
                         self.timings['start'] = self.mvtBackDuration + 0.1
                         time.sleep(self.mvtBackDuration)
                         self.getviewerposition()  # Get SLED's position
-                        print('Sled after move command: {}'.format(self.pViewer[0]))
+                        self.logger.logger.debug('Sled after move command: {}'.format(self.pViewer[0]))
 
                     else:
                         self.timings['start'] = 0.1
@@ -833,8 +834,14 @@ class RunTrial(object):
         # Draw stimuli
         if self.triggers['startTrigger']:
             for stim, status in self.stimuliTrigger.iteritems():
-                if status:
-                    self.stimuli[stim].draw()
+                if stim in self.stimuli:
+                    if status:
+                        self.stimuli[stim].draw()
+                else:
+                    msg = Exception('Stimulus "{}" has been initialized in RunTrial::init_stimuli() method!'.format(
+                        stim))
+                    self.logger.logger.critical(msg)
+                    raise msg
         else:
             # Clear screen
             for key, stim in self.stimuli.iteritems():
