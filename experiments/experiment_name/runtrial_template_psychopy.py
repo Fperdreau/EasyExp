@@ -336,7 +336,7 @@ class RunTrial(object):
 
             # Send START_TRIAL to eye-tracker
             if self.trial.settings['devices']['eyetracker']:
-                self.devices['eyetracker'].starttrial(self.trial.id)
+                self.devices['eyetracker'].start_trial(self.trial.id)
 
             # Initialize movie if requested
             if self.trial.settings['setup']['movie']:
@@ -703,8 +703,14 @@ class RunTrial(object):
         # Draw stimuli
         if self.triggers['startTrigger']:
             for stim, status in self.stimuliTrigger.iteritems():
-                if status:
-                    self.stimuli[stim].draw()
+                if stim in self.stimuli:
+                    if status:
+                        self.stimuli[stim].draw()
+                else:
+                    msg = Exception('Stimulus "{}" has been initialized in RunTrial::init_stimuli() method!'.format(
+                        stim))
+                    self.logger.logger.critical(msg)
+                    raise msg
         else:
             # Clear screen
             for key, stim in self.stimuli.iteritems():
