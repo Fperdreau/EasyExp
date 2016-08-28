@@ -326,7 +326,7 @@ class EyeTracker(object):
         self.trackedeye = self.eye_list[eu] if eu >= 0 else None
         return self.trackedeye
 
-    def starttrial(self, trial):
+    def start_trial(self, trial):
         """
         Routine running at the beginning of a trial
         :return:
