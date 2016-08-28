@@ -233,6 +233,9 @@ class OptoTrack(object):
         """
         Start trial routine
         :param trial: trial number
+        :type trial: int
+        :param param: Trial parameters
+        :type param: dict
         :return:
         """
         # Open file
