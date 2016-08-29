@@ -7,8 +7,12 @@
 Florian Perdreau - [www.florianperdreau.fr](http://www.florianperdreau.fr)
 
 ## Description:
-EasyExp is a framework designed to ease the programming of experiments using Python. It provides several wrapper
-classes that handles routines to use equipments present in the sled lab (Sled, Eyetracker, Optotrak, Shutter glasses or LEDs)
+EasyExp is a framework designed to ease the programming of experiments using Python. It implements and handles 
+experiment's routine (creation of participant, generation of experimental design, resume function, breaks) that are fully 
+customizable without necessarily changing the code of your experiment. EasyExp also comes with a collection of modules handling interfaces,
+experimental methods or devices that could be used in an experiment. All of this modules are designed to be autonomous and
+independent from EasyExp. This means that everyone is free to use these modules in their experiment without using the 
+whole framework.
 
 ## License:
 Copyright (C) 2016 Florian Perdreau, Radboud University Nijmegen
@@ -37,8 +41,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ## To do
 * Complete documentation and API description
-* Better handling of user inputs (testing phase)
-* Make a full command line version (basically create a command line view for core/gui/dialog.py)
 * Think about a more efficient way of handling devices used in the experiment (maybe a common interface)
 
 ## Framework structure
@@ -79,6 +81,11 @@ To run it:
     ```
     python main.py
     ```
+    or
+    ```
+    python main.py cli
+    ```
+    to start the command-line interface
 4. You will be prompted with an experiment selection dialog window: choose demo and click "Ok"
 5. Then, you will be prompted with the settings dialog window. If you 
 are not running this demo in the lab but on your desk computer, make sure
@@ -263,7 +270,6 @@ The general format is: "property_name": property_value. property_value can be an
     "right"
   ],
   "factor_name_with_single_level": [true],
-  "repetition": 1,
   "method": "method_name",
   "options": {
     "nTrials": 40,
@@ -273,6 +279,12 @@ The general format is: "property_name": property_value. property_value can be an
 
 }
 ```
+
+__List of fields:__
+* method (required): specify the experimental method used to generate your design and trials list. Options are 'Constant'
+ (Constant stimuli), 'PsiMarginal' (psi-method), or 'StaircaseASA' (accelerated stochastic approximation)
+* options (optional): method's options. If not specified, then method's default settings will be used. See methods 
+documentation for more details about the possible options.
 
 ### RunTrial class (Implementation of trial routine)
 #### Description
