@@ -290,15 +290,14 @@ class OptoTrak(object):
         Write header into the data file
         :return:
         """
-        header = '############################' \
-                 '# Optotrak data file ' \
-                 '# Date: {}' \
-                 '# Sampling Frequency: {} ms' \
-                 '# Sensors: {}' \
-                 '# Tracked: {}' \
-                 '############################'.format(time.strftime("%d-%m-%y"),
-                                                       self.freq,
-                                                       ','.join(self.labels), ', '.join(self.tracked))
+        header = '############################\r\n' \
+                 '# Optotrak data file\r\n' \
+                 '# Date: {}\r\n' \
+                 '# Sampling Frequency: {} ms\r\n' \
+                 '# Sensors: {}\r\n' \
+                 '# Tracked: {}\r\n' \
+                 '############################\r\n'.format(time.strftime("%d-%m-%y"), self.freq,
+                                                           ', '.join(self.labels), ', '.join(self.tracked))
         self.file.write(header)
 
     def send_message(self, message):
@@ -378,8 +377,7 @@ class File(object):
             try:
                 self.handler.write(datatowrite + '\r\n')
             except (IOError, TypeError) as e:
-                msg = (
-                "[{}] Could not write into the user's datafile ({}): {}".format(__name__, self.name, e))
+                msg = ("[{}] Could not write into the user's datafile ({}): {}".format(__name__, self.name, e))
                 logging.critical(msg)
                 raise msg
         else:
