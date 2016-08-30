@@ -44,12 +44,13 @@ from core.events.timer import Timer
 # Multi-threading
 import threading
 
-# Custom imports
 #################################
 # ADD YOUR CUSTOM IMPORTS BELOW #
 #################################
-from core.misc.conversion import pol2cart, mm2pix
-from core.apparatus.sled.mysled import MySled
+from core.misc.conversion import pol2cart, mm2pix, deg2m
+from core.apparatus.sled.sled import Sled
+from core.apparatus.eyetracker.eyetracker import EyeTracker
+from core.apparatus.optotrak.optotrak import OptoTrak
 
 
 class RunTrial(object):
@@ -266,33 +267,124 @@ class RunTrial(object):
         # Response keys
         # Add your response keys below
 
-    def init_devices(self):
+    # =========================================
+    # SLED movement
+    # =========================================
+    def getviewerposition(self):
         """
-        Setup devices
-        For better readability of the code, devices should be added to self.devices dictionary.
-        Devices should have a close() method, as it is called during the closing routine of the application
+        Get viewer (sled) position
         """
-        # Create Sled instance
-        self.devices['sled'] = MySled(status=self.trial.settings['devices']['sled'], server='sled')
+        p = self.devices['sled'].getposition(t=self.devices['sled'].client.time())
+        self.pViewer = (p[0], p[1])
 
-        # Create eye-tracker instance
-        if self.trial.settings['devices']['eyetracker']:
-            from core.apparatus.EyeTracker.eyetracker import EyeTracker
-            edf_file = "{}_{}".format(self.user.dftName, time.strftime('%d-%m-%Y_%H%M%S'))
-            self.devices['eyetracker'] = EyeTracker(link='10.0.0.20', dummy=False, sprate=500, thresvel=35,
-                                                    thresacc=9500, illumi=2, caltype='HV5', dodrift=False,
-                                                    trackedeye='right', display_type='psychopy', name=edf_file,
-                                                    ptw=self.ptw, bgcol=(-1, -1, -1), distance=self.screen.distance,
-                                                    resolution=self.screen.resolution,
-                                                    winsize=self.screen.size, inner_tgcol=(127, 127, 127),
-                                                    outer_tgcol=(255, 255, 255), targetsize_out=1.0, targetsize_in=0.25)
-            self.devices['eyetracker'].run()
-            self.state = 'calibration'
+    # =========================================
+    # STATE MACHINE
+    # =========================================
 
-        # Create OptoTrack
-        if self.trial.settings['devices']['optotrack']:
-            from core.apparatus.optotrack.optotrak import OptoTrack
-            self.devices['optotrack'] = OptoTrack()
+    def run(self):
+        """
+        Application main loop
+        DO NOT MODIFY
+        """
+        t1 = threading.Thread(target=self.fast_state_machine)
+        t1.start()
+        while self.status:
+            self.graphics_state_machine()
+
+        t1.join()
+
+    def change_state(self):
+        """
+        This function handles transition between states
+        DO NOT MODIFY
+        :rtype: bool
+        """
+        if self.timers['runtime'] is None or self.timers['runtime'].get_time('start') is None:
+            self.timers['runtime'] = Timer()
+            self.timers['runtime'].start()
+
+        if self.state_machine['current'] is None:
+            # If we enter a new state
+            self.state_machine['current'] = self.state
+            self.state_machine['timer'] = Timer(max_duration=self.timings[self.state])
+            self.state_machine['timer'].start()
+            self.state_machine['onset'] = self.state_machine['timer'].get_time('start')
+            self.state_machine['status'] = True
+            self.triggers['moveOnRequested'] = False
+            self.state_machine['singleshot'] = True  # Enable single shot events
+
+            # Send events to devices that will be written into their data file
+            for device in self.devices:
+                if hasattr(self.devices[device], 'send_message'):
+                    self.devices[device].send_message('EVENT_STATE_{}'.format(self.state))
+
+        # Check inputs and timers
+        self.triggers['moveOnRequested'] = self.go_next() if self.triggers['moveOnRequested'] is False else True
+
+        # If we transition to the next state
+        if self.triggers['moveOnRequested'] and self.state_machine['status']:
+            self.state_machine['timer'].stop()
+            self.state_machine['offset'] = self.state_machine['timer'].get_time('stop')
+            self.state_machine['duration'] = self.state_machine['timer'].get_time('elapsed')
+            self.state_machine['timer'].reset()
+
+            state_str = '[STATE]: {0}=>{1}' \
+                        ' [START: {2:.3f}s | DUR: {3:.3f}s]'.format(self.state, self.nextState,
+                                                                    self.state_machine['onset'] -
+                                                                    self.timers['runtime'].get_time('start'),
+                                                                    self.state_machine['duration'])
+            self.logger.logger.info(state_str)
+
+            self.state = self.nextState
+            self.triggers['moveOnRequested'] = False
+            self.state_machine['status'] = False
+            self.state_machine['current'] = None
+            return True
+        else:
+            return False
+
+    def quit(self):
+        """
+        Quit experiment
+        :return:
+        """
+        # Set in idle mode
+        self.state = 'idle'
+        self.textToDraw = "Experiment is over!"
+
+        # Shutdown devices
+        for device in self.devices:
+            if hasattr(self.devices[device], "close"):
+                self.logger.logger.info('[{}] Closing "{}"'.format(__name__, device))
+                self.devices[device].close()
+
+        self.status = False
+
+    def go_next(self):
+        """
+        Check if it is time to move on to the next state. State changes can be triggered by key press (e.g.: ESCAPE key)
+        or timers. States' duration can be specified in the my_project_name/experiments/experiment_name/parameters.json
+        file.
+        :rtype: bool
+        """
+        # Update input devices state
+        self.buttons.update()
+
+        # Does the user want to quit the experiment?
+        if self.buttons.get_status('quit'):
+            self.triggers['quitRequested'] = True
+
+        # Does the user want a break?
+        if self.buttons.get_status('pause'):
+            self.triggers['pauseRequested'] = True
+
+        # Shall we go on?
+        if self.timings[self.state] is not False:
+            timeToMoveOn = (time.time() - self.state_machine['onset']) >= self.timings[self.state]
+        else:
+            timeToMoveOn = self.buttons.get_status('move_on')
+
+        return timeToMoveOn
 
     def init_trial(self):
         """
@@ -334,9 +426,10 @@ class RunTrial(object):
             for label, value in self.triggers.iteritems():
                 self.triggers[label] = False
 
-            # Send START_TRIAL to eye-tracker
-            if self.trial.settings['devices']['eyetracker']:
-                self.devices['eyetracker'].start_trial(self.trial.id)
+            # Send START_TRIAL to devices
+            for device in self.devices:
+                if hasattr(self.devices[device], 'start_trial'):
+                    self.devices[device].start_trial(self.trial.id, self.trial.params)
 
             # Initialize movie if requested
             if self.trial.settings['setup']['movie']:
@@ -346,102 +439,6 @@ class RunTrial(object):
             self.init_stimuli()
 
             return True
-
-    def init_stimuli(self):
-        """
-        Prepare/Make stimuli
-
-        Stimuli objects (Psychopy) should be stored in self.stimuli dictionary, for example:
-        self.stimuli['stimulus_name'] = visual.Circle(self.ptw, radius=2, pos=(0, 0))
-
-        Then on every loop, the state machine will automatically call self.stimuli['stimulus_name'].draw() if
-        self.stimuliTrigger['stimulus_name'] is set to True.
-        """
-        self.stimuli['stimulus_name'] = None
-
-    def init_audio(self):
-        """
-        Initialize sounds
-        Auditory stimuli are created here and should be stored in RunTrial.sounds dictionary. For example:
-        self.sounds['stimulus_name'] = sound.SoundPygame(secs=0.1, values=880)
-
-        Then you can play the sound by calling:
-        self.sounds['stimulus_name'].play()
-
-        :return:
-        """
-        # Sound
-        self.sounds['valid'] = sound.Sound(secs=0.1, value=880)
-        self.sounds['valid'].setVolume(1)
-
-        self.sounds['wrong'] = sound.Sound(secs=0.1, value=440)
-        self.sounds['wrong'].setVolume(1)
-
-    def quit(self):
-        """
-        Quit experiment
-        :return:
-        """
-        # Set in idle mode
-        self.state = 'idle'
-        self.textToDraw = "Experiment is over!"
-
-        # Shutdown the SLED
-        for key, device in self.devices.iteritems():
-            self.logger.logger.info('[{}] Closing "{}"'.format(__name__, key))
-            self.devices[key].close()
-
-        self.status = False
-
-    def go_next(self):
-        """
-        Check if it is time to move on to the next state. State changes can be triggered by key press (e.g.: ESCAPE key)
-        or timers. States' duration can be specified in the my_project_name/experiments/experiment_name/parameters.json
-        file.
-        :rtype: bool
-        """
-        # Update input devices state
-        self.buttons.update()
-
-        # Does the user want to quit the experiment?
-        if self.buttons.get_status('quit'):
-            self.triggers['quitRequested'] = True
-
-        # Does the user want a break?
-        if self.buttons.get_status('pause'):
-            self.triggers['pauseRequested'] = True
-
-        # Shall we go on?
-        if self.timings[self.state] is not False:
-            timeToMoveOn = (time.time() - self.state_machine['onset']) >= self.timings[self.state]
-        else:
-            timeToMoveOn = self.buttons.get_status('move_on')
-
-        return timeToMoveOn
-
-    def get_response(self):
-        """
-        Get participant' response
-        """
-        # Initialize response timer
-        if self.timers['responseDuration'] is None or self.timers['responseDuration'].get_time('start') is None:
-            self.timers['responseDuration'] = Timer()
-            self.timers['responseDuration'].start()
-
-        # Get response buttons status
-        response_received = self.buttons.get_status('left') or self.buttons.get_status('right')
-
-        if not self.triggers['response_given'] and response_received:
-            self.triggers['response_given'] = True
-
-            # Stop response timer, store response duration, and reset timer
-            self.timers['responseDuration'].stop()
-            self.data['responseDuration'] = round(self.timers['responseDuration'].get_time('elapsed')*1000.0)
-            self.timers['responseDuration'].reset()
-
-            # Code response
-            self.data['response'] = 'left' if self.buttons.get_status('left') else 'right'
-            self.data['correct'] = self.data['response'] == 'right'
 
     def end_trial(self):
         """
@@ -471,93 +468,113 @@ class RunTrial(object):
         self.trial.stop(self.validTrial)  # Stop routine
         self.trial.writedata(self.data)  # Write data
 
-        if 'eyetracker' in self.devices and self.devices['eyetracker'] is not None:
-            self.devices['eyetracker'].endtrial(self.validTrial)
-
-    # =========================================
-    # SLED movement
-    # =========================================
-    def getviewerposition(self):
-        """
-        Get viewer (sled) position
-        """
-        p = self.devices['sled'].getposition(t=self.devices['sled'].client.time())
-        self.pViewer = (p[0], p[1])
-
-    # =========================================
-    # STATE MACHINE
-    # =========================================
-    def run(self):
-        """
-        Application main loop
-        DO NOT MODIFY
-        """
-        t1 = threading.Thread(target=self.fast_state_machine)
-        t1.start()
-        while self.status:
-            self.graphics_state_machine()
-
-        t1.join()
-
-    def change_state(self):
-        """
-        This function handles transition between states
-        DO NOT MODIFY
-
-        :rtype: bool
-        """
-        if self.timers['runtime'] is None or self.timers['runtime'].get_time('start') is None:
-            self.timers['runtime'] = Timer()
-            self.timers['runtime'].start()
-
-        if self.state_machine['current'] is None:
-            # If we enter a new state
-            self.state_machine['current'] = self.state
-            self.state_machine['timer'] = Timer(max_duration=self.timings[self.state])
-            self.state_machine['timer'].start()
-            self.state_machine['onset'] = self.state_machine['timer'].get_time('start')
-            self.state_machine['status'] = True
-            self.triggers['moveOnRequested'] = False
-            self.state_machine['singleshot'] = True  # Enable single shot events
-
-            # Send events to eye-tracker
-            if self.trial.settings['devices']['eyetracker']:
-                self.devices['eyetracker'].el.sendMessage('EVENT_STATE_{}'.format(self.state))
-
-        # Check inputs and timers
-        self.triggers['moveOnRequested'] = self.go_next() if self.triggers['moveOnRequested'] is False else True
-
-        # If we transition to the next state
-        if self.triggers['moveOnRequested'] and self.state_machine['status']:
-            self.state_machine['timer'].stop()
-            self.state_machine['offset'] = self.state_machine['timer'].get_time('stop')
-            self.state_machine['duration'] = self.state_machine['timer'].get_time('elapsed')
-            self.state_machine['timer'].reset()
-
-            state_str = '[STATE]: {0}=>{1}' \
-                        ' [START: {2:.3f}s | DUR: {3:.3f}s]'.format(self.state, self.nextState,
-                                                                    self.state_machine['onset'] -
-                                                                    self.timers['runtime'].get_time('start'),
-                                                                    self.state_machine['duration'])
-            self.logger.logger.info(state_str)
-
-            self.state = self.nextState
-            self.triggers['moveOnRequested'] = False
-            self.state_machine['status'] = False
-            self.state_machine['current'] = None
-            return True
-        else:
-            return False
+        # Call closing trial routine
+        for device in self.devices:
+            if hasattr(self.devices[device], "stop_trial"):
+                self.devices[device].stop_trial(self.validTrial)
 
     ################################
-    # LINES BELOW CAN BE MODIFIED #
+    # CUSTOMIZATION STARTS HERE    #
     ################################
+
+    def init_devices(self):
+        """
+        Setup devices
+        For better readability of the code, devices should be added to self.devices dictionary.
+        RunTrial calls some devices methods automatically if the device's class has such methods:
+        - Device::close(): this method should implement the closing method of the device. If does not take arguments.
+        - Devices::start_trial(trial_id, trial_parameters): routine called at the begining of a trial. Parameters are:
+            int trial_id: trial number (or unique id)
+            dict trial_parameters: Trial.params
+        - Devices::stop_trial(trial_id, valid_trial): routine called at the end of a trial. Parameters should be:
+            int trial_id: trial number (or unique id)
+            bool valid_trial: is it a valid trial or not (e.g.: should it be excluded from analysis).
+        """
+        # Example 1: Create Sled instance
+        self.devices['sled'] = Sled(dummy_mode=not self.trial.settings['devices']['sled'], server='sled')
+
+        # Example 2: Create eye-tracker instance
+        if self.trial.settings['devices']['eyetracker']:
+            user_file = "{}_{}_{}".format(self.user.dftName, 'eyetracker', time.strftime('%d-%m-%Y_%H%M%S'))
+            self.devices['eyetracker'] = EyeTracker(link='10.0.0.20', dummy_mode=False, sprate=500, thresvel=35,
+                                                    thresacc=9500, illumi=2, caltype='HV5', dodrift=False,
+                                                    trackedeye='right', display_type='psychopy', user_file=user_file,
+                                                    ptw=self.ptw, bgcol=(-1, -1, -1), distance=self.screen.distance,
+                                                    resolution=self.screen.resolution,
+                                                    winsize=self.screen.size, inner_tgcol=(127, 127, 127),
+                                                    outer_tgcol=(255, 255, 255), targetsize_out=1.0, targetsize_in=0.25)
+            self.devices['eyetracker'].run()
+            self.state = 'calibration'
+
+        # Example 3: Create OptoTrak instance
+        user_file = '{}_{}_{}.txt'.format(self.user.dftName, 'optotrak', time.strftime('%d-%m-%Y_%H%M%S'))
+        self.devices['optotrak'] = OptoTrak(user_file=user_file, freq=200.0, velocity_threshold=0.1,
+                                            time_threshold=100, origin='origin',
+                                            labels=('Xas', 'Marker2', 'Yas', 'origin', 'hand1', 'hand2'),
+                                            dummy_mode=not self.trial.settings['devices']['optotrak'],
+                                            tracked={'Xas', 'Marker2', 'Yas', 'origin', 'hand1', 'hand2'})
+        self.devices['optotrak'].init()
+
+    def init_audio(self):
+        """
+        Initialize sounds
+        Auditory stimuli are created here and should be stored in RunTrial.sounds dictionary. For example:
+        self.sounds['stimulus_name'] = sound.SoundPygame(secs=0.1, values=880)
+
+        Then you can play the sound by calling:
+        self.sounds['stimulus_name'].play()
+
+        :return:
+        """
+        # Sound
+        self.sounds['valid'] = sound.Sound(secs=0.1, value=880)
+        self.sounds['valid'].setVolume(1)
+
+        self.sounds['wrong'] = sound.Sound(secs=0.1, value=440)
+        self.sounds['wrong'].setVolume(1)
+
+    def init_stimuli(self):
+        """
+        Prepare/Make stimuli
+
+        Stimuli objects (Psychopy) should be stored in self.stimuli dictionary, for example:
+        self.stimuli['stimulus_name'] = visual.Circle(self.ptw, radius=2, pos=(0, 0))
+
+        Then on every loop, the state machine will automatically call self.stimuli['stimulus_name'].draw() if
+        self.stimuliTrigger['stimulus_name'] is set to True.
+        """
+        self.stimuli['my_circle'] = visual.Circle(self.ptw, radius=30, pos=(0, 0), lineWidth=1,
+                                                  lineColor=(0.0, 0.0, 0.0), fillColor=(0.0, 0.0, 0.0), units='pix')
+
+    def get_response(self):
+        """
+        Get participant' response
+        """
+        # Initialize response timer
+        if self.timers['responseDuration'] is None or self.timers['responseDuration'].get_time('start') is None:
+            self.timers['responseDuration'] = Timer()
+            self.timers['responseDuration'].start()
+
+        # Get response buttons status
+        response_received = self.buttons.get_status('left') or self.buttons.get_status('right')
+
+        if not self.triggers['response_given'] and response_received:
+            self.triggers['response_given'] = True
+
+            # Stop response timer, store response duration, and reset timer
+            self.timers['responseDuration'].stop()
+            self.data['responseDuration'] = round(self.timers['responseDuration'].get_time('elapsed')*1000.0)
+            self.timers['responseDuration'].reset()
+
+            # Code response
+            self.data['response'] = 'left' if self.buttons.get_status('left') else 'right'
+            self.data['correct'] = self.data['response'] == 'right'
 
     def fast_state_machine(self):
         """
         Real-time state machine: state changes are triggered by keys or timers. States always have the same order.
         This state machine runs at close to real-time speed. Event handlers (key press, etc.) and position trackers
-        (optotrack, eye-tracker or sled) should be called within this state machine.
+        (optotrak, eye-tracker or sled) should be called within this state machine.
         Rendering of stimuli should be implemented in the graphics_state_machine()
         """
         while self.status:
