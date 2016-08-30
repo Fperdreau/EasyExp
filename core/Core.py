@@ -20,7 +20,6 @@
 
 from __future__ import print_function
 
-
 """
 EasyExp is a Python framework designed to ease the implementation of behavioral experiments.
 """
@@ -28,7 +27,7 @@ EasyExp is a Python framework designed to ease the implementation of behavioral 
 # IMPORTS
 # =======
 # Version
-import core.version as v
+import version as v
 
 # Core
 from .Config import Config
@@ -82,6 +81,7 @@ class Core(object):
         self.trial = None
         self.screen = None
         self.design = None
+        self.logger = None
 
         self.__cli = False
 
@@ -96,7 +96,7 @@ class Core(object):
 
         self.expname = None
 
-    def getexp(self, folder):
+    def get_experiment(self, folder, cli=False):
         """
         Provide the user with a dialog UI to choose the experiment to run
         :return:
@@ -112,10 +112,10 @@ class Core(object):
             }
         }}
 
-        if self.cli:
-            selectexp = GuiWrapper.factory(self.cli, 'nested', data, title='Select Experiment', mandatory=True)
+        if cli:
+            selectexp = GuiWrapper.factory(cli, 'nested', data, title='Select Experiment', mandatory=True)
         else:
-            selectexp = GuiWrapper.factory(self.cli, 'nested', data, title='Select Experiment')
+            selectexp = GuiWrapper.factory(cli, 'nested', data, title='Select Experiment')
         return selectexp.out['Experiment selection']['expname']['value']
 
     @staticmethod
@@ -148,17 +148,17 @@ class Core(object):
         print("# Date: {}".format(time.strftime("%d-%m-%y %H:%M:%S")))
         print("\n##############################\n")
 
-        self.cli = cli
+        # Get experiment
         self.experimentsFolder = "{}/experiments/".format(rootfolder)
-        self.expname = self.getexp(self.experimentsFolder)
-        if not isdir('{}/logs'.format(rootfolder)):
-            mkdir('{}/logs'.format(rootfolder))
+        self.expname = self.get_experiment(self.experimentsFolder, cli=cli)
 
         # Get logger
+        if not isdir('{}/logs'.format(rootfolder)):
+            mkdir('{}/logs'.format(rootfolder))
         self.logger = self.get_logger(rootfolder, self.expname)
 
         # Get and set configuration
-        self.config = Config(rootfolder=rootfolder, expname=self.expname, cli=self.cli)
+        self.config = Config(rootfolder=rootfolder, expname=self.expname, cli=cli)
         self.config.setup()
 
         self.settings = self.config.settings
@@ -170,7 +170,7 @@ class Core(object):
                          session=self.settings['setup']['session'],
                          demo=self.settings['setup']['demo'],
                          practice=self.settings['setup']['practice'])
-        self.user.setup(cli=self.cli)
+        self.user.setup(cli=cli)
 
         self.files['design'] = self.user.designfile
 
@@ -225,6 +225,7 @@ class Core(object):
         except Exception as e:
             msg = '[{0}] An unexpected error has occurred: {1}'.format(__name__, e)
             self.logger.logger.fatal(msg)
+            self.stop()
             raise Exception(msg)
 
         # Stop experiment
