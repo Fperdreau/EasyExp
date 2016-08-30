@@ -28,10 +28,12 @@ import types
 
 import time
 
-from core.Config import ConfigFiles
+from Config import ConfigFiles
 import logging
 
-from core.Core import Core
+from Core import Core
+
+__status__ = "Development"
 
 
 class Devices(object):
@@ -54,38 +56,50 @@ class Devices(object):
     def init(self):
         """
         Instantiate and initialize devices
-        Returns
-        -------
-
         """
         self.devices_file.load()
         for device_name, params in self.devices_file.data.iteritems():
-            device = Devices.str_to_class(device_name)
-            if device_name not in self.devices:
-                try:
-                    if hasattr(device, "user_file"):
-                        user_file = '{}/{}_{}.txt'.format(self.__core.user.dftName, device_name,
-                                                          time.strftime('%d-%m-%Y_%H%M%S'))
-                        params.update({"user_file": user_file})
+            self.add_device(device_name, **params)
 
-                    self.devices[device_name] = device(**params)
-                except AttributeError:
-                    raise AttributeError('Could not instantiate {}'.format(device_name))
+    def add_device(self, device_name, **params):
+        """
+        Add device to container
+        :param device_name: name of device
+        :type device_name: str
+        :param params: parameters passed to device's constructor
+        :return:
+        """
+        device = Devices.str_to_class(device_name)
+        if device_name not in self.devices and self.settingsFile.data['device'][device_name] is not False:
+            try:
+                if hasattr(device, "user_file"):
+                    user_file = '{}/{}_{}.txt'.format(self.__core.user.dftName, device_name,
+                                                      time.strftime('%d-%m-%Y_%H%M%S'))
+                    params.update({"user_file": user_file})
 
+                if hasattr(device, "ptw"):
+                    params.update({"ptw": self.__core.screen.ptw})
 
+                self.devices[device_name] = device(**params)
+            except AttributeError:
+                raise AttributeError('Could not instantiate {}'.format(device_name))
+
+    def del_device(self, device_name):
+        """
+        Removed device
+        :param device_name: device label
+        :type device_name: str
+        :return:
+        """
+        if device_name in self.devices:
+            del self.devices[device_name]
 
     @staticmethod
     def str_to_class(field):
         """
         Instantiate class from class's name
-        Parameters
-        ----------
-        field: class' name
+        :param field: class' name
         :type field: str
-
-        Returns
-        -------
-        Object
         """
         try:
             identifier = getattr(sys.modules[__name__], field)
