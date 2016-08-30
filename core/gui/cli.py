@@ -76,11 +76,11 @@ class BaseCli(object):
         :param section:
         :return:
         """
-        return BaseCli.waiting_for_response('{} section: do you want to proceed (yes, no)? '.format(section),
-                                         ['yes', 'no'])
+        return BaseCli.waiting_for_response('{} section: do you want to proceed [yes, no (selected)]? '.format(section),
+                                            ['yes', 'no'], default='no')
 
     @staticmethod
-    def waiting_for_response(msg, options=None):
+    def waiting_for_response(msg, options=None, default=None):
         """
         Prompt the user with requested input until he gives an answer present amongst the possible options
         :param msg: Message to display
@@ -88,13 +88,17 @@ class BaseCli(object):
         :param options: List of possible answers
         :type options: list
         :return: User's answer
+        :param default: default value. If default is set and the user does not enter any response, then this function
+        will return this default value.
         :rtype: str
         """
         out = None
         lowered_options = [i.lower() for i in options] if options is not None else None
         while True:
             out = raw_input(msg).lower()
-            if (options is None and out != '') or (out in lowered_options):
+            if (default is not None and out == '') or (options is None and out != '') or (out in lowered_options):
+                if default is not None and out == '':
+                    out = str(default)  # Convert to string to make sure this method always returns the same type
                 break
             else:
                 logging.warning('Unexpected response. Options are {}'.format(', '.join(options)))
