@@ -34,7 +34,7 @@ link = "100.1.1.1"
 app = QtGui.QApplication(sys.argv)
 
 # Initialize Tracker
-eyetracker = EyeTracker(link=link, dummy=False, sprate=1000, thresvel=35, thresacc=9500, illumi=2,
+eyetracker = EyeTracker(link=link, dummy_mode=False, sprate=1000, thresvel=35, thresacc=9500, illumi=2,
                         caltype='HV5', dodrift=False, trackedeye='right', display_type=display_type, ptw=app,
                         bgcol=(127, 127, 127), distance=550, resolution=resolution, winsize=(400, 300),
                         inner_tgcol=(127, 127, 127), outer_tgcol=(255, 255, 255), targetsize_out=1.5,

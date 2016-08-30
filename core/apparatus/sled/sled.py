@@ -29,7 +29,7 @@ __copyright__ = '2016'
 __license__ = 'GPL'
 
 
-class MySled(object):
+class Sled(object):
     """
     MySled is a Wrapper class that handles SLED's routine relying on FPClient and SledClient. It also implements a
     dummy mode that simulates SLED's displacement when the SLED is not actually connected (Usefull for developing or
@@ -37,7 +37,7 @@ class MySled(object):
 
     Example:
     >>>duration = 1.0  # Movement duration in seconds
-    >>>sled = MySled(status=True, server='sled', port=3375)  # Instantiate Sled
+    >>>sled = Sled(status=True, server='sled', port=3375)  # Instantiate Sled
     >>>sled.move(0.20, duration)  # Send commands to the SLED
     >>>init_time = time.time()
     >>>while time.time() <= (init_time + duration):
@@ -52,20 +52,21 @@ class MySled(object):
 
     mvt_back_duration = 2.0
     home = 0.0
+    dummy_mode = False
 
-    def __init__(self, status=False, server=False, port=3375):
+    def __init__(self, dummy_mode=False, server=False, port=3375):
         """
         MySled constructor
         Parameters
         ----------
-        @param status: if true, connects to actual FPClient server, otherwise runs in dummy mode
-        @type status: bool
-        @param server: IP address of sled server
-        @type server: bool|str
-        @param port: com port
-        @type port: int
+        :param dummy_mode: if false, connects to actual FPClient server, otherwise runs in dummy mode
+        :type dummy_mode: bool
+        :param server: IP address of sled server
+        :type server: bool|str
+        :param port: com port
+        :type port: int
         """
-        self.status = status
+        self.dummy_mode = dummy_mode
         self.client = None
         self.positionClient = None
         self.port = port
@@ -82,7 +83,7 @@ class MySled(object):
         """
         Connects to sled Server (server=True) or simulate a sled server (server=False)
         """
-        if not self.status:
+        if self.dummy_mode:
             self.client = DummyClient()  # for visual only mode
         else:
             try:
@@ -297,7 +298,7 @@ if __name__ == '__main__':
     movDuration = 2.0
     movBackDuration = 3.0
 
-    sled = MySled(status=True, server='sled')
+    sled = Sled(status=True, server='sled')
     sled.lights(False)  # Turn the lights OFF
 
     sled.move(homePos, movBackDuration)

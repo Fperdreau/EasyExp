@@ -37,8 +37,8 @@ import sys
 
 try:
     from pylink import *
-except ImportError:
-    raise ImportError('EyeTracker wrapper class requires pylink (Eyelink) module to work')
+except ImportError as e:
+    raise ImportError('[{}] EyeTracker wrapper class requires pylink (Eyelink) module to work: {}'.format(__name__, e))
 
 from pygame import *
 import time
@@ -46,6 +46,7 @@ import gc
 import math
 import random
 import os
+import logging
 
 
 def deg2pix(angle, direction=1, distance=550, screen_res=(800, 600), screen_size=(400, 300)):
@@ -112,8 +113,10 @@ class EyeTracker(object):
     """
     eye_list = ['LEFT_EYE', 'RIGHT_EYE', 'BINOCULAR', 'MOUSE']  # Used by eyeAvailable
     allowed_sprate = (250, 500, 1000, 2000)  # Allowed sampling rates
+    user_file = None
+    dummy_mode = False
 
-    def __init__(self, link='10.0.0.20', dummy=False, name='X', sprate=1000, thresvel=35, thresacc=9500, illumi=2, caltype='H3',
+    def __init__(self, link='10.0.0.20', dummy_mode=False, user_file='X', sprate=1000, thresvel=35, thresacc=9500, illumi=2, caltype='H3',
                  dodrift=False, trackedeye='right', display_type='pygame', ptw=None, bgcol=(127, 127, 127), distance=550,
                  resolution=(800, 600), winsize=(800, 600), inner_tgcol=(127, 127, 127), outer_tgcol=(255, 255, 255),
                  targetsize_out=1.5, targetsize_in=0.5):
@@ -121,16 +124,16 @@ class EyeTracker(object):
         """
         EyeTracker constructor
         :param string link: IP address of the Eyelink
-        :param bool dummy: DummyMode (Eye is simulated by the mouse)
-        :param string name: full path to destination edf file (e.g.: /full/path/to/edf_file * note: without extension)
+        :param bool dummy_mode: DummyMode (Eye is simulated by the mouse)
+        :param str user_file: full path to destination edf file (e.g.: /full/path/to/edf_file * note: without extension)
         :param int sprate: Sampling rate (in Hz)
         :param int thresvel: Saccade velocity threshold
         :param int thresacc: Saccade acceleration threshold
         :param int illumi: Illumination of the infrared (1:100% 2:75% 3:50%)
-        :param string caltype: Calibration type (HV5, ...)
+        :param str caltype: Calibration type (HV5, ...)
         :param bool dodrift: Drift correction
-        :param string trackedeye: Tracked eye ('left','right','both')
-        :param string display_type:
+        :param str trackedeye: Tracked eye ('left','right','both')
+        :param str display_type:
         :param ptw: Windows pointer
         :param tuple bgcol: Background color
         :param int distance: Distance eye-screen
@@ -145,17 +148,17 @@ class EyeTracker(object):
 
         # File information
         # ================
-        self.name = name  # EDF file name stored on the Experiment host
+        self.user_file = user_file  # EDF file name stored on the Experiment host
 
         # Check frequency sampling
         if sprate not in self.allowed_sprate:
-            raise ImportError('This sample rate is not supported. it must be one of {0}'
-                              .format(list(self.allowed_sprate)))
+            raise AttributeError('This sample rate is not supported. it must be one of {0}'.format(
+                ', '.join(self.allowed_sprate)))
 
         # Eyetracker settings
         # ===================
         self.link = link  # IP address of the Eyelink
-        self.dummy = dummy  # DummyMode (Eye is simulated by the mouse)
+        self.dummy_mode = dummy_mode  # DummyMode (Eye is simulated by the mouse)
         self.sprate = sprate  # Sampling rate (in Hz)
         self.thresvel = thresvel  # Saccade velocity threshold
         self.thresacc = thresacc  # Saccade acceleration threshold
@@ -181,7 +184,7 @@ class EyeTracker(object):
         self.connect()
 
         # Data file
-        self.file = EDFfile(self, self.name)
+        self.file = EDFfile(self, self.user_file)
 
         # Calibration
         self.calibration = Calibration(self, self.display, caltype)
@@ -191,7 +194,7 @@ class EyeTracker(object):
         Connect to eyetracker or to dummy tracker
         :return:
         """
-        if not self.dummy and self.link is not None:
+        if not self.dummy_mode and self.link is not None:
             print('[{0}] Connecting to the EyeLink at {1}'.format(__name__, self.link))
             try:
                 self.el = EyeLink(self.link)
@@ -210,6 +213,14 @@ class EyeTracker(object):
         error = self.el.commandResult()
         if error != 0:
             raise Exception('[{}] Command ({}) could not be sent to eyetracker: {1}'.format(__name__, cmd, error))
+
+    def send_message(self, message):
+        """
+        Sends a message to the eyelink
+        :param message: message to send
+        :type message: str
+        """
+        self.el.sendMessage(message)
 
     def run(self):
         """
@@ -341,18 +352,18 @@ class EyeTracker(object):
                                                            self.display.center[1] + 50))
         self.el.sendMessage('TRIALID %d' % self.trial)
         # Start recording the eye and collect some data
-        self.startrecording()
+        self.start_recording()
 
-    def endtrial(self, valid=True):
+    def stop_trial(self, valid=True):
         """
         Routine running at the end of a trial
         :param bool valid: valid (True) or invalid (False) trial
         """
         valid = 'VALID' if valid else 'INVALID'
         self.el.sendMessage('TRIAL_OK {}'.format(valid))
-        self.stoprecording()
+        self.stop_recording()
 
-    def startrecording(self, w_sample=1, w_event=1, s_sample=1, s_event=1):
+    def start_recording(self, w_sample=1, w_event=1, s_sample=1, s_event=1):
         """
         Start recording the tracked eye and tests if it worked
         :param s_event: 1: write sample to EDF file
@@ -373,7 +384,8 @@ class EyeTracker(object):
         # Begin the real time mode (Windows only)
         # @todo: an error occurs when running on Linux. This issue has been previously reported. Using the new version
         # of pylink (version 1.9) should fix it. For more information,
-        # see https://www.sr-support.com/showthread.php?4106-pylink-beginRealTimeMode()-freezes-and-some-other-issues-(Ubuntu-14-04-64-bit)&highlight=opensesame
+        # see https://www.sr-support.com/showthread.php?4106-pylink-beginRealTimeMode()-freezes-and-some-other-issues-
+        # (Ubuntu-14-04-64-bit)&highlight=opensesame
         # To start the real time mode, uncomment the following line:
         # beginRealTimeMode(100)
 
@@ -392,7 +404,7 @@ class EyeTracker(object):
         else:
             self.eyes[self.trackedeye] = Eye(self, self.trackedeye)
 
-    def stoprecording(self):
+    def stop_recording(self):
         """
         Stop recording instruction
         :return:
@@ -1001,7 +1013,7 @@ class Checking(object):
                 self.lost += 1
             if self.auto & self.lost > self.lostthres:
                 self.tracker.calibration.calibrate()
-                self.tracker.startrecording(self.tracker.trial)
+                self.tracker.start_recording(self.tracker.trial)
                 return
 
         return True in fix
@@ -1027,7 +1039,7 @@ class Checking(object):
                 if key.__key__ == ord('c'):
                     print('[{0}] Calibration requested by the user'.format(__name__))
                     self.tracker.calibration.calibrate()
-                    self.tracker.startrecording()
+                    self.tracker.start_recording()
                     return True
                 elif key.__key__ == ESC_KEY:
                     print('[{}} Esc pressed, exiting fixation test'.format(__name__))

@@ -104,11 +104,10 @@ elif display_type is 'pygame':
     pygame.mouse.set_visible(False)
     win = pygame.display  # Pointer to the pygame windows
 else:
-    print 'Oops. If you want to try out the Qt version, you might use example_Qt.py'
-    raise
+    raise Exception('Oops. If you want to try out the Qt version, you might use example_Qt.py')
 
 # From this point, the EyeTracker wrapper class works the same whatever we are using a pygame or a psychopy window
-eyetracker = EyeTracker(link=link, dummy=False, sprate=1000, thresvel=35, thresacc=9500, illumi=2,
+eyetracker = EyeTracker(link=link, dummy_mode=False, sprate=1000, thresvel=35, thresacc=9500, illumi=2,
                         caltype='HV9', dodrift=False, trackedeye='right', display_type=display_type, ptw=win,
                         bgcol=(0, 0, 0), distance=distance, resolution=resolution, winsize=screen_size,
                         inner_tgcol=(0, 0, 0), outer_tgcol=(1, 1, 1), targetsize_out=1.0,
@@ -133,7 +132,8 @@ eyetracker.calibration.calibrate()
 # Start trials
 stopexp = False
 for trialID in range(5):
-    eyetracker.starttrial(trialID+1)
+    # Starting routine
+    eyetracker.start_trial(trialID+1)
 
     # Fixation test before we start the trial
     fix = False
@@ -186,7 +186,7 @@ for trialID in range(5):
         stopexp = keys[pygame.K_ESCAPE]
 
     # End the trial (stop recording)
-    eyetracker.endtrial()
+    eyetracker.stop_trial()
 
     if stopexp:
         break
