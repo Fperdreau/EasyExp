@@ -225,6 +225,7 @@ class Core(object):
         except Exception as e:
             msg = '[{0}] An unexpected error has occurred: {1}'.format(__name__, e)
             self.logger.logger.fatal(msg)
+            runtrial.quit()
             self.stop()
             raise Exception(msg)
 
