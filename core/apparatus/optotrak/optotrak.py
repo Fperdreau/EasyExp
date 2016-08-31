@@ -435,7 +435,7 @@ class Sensor(OptoTrak):
         positions = self.client.getPosition()
         origin = np.asarray(positions[self.originID])
         this = np.asarray(positions[self.id])
-        position = np.asarray(this[0] - origin[0])
+        position = np.asarray(this[0])
 
         # Add position to history
         self.add_history(position)
