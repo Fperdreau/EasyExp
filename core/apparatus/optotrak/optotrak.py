@@ -491,6 +491,14 @@ class Sensor(OptoTrak):
         else:
             return 0.0
 
+    @property
+    def is_moving(self):
+        """
+        Check if sensor is moving
+        :return: sensor is moving (True)
+        """
+        return self.velocity >= self.velocityThres
+
     def get_velocity(self):
         """
         Velocity getter
@@ -498,16 +506,19 @@ class Sensor(OptoTrak):
         """
         return self.velocity
 
-    def validposition(self, threshold_time=0.100):
+    def validposition(self, threshold_time=None):
         """
         validate sensor's position
         :param threshold_time: minimum period during which the sensor must stay within the same spatial region in order
         to be considered as not moving
+        :type threshold_time: float
         :rtype: bool
         """
+        threshold_time = self.velocityThres if threshold_time is None else threshold_time
+
         validated = False
         self.final_hand_position = False
-        if self.velocity < self.velocityThres:
+        if not self.is_moving:
             if self.valid_time is None:
                 self.send_message('EVENT_START_VALIDATION {}'.format(self.name))
                 self.valid_time = time.time()
