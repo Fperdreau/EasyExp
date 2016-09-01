@@ -30,11 +30,11 @@ EasyExp is a Python framework designed to ease the implementation of behavioral 
 import version as v
 
 # Core
-from .Config import Config
-from .User import User
-from .Design import Design
-from .Trial import Trial
-from .Screen import Screen
+from Config import Config
+from User import User
+from Design import Design
+from Trial import Trial
+from Screen import Screen
 
 # Import useful libraries
 import time
@@ -43,10 +43,10 @@ from os import listdir, mkdir
 from os.path import isdir, join
 
 # Dialog UI
-from core.gui.gui_wrapper import GuiWrapper
+from gui.gui_wrapper import GuiWrapper
 
 # Logger
-from .system.customlogger import CustomLogger
+from system.customlogger import CustomLogger
 
 
 class Core(object):

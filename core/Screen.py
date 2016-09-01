@@ -27,13 +27,14 @@ import sys
 
 # Dialog UI
 import signal
-from .display.qtwindow import QtWindow
+from display.qtwindow import QtWindow
 
 # PyQt (package python-qt4-gl on Ubuntu)
 from PyQt4.QtGui import *
 
 # Logger
 import logging
+
 
 class Screen(object):
     """

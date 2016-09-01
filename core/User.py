@@ -25,7 +25,7 @@ from os import mkdir
 from os.path import isdir, isfile
 
 # GUI
-from core.gui.gui_wrapper import GuiWrapper
+from gui.gui_wrapper import GuiWrapper
 
 
 class User(object):

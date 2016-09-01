@@ -32,7 +32,7 @@ from os.path import isdir, isfile
 import json
 
 # Dialog UI
-from core.gui.gui_wrapper import GuiWrapper
+from gui.gui_wrapper import GuiWrapper
 import logging
 
 

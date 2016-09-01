@@ -27,7 +27,7 @@ This file is for Design class.
 # IMPORTS
 # =======
 # Core
-from .Config import ConfigFiles
+from Config import ConfigFiles
 
 # Import useful libraries
 import sys

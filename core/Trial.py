@@ -23,8 +23,8 @@ from __future__ import print_function
 # IMPORTS
 # =======
 # Core
-from .Design import Design
-from .Config import ConfigFiles
+from Design import Design
+from Config import ConfigFiles
 
 # Import useful libraries
 import time
