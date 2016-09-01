@@ -25,8 +25,8 @@
 from __future__ import print_function
 from __future__ import division
 
-# psychopy
-# Use pyo library instead of pygame
+# Psychopy
+# Use pyo library instead of Pygame
 from psychopy import prefs
 prefs.general['audioLib'] = ['pygame']
 from psychopy import visual, sound
@@ -36,24 +36,21 @@ import numpy as np
 
 # EasyExp modules
 from core.Core import Core
-from core.movie.moviemaker import MovieMaker
+from core.BaseTrial import BaseTrial
 from core.buttons.buttons import UserInput
-from core.display.fpscounter import FpsCounter
 from core.events.timer import Timer
 
-# Multi-threading
-import threading
-
+# Custom imports
 #################################
 # ADD YOUR CUSTOM IMPORTS BELOW #
 #################################
 from core.misc.conversion import pol2cart, mm2pix, deg2m
 from core.apparatus.sled.sled import Sled
-from core.apparatus.eyetracker.eyetracker import EyeTracker
 from core.apparatus.optotrak.optotrak import OptoTrak
+from core.apparatus.eyetracker.eyetracker import EyeTracker
 
 
-class RunTrial(object):
+class RunTrial(BaseTrial):
     """
     RunTrial class
     This class handles experiment's trials procedure
@@ -106,67 +103,13 @@ class RunTrial(object):
         :param Core exp_core: Core object
         :type exp_core: Core
         """
-
-        ##################################
-        # DO NOT MODIFY THE LINES BELLOW #
-        ##################################
-        # super(RunTrial, self).__init__(core=core)
-
-        self.core = exp_core
-        self.screen = exp_core.screen
-        self.trial = exp_core.trial
-        self.user = exp_core.user
-        self.ptw = self.screen.ptw
-        self.textToDraw = RunTrial.homeMsg
-
-        # State Machine
-        # =============
-        self.state_machine = {
-            'current': None,
-            'status': False,
-            'singleshot': True,
-            'timer': None,
-            'duration': 0.0,
-            'onset': 0.0,
-            'offset': 0.0
-        }
-        self.status = True
-        self.state = 'idle'
-        self.nextState = "iti"
-        self.validTrial = False
-
-        # Dependencies
-        # ============
-        # FPScounter: measures flip duration or simply flips the screen
-        self.fpsCounter = FpsCounter(self.screen.ptw)
-
-        # Logger: verbose level can be set by changing level to 'debug', 'info' or 'warning'
-        self.logger = exp_core.logger
-
-        # Stimuli
-        # =======
-        self.stimuli = dict()
-
-        # Devices
-        # =======
-        self.devices = dict()
-        # Setup devices
-        self.init_devices()
-
-        # Audio/Video
-        # ===========
-        # Initialize audio
-        self.sounds = dict()
-        self.init_audio()
-        self.movie = None
-
-        # Timings
-        # =======
-        self.timings = self.trial.parameters['durations']
+        # DO NOT MODIFY
+        super(RunTrial, self).__init__(exp_core=exp_core)
 
         ################################
         # LINES BELOW CAN BE MODIFIED #
         ################################
+
         # Experiment settings
         # ===================
         # Experiment's parameters can accessed by calling self.trial.parameters['parameter_name']
@@ -267,212 +210,6 @@ class RunTrial(object):
         # Response keys
         # Add your response keys below
 
-    # =========================================
-    # SLED movement
-    # =========================================
-    def getviewerposition(self):
-        """
-        Get viewer (sled) position
-        """
-        p = self.devices['sled'].getposition(t=self.devices['sled'].client.time())
-        self.pViewer = (p[0], p[1])
-
-    # =========================================
-    # STATE MACHINE
-    # =========================================
-
-    def run(self):
-        """
-        Application main loop
-        DO NOT MODIFY
-        """
-        t1 = threading.Thread(target=self.fast_state_machine)
-        t1.start()
-        while self.status:
-            self.graphics_state_machine()
-
-        t1.join()
-
-    def change_state(self):
-        """
-        This function handles transition between states
-        DO NOT MODIFY
-        :rtype: bool
-        """
-        if self.timers['runtime'] is None or self.timers['runtime'].get_time('start') is None:
-            self.timers['runtime'] = Timer()
-            self.timers['runtime'].start()
-
-        if self.state_machine['current'] is None:
-            # If we enter a new state
-            self.state_machine['current'] = self.state
-            self.state_machine['timer'] = Timer(max_duration=self.timings[self.state])
-            self.state_machine['timer'].start()
-            self.state_machine['onset'] = self.state_machine['timer'].get_time('start')
-            self.state_machine['status'] = True
-            self.triggers['moveOnRequested'] = False
-            self.state_machine['singleshot'] = True  # Enable single shot events
-
-            # Send events to devices that will be written into their data file
-            for device in self.devices:
-                if hasattr(self.devices[device], 'send_message'):
-                    self.devices[device].send_message('EVENT_STATE_{}'.format(self.state))
-
-        # Check inputs and timers
-        self.triggers['moveOnRequested'] = self.go_next() if self.triggers['moveOnRequested'] is False else True
-
-        # If we transition to the next state
-        if self.triggers['moveOnRequested'] and self.state_machine['status']:
-            self.state_machine['timer'].stop()
-            self.state_machine['offset'] = self.state_machine['timer'].get_time('stop')
-            self.state_machine['duration'] = self.state_machine['timer'].get_time('elapsed')
-            self.state_machine['timer'].reset()
-
-            state_str = '[STATE]: {0}=>{1}' \
-                        ' [START: {2:.3f}s | DUR: {3:.3f}s]'.format(self.state, self.nextState,
-                                                                    self.state_machine['onset'] -
-                                                                    self.timers['runtime'].get_time('start'),
-                                                                    self.state_machine['duration'])
-            self.logger.logger.info(state_str)
-
-            self.state = self.nextState
-            self.triggers['moveOnRequested'] = False
-            self.state_machine['status'] = False
-            self.state_machine['current'] = None
-            return True
-        else:
-            return False
-
-    def quit(self):
-        """
-        Quit experiment
-        :return:
-        """
-        # Set in idle mode
-        self.state = 'idle'
-        self.textToDraw = "Experiment is over!"
-
-        # Shutdown devices
-        for device in self.devices:
-            if hasattr(self.devices[device], "close"):
-                self.logger.logger.info('[{}] Closing "{}"'.format(__name__, device))
-                self.devices[device].close()
-
-        self.status = False
-
-    def go_next(self):
-        """
-        Check if it is time to move on to the next state. State changes can be triggered by key press (e.g.: ESCAPE key)
-        or timers. States' duration can be specified in the my_project_name/experiments/experiment_name/parameters.json
-        file.
-        :rtype: bool
-        """
-        # Update input devices state
-        self.buttons.update()
-
-        # Does the user want to quit the experiment?
-        if self.buttons.get_status('quit'):
-            self.triggers['quitRequested'] = True
-
-        # Does the user want a break?
-        if self.buttons.get_status('pause'):
-            self.triggers['pauseRequested'] = True
-
-        # Shall we go on?
-        if self.timings[self.state] is not False:
-            timeToMoveOn = (time.time() - self.state_machine['onset']) >= self.timings[self.state]
-        else:
-            timeToMoveOn = self.buttons.get_status('move_on')
-
-        return timeToMoveOn
-
-    def init_trial(self):
-        """
-        Initializes trial
-        Check if we should start a new trial, trigger a pause or quit the experiment
-        DO NOT MODIFY
-
-        :return void:
-        """
-        # Check experiment status
-        status = self.trial.setup()
-        if status is False:
-            # If no more trials to run, then quit the experiment
-            self.nextState = 'quit'
-            self.triggers['moveOnRequested'] = True
-            return False
-        else:
-            self.status = status
-            if self.status is "pause":
-                self.triggers['pauseRequested'] = True
-                self.nextState = 'pause'
-                self.triggers['moveOnRequested'] = True
-                return 'pause'
-
-            # Start a new trial
-            # Reset timers
-            for timer, value in self.timers.iteritems():
-                self.timers[timer].reset()
-
-            # Reset data
-            for data, value in self.data.iteritems():
-                self.data[data] = None
-
-            # Reset stimuli triggers
-            for label, value in self.stimuliTrigger.iteritems():
-                self.stimuliTrigger[label] = False
-
-            # Reset event triggers
-            for label, value in self.triggers.iteritems():
-                self.triggers[label] = False
-
-            # Send START_TRIAL to devices
-            for device in self.devices:
-                if hasattr(self.devices[device], 'start_trial'):
-                    self.devices[device].start_trial(self.trial.id, self.trial.params)
-
-            # Initialize movie if requested
-            if self.trial.settings['setup']['movie']:
-                self.movie = MovieMaker(self.ptw, "Dynamic_{}_{}".format(self.trial.params["first"],
-                                                                         self.trial.params['timing']), "png")
-            # Initialize stimuli
-            self.init_stimuli()
-
-            return True
-
-    def end_trial(self):
-        """
-        End trial routine
-        :return:
-        """
-        # Did we get a response from the participant?
-        self.validTrial = self.triggers['response_given'] is not False
-        self.timers['runtime'].reset()
-
-        # Close movie file is necessary
-        if self.trial.settings['setup']['movie']:
-            self.movie.close()
-
-        # Replay the trial if the user did not respond fast enough or moved the hand before the response phase
-        self.logger.logger.debug('[{}] Trial {} - Results:'.format(__name__, self.trial.id))
-        for data, value in self.data.iteritems():
-            self.logger.logger.debug('[{}] {}: {}'.format(__name__, data, value))
-        self.logger.logger.info('[{}] Trial {} - Valid: {}'.format(__name__, self.trial.id, self.validTrial))
-
-        # Play an auditory feedback to inform whether the trial was valid or not
-        if not self.validTrial:
-            self.sounds['wrong'].play()
-        else:
-            self.sounds['valid'].play()
-
-        self.trial.stop(self.validTrial)  # Stop routine
-        self.trial.writedata(self.data)  # Write data
-
-        # Call closing trial routine
-        for device in self.devices:
-            if hasattr(self.devices[device], "stop_trial"):
-                self.devices[device].stop_trial(self.validTrial)
-
     ################################
     # CUSTOMIZATION STARTS HERE    #
     ################################
@@ -555,21 +292,25 @@ class RunTrial(object):
             self.timers['responseDuration'] = Timer()
             self.timers['responseDuration'].start()
 
-        # Get response buttons status
+        # Get some response (e.g. check buttons status)
         response_received = self.buttons.get_status('left') or self.buttons.get_status('right')
 
+        # if response has been given for the first time, then process it
         if not self.triggers['response_given'] and response_received:
-            self.triggers['response_given'] = True
+            self.triggers['response_given'] = True  # Yes, we got a response
 
             # Stop response timer, store response duration, and reset timer
             self.timers['responseDuration'].stop()
             self.data['responseDuration'] = round(self.timers['responseDuration'].get_time('elapsed')*1000.0)
             self.timers['responseDuration'].reset()
 
-            # Code response
+            # Do something with the response: for instance, is it a correct answer?
             self.data['response'] = 'left' if self.buttons.get_status('left') else 'right'
             self.data['correct'] = self.data['response'] == 'right'
 
+    # =========================================
+    # State machines
+    # =========================================
     def fast_state_machine(self):
         """
         Real-time state machine: state changes are triggered by keys or timers. States always have the same order.
@@ -577,99 +318,92 @@ class RunTrial(object):
         (optotrak, eye-tracker or sled) should be called within this state machine.
         Rendering of stimuli should be implemented in the graphics_state_machine()
         """
-        while self.status:
 
-            ################################
-            # DO NOT MODIFY THE LINE BELOW #
-            ################################
+        if self.state == 'idle':
+            # IDLE state
+            # DO NOT MODIFY
+            self.nextState = 'iti'
 
-            # Check state status
-            self.change_state()
+        elif self.state == 'quit':
+            # QUIT experiment
+            # DO NOT MODIFY
 
-            # Get sled (viewer) position
-            self.getviewerposition()
+            if self.state_machine['singleshot']:
+                self.state_machine['singleshot'] = False
+                self.quit()
 
-            if self.state == 'idle':
-                # IDLE state
-                # DO NOT MODIFY
+        elif self.state == 'pause':
+            # PAUSE experiment
+            # DO NOT MODIFY
+            self.nextState = 'iti'
+            if self.state_machine['singleshot']:
+                self.state_machine['singleshot'] = False
+                self.triggers['pauseRequested'] = False
+
+                # Move the sled back to its default position
+                if 'sled' in self.devices and self.devices['sled'] is not None:
+                    self.devices['sled'].move(self.sledHome, self.mvtBackDuration)
+                    time.sleep(self.mvtBackDuration)
+                    self.devices['sled'].lights(True)  # Turn the lights off
+
+        elif self.state == 'calibration':
+            # Eye-tracker calibration
+            self.nextState = 'iti'
+
+        elif self.state == 'iti':
+            # Inter-trial interval
+            self.nextState = 'start'
+            if self.state_machine['singleshot']:
+                self.state_machine['singleshot'] = False
+                if self.devices['sled'] is not None:
+                    self.devices['sled'].lights(False)  # Turn the lights off
+
+        elif self.state == 'start':
+            # Start trial: get trial information and update trial's parameters accordingly
+            self.nextState = 'response'
+
+            if self.state_machine['singleshot'] is True:
+                # DO NOT MODIFY THE LINES BELOW
+                self.state_machine['singleshot'] = False
+                status = self.init_trial()  # Get trial parameters
+                if not status:
+                    self.nextState = 'quit'
+                    self.triggers['moveOnRequested'] = True
+                if status is 'pause':
+                    self.nextState = 'pause'
+                    self.triggers['moveOnRequested'] = True
+
+                    self.data['response'] = False
+
+                # ADD YOUR CODE HERE
+                # Stimuli Triggers
+                self.triggers['startTrigger'] = True  # Draw stimuli
+
+        elif self.state == 'response':
+            self.nextState = 'end'
+
+            # Get participant's response
+            self.get_response()
+
+            # If we got a response, then move to next state
+            if self.triggers['response_given']:
+                self.triggers['moveOnRequested'] = True
+
+        elif self.state == 'end':
+            # End of trial. Call ending routine.
+            if self.triggers['pauseRequested']:
+                self.nextState = "pause"
+            elif self.triggers['quitRequested']:
+                self.nextState = "quit"
+            else:
                 self.nextState = 'iti'
 
-            elif self.state == 'quit':
-                # QUIT experiment
-                # DO NOT MODIFY
+            if self.state_machine['singleshot'] is True:
+                self.state_machine['singleshot'] = False
+                self.triggers['startTrigger'] = False
 
-                if self.state_machine['singleshot']:
-                    self.state_machine['singleshot'] = False
-                    self.quit()
-
-            elif self.state == 'pause':
-                # PAUSE experiment
-                # DO NOT MODIFY
-                self.nextState = 'iti'
-                if self.state_machine['singleshot']:
-                    self.state_machine['singleshot'] = False
-                    self.triggers['pauseRequested'] = False
-
-                    # Move the sled back to its default position
-                    if 'sled' in self.devices and self.devices['sled'] is not None:
-                        self.devices['sled'].move(self.sledHome, self.mvtBackDuration)
-                        time.sleep(self.mvtBackDuration)
-                        self.devices['sled'].lights(True)  # Turn the lights off
-
-            elif self.state == 'calibration':
-                # Eye-tracker calibration
-                self.nextState = 'iti'
-
-            elif self.state == 'iti':
-                # Inter-trial interval
-                self.nextState = 'start'
-                if self.state_machine['singleshot']:
-                    self.state_machine['singleshot'] = False
-                    if self.devices['sled'] is not None:
-                        self.devices['sled'].lights(False)  # Turn the lights off
-
-            elif self.state == 'start':
-                # Start trial: get trial information and update trial's parameters accordingly
-                self.nextState = 'response'
-
-                if self.state_machine['singleshot'] is True:
-                    # DO NOT MODIFY THE LINES BELOW
-                    self.state_machine['singleshot'] = False
-                    status = self.init_trial()  # Get trial parameters
-                    if not status:
-                        self.nextState = 'quit'
-                        self.triggers['moveOnRequested'] = True
-                    if status is 'pause':
-                        self.nextState = 'pause'
-                        self.triggers['moveOnRequested'] = True
-
-                        self.data['response'] = False
-
-                    # ADD YOUR CODE HERE
-                    # Stimuli Triggers
-                    self.triggers['startTrigger'] = True  # Draw stimuli
-
-            elif self.state == 'response':
-                self.nextState = 'end'
-
-                # Get participant's response
-                self.get_response()
-
-            elif self.state == 'end':
-                # End of trial. Call ending routine.
-                if self.triggers['pauseRequested']:
-                    self.nextState = "pause"
-                elif self.triggers['quitRequested']:
-                    self.nextState = "quit"
-                else:
-                    self.nextState = 'iti'
-
-                if self.state_machine['singleshot'] is True:
-                    self.state_machine['singleshot'] = False
-                    self.triggers['startTrigger'] = False
-
-                    # End trial routine
-                    self.end_trial()
+                # End trial routine
+                self.end_trial()
 
     def graphics_state_machine(self):
         """
@@ -704,38 +438,3 @@ class RunTrial(object):
                 # Start calibration
                 self.devices['eyetracker'].calibration.custom_calibration(x=x, y=y, ctype='HV9')
                 self.devices['eyetracker'].calibration.calibrate()
-
-        elif self.state == 'end':
-            if self.state_machine['singleshot'] is True:
-                self.state_machine['singleshot'] = False
-
-        # Update fixation position (body-fixed)
-        if self.triggers['startTrigger']:
-            fixation_position = mm2pix(1000 * self.pViewer[0], 0.0, self.screen.resolution, self.screen.size)
-            self.stimuli['fixation'].setPos(fixation_position)  # Update fixation position
-
-        ##################################
-        # DO NOT MODIFY THE LINES BELLOW #
-        ##################################
-        # Draw stimuli
-        if self.triggers['startTrigger']:
-            for stim, status in self.stimuliTrigger.iteritems():
-                if stim in self.stimuli:
-                    if status:
-                        self.stimuli[stim].draw()
-                else:
-                    msg = Exception('Stimulus "{}" has been initialized in RunTrial::init_stimuli() method!'.format(
-                        stim))
-                    self.logger.logger.critical(msg)
-                    raise msg
-        else:
-            # Clear screen
-            for key, stim in self.stimuli.iteritems():
-                stim.setAutoDraw(False)
-
-        # Flip the screen
-        self.fpsCounter.flip()
-
-        # Make Movie
-        if self.triggers['startTrigger'] and self.trial.settings['setup']['movie']:
-            self.movie.run()
