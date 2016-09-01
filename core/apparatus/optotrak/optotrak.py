@@ -373,7 +373,9 @@ class File(object):
         :param datatowrite:
         :return:
         """
-        if self.handler is not None and not self.handler.closed:
+        if self.handler is not None:
+            if self.handler.closed:
+                self.open()
             try:
                 self.handler.write(datatowrite + '\r\n')
             except (IOError, TypeError) as e:
@@ -410,11 +412,11 @@ class Sensor(OptoTrak):
         self.timeWindow = parent.timeWindow
 
         self.history = None
+        self.nb_positions = 0
         self.final_hand_position = False
         self.valid_time = None
 
         # Timer
-        self.dt = 0.0
         self.tOld = None
         self.time_interval = 0.010
 
@@ -448,30 +450,29 @@ class Sensor(OptoTrak):
         """
         return self.position
 
+    @property
+    def dt(self):
+        if self.tOld is None:
+            self.tOld = time.time()
+        return time.time() - self.tOld
+
     def add_history(self, position):
         """
         Add new position to sensor's position history in order to compute statistics
         :return:
         """
-        if self.tOld is None:
-            self.tOld = time.time()
-            self.dt = 0.0
-        else:
-            self.dt = time.time() - self.tOld
-            self.tOld = time.time()
-
         if self.dt >= self.time_interval:
             if self.history is None:
                 self.history = np.array(position)
             else:
-                r = self.history.shape
-                if len(r) == 1:
+                if self.nb_positions == 1:
                     old = self.history
                     self.history = np.vstack((old, position))
-                elif r[0] > 1:
+                else:
                     old = self.history[1]
                     self.history = np.vstack((old, position))
-            self.tOld = time.time()
+            self.nb_positions += 1
+            self.tOld = None
         return self.history
 
     @property
@@ -480,14 +481,9 @@ class Sensor(OptoTrak):
         Get velocity
         :return:
         """
-        if self.history is not None:
-            r = self.history.shape
-            if len(r) > 1 and r[0] > 1:
-                distance = self.distance(self.history[1], self.history[0])
-                velocity = distance/self.time_interval
-                return velocity
-            else:
-                return 0.0
+        if self.nb_positions >= 2:
+            distance = self.distance(self.history[1], self.history[0])
+            return distance/self.time_interval
         else:
             return 0.0
 
@@ -497,7 +493,8 @@ class Sensor(OptoTrak):
         Check if sensor is moving
         :return: sensor is moving (True)
         """
-        return self.velocity >= self.velocityThres
+        is_moving = self.velocity >= self.velocityThres
+        return is_moving
 
     def get_velocity(self):
         """
@@ -518,12 +515,14 @@ class Sensor(OptoTrak):
 
         validated = False
         self.final_hand_position = False
+        self.update()
+
         if not self.is_moving:
             if self.valid_time is None:
                 self.send_message('EVENT_START_VALIDATION {}'.format(self.name))
                 self.valid_time = time.time()
 
-            elif time.time() - self.valid_time > threshold_time:
+            elif (time.time() - self.valid_time) >= threshold_time:
                 self.final_hand_position = self.position
                 datatowrite = self.position_to_str(self.final_hand_position)
                 self.send_message('EVENT_END_VALIDATION {} {}'.format(self.name, datatowrite))
