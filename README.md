@@ -42,6 +42,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ## To do
 * Complete documentation and API description
 * Think about a more efficient way of handling devices used in the experiment (maybe a common interface)
+* Implement Wrapper class for linear-guide
 
 ## Framework structure
 ```
