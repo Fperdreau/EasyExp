@@ -39,7 +39,7 @@
                 true, 
                 false
             ], 
-            "value": false, 
+            "value": true, 
             "label": "Movie"
         }
     }, 

@@ -413,8 +413,7 @@ class BaseTrial(object):
 
             # Initialize movie if requested
             if self.trial.settings['setup']['movie']:
-                self.movie = MovieMaker(self.ptw, "Dynamic_{}_{}".format(self.trial.params["first"],
-                                                                         self.trial.params['timing']), "png")
+                self.movie = MovieMaker(self.ptw, "{}_TrialID_{}".format(self.core.expname, self.trial.id), "png")
             # Initialize stimuli
             self.init_stimuli()
 
