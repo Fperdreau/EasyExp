@@ -1,3 +1,23 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+#
+# This file is part of EasyExp
+#
+# Copyright (C) 2016 Florian Perdreau, Radboud University Nijmegen
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import sys
 import time
 import struct
@@ -104,7 +124,7 @@ class Joystick(object):
         """
         start_time = time.time()
         running = True
-        response = 99
+        response = None
         resp_time = 0
         while running:
             time.sleep(.1)
@@ -264,7 +284,7 @@ class File(object):
         :return:
         """
         try:
-            self.__handler = open(self.name, 'ab', 0)
+            self.__handler = open(self.name, 'rb', 0)
         except (IOError, TypeError) as e:
             msg = ("[{}] Could not write into the user's datafile: {}".format(__name__, self.name, e))
             logging.fatal(msg)
@@ -310,4 +330,22 @@ class File(object):
                 raise IOError(msg)
         else:
             logging.warning('[{}] File has not been opened'.format(__name__))
+
+
+if __name__ == "__main__":
+    # Instantiate joystick
+    joy = Joystick()
+
+    # Initialize joystick
+    joy.init()
+
+    # Calibrate joystick
+    joy.calibrate()
+
+    # Get response
+    response = None
+    response_time = None
+    while response is None:
+        [response, response_time] = joy.get_response(10.0)
+    print('Response given: {} (elapsed: {})'.format(response, response))
 

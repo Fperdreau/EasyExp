@@ -91,7 +91,7 @@ ENV/
 .ropeproject
 
 # IDE
-/.idea/
+.idea/
 
 # EasyExp
 /data/
