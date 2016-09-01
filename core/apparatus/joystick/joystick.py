@@ -73,7 +73,7 @@ class Joystick(object):
         :return:
         """
         if not self.calibrated:
-            raise('not calibrated')
+            raise Exception('[{}] JoyStick must be calibrated before initialization'.format(__name__))
 
         # I read the values of the axis from the file joy_calibration obtained during calibration
         self.__calibration_file.open()
@@ -198,7 +198,7 @@ class Calibration(object):
         if self.__start_time is None:
             self.__start_time = time.time()
             
-        print('Starting calibration')
+        print('[{}] Starting calibration'.format(__name__))
             
         running = True
         while running:
