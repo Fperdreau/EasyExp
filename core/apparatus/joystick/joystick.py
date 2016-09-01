@@ -38,7 +38,7 @@ class Joystick(object):
 
     joy_response = True
 
-    def __init__(self, calibration_file='joy_calibration.txt', input_file='"/dev/input/js0"', format='IhBB'):
+    def __init__(self, calibration_file='joy_calibration.txt', input_file='/dev/input/js0', format='IhBB'):
         """
         JoyStick constructor
         :param calibration_file: path to calibration file
@@ -72,6 +72,9 @@ class Joystick(object):
         Initialize joystick
         :return:
         """
+        if not self.calibrated:
+            raise('not calibrated')
+
         # I read the values of the axis from the file joy_calibration obtained during calibration
         self.__calibration_file.open()
         self.xmax = int(self.__calibration_file.line)
@@ -102,6 +105,7 @@ class Joystick(object):
         :return: joystick position and timestamp (x, y, timestamp)
         :rtype: list
         """
+        self.__input_file.open()
         while len(select.select([self.__input_file.handler.fileno()], [], [], 0.0)[0]) > 0:
             # while there is something to read from the joystick
             # non blocking read, maximum size: formatSize
@@ -154,6 +158,7 @@ class Joystick(object):
             self.__calibrator = Calibration(self, max_time=max_time)
 
         self.xmin, self.xmax, self.ymin, self.ymax = self.__calibrator.calibrate()
+        self.__calibration_file.open()
         self.__calibration_file.write("{}\n".format(self.xmax))
         self.__calibration_file.write("{}\n".format(self.xmin))
         self.__calibration_file.write("{}\n".format(self.ymax))
@@ -182,7 +187,6 @@ class Calibration(object):
         """
         self.__device = device
         self.__max_time = max_time
-        self.__running = False
         self.__start_time = None
         self.__limits = [0.0, 0.0, 0.0, 0.0]  # xmin, xmax, ymin, ymax
 
@@ -193,8 +197,11 @@ class Calibration(object):
         """
         if self.__start_time is None:
             self.__start_time = time.time()
-
-        while self.__running:
+            
+        print('Starting calibration')
+            
+        running = True
+        while running:
             position = self.__device.position
             time.sleep(.1)
             sys.stdout.flush()
@@ -207,11 +214,9 @@ class Calibration(object):
             if position[0] < self.__device.xmin:
                 self.__limits[0] = position[0]
             if (time.time() - self.__start_time) > self.__max_time:
-                self.__running = False
+                running = False
 
-        if self.__running:
-            self.__start_time = None
-
+        self.__start_time = None
         return self.__limits
 
 
@@ -284,9 +289,9 @@ class File(object):
         :return:
         """
         try:
-            self.__handler = open(self.name, 'rb', 0)
+            self.__handler = open(self.name, 'w+b')
         except (IOError, TypeError) as e:
-            msg = ("[{}] Could not write into the user's datafile: {}".format(__name__, self.name, e))
+            msg = ("[{}] Could not open datafile: {}".format(__name__, self.name, e))
             logging.fatal(msg)
             raise IOError(msg)
 
@@ -323,7 +328,7 @@ class File(object):
         """
         if self.handler is not None and not self.handler.closed:
             try:
-                self.handler.write(datatowrite + '\r\n')
+                self.handler.write(datatowrite)
             except (IOError, TypeError) as e:
                 msg = ("[{}] Could not write into the user's datafile ({}): {}".format(__name__, self.name, e))
                 logging.fatal(msg)
@@ -336,11 +341,11 @@ if __name__ == "__main__":
     # Instantiate joystick
     joy = Joystick()
 
-    # Initialize joystick
-    joy.init()
-
     # Calibrate joystick
     joy.calibrate()
+    
+    # Initialize joystick
+    joy.init()
 
     # Get response
     response = None
