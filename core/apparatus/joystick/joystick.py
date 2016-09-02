@@ -225,7 +225,7 @@ class Response(object):
     Response getter
     """
 
-    def __init__(self, device=Joystick, time_to_respond=None):
+    def __init__(self, device=Joystick, time_to_respond=None, response_threshold=0.4):
         """
         Response constructor
         :param device: instance of joystick device
@@ -235,6 +235,7 @@ class Response(object):
         """
         self.__device = device
         self.__time_to_respond = time_to_respond
+        self.__response_threshold = response_threshold
         self.running = False
         self.time_out = False
         self.start_time = None
@@ -243,31 +244,37 @@ class Response(object):
     @property
     def response(self):
         """
-        Returns response from joystick and response time
-        :return: [response, response time]
-        :rtype: list
+        Returns response from joystick, response time and timeout status
+        :rtype: {'response': [left, right, top, bottom], 'response_time': float, 'timeout': bool}
         """
-        response = None
+        response = [False, False, False, False]
         if self.start_time is None:
             self.start_time = time.time()
 
+        # Get position
         position = self.__device.position
+
+        # Compute elapsed response time
         self.response_time = time.time() - self.start_time
 
-        if position[0] > 0.4 * self.__device.xmax:
-            response = -1
-        if position[1] < 0.4 * self.__device.xmin:
-            response = 1
-        elif time.time() - self.start_time > self.__time_to_respond:
-            print("[{}] WARNING: JOYSTICK TIMEOUT".format(__name__))
-            response = 99
+        response[0] = position[0] > self.__response_threshold * self.__device.xmax
+        response[1] = position[1] < self.__response_threshold * self.__device.xmin
+        response[2] = position[2] > self.__response_threshold * self.__device.ymax
+        response[3] = position[3] < self.__response_threshold * self.__device.ymin
+
+        # Did we get any response?
+        response_given = True in response
+
+        # If we did not and response time is over, then throw a timeout
+        if not response_given and self.response_time > self.__time_to_respond:
+            print("[{}] Warning: Response timeout".format(__name__))
             self.time_out = True
 
         # Reset timer if response has been given
-        if response is not None:
+        if response_given:
             self.start_time = None
 
-        return [response, self.response_time]
+        return {'response': response, 'response_time': self.response_time, 'timeout': self.time_out}
 
 
 class File(object):
