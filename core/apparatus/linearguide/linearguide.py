@@ -90,7 +90,7 @@ class LinearGuide(object):
         """
         self.tracker.init()
 
-    def start_trial(self, trial_id, params):
+    def start_trial(self, trial_id, params=None):
         """
         Start trial routine
         :param trial_id: trial id
@@ -161,8 +161,20 @@ if __name__ == '__main__':
     # Print guide position for few seconds
     test_duration = 5.0
     init_time = time.time()
+
+    # Example of trial parameters: {parameter_name: parameter_value}
+    trial_parameters = {'condition1': 1, 'condition2': 1}
+
+    # Start trial
+    guide.start_trial(1)
     while (time.time() - init_time) < test_duration:
         print('Guide position: {}'.format(guide.position))
+
+        # Record date into file
+        guide.record()
+
+    # Stop trial
+    guide.stop_trial(1)
 
     # Close stream
     guide.close()
