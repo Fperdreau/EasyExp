@@ -43,7 +43,8 @@ class LinearGuide(object):
     sensors_label = ('Xas', 'Marker2', 'Yas', 'origin', 'hand1', 'hand2')  # Sensors label
     center_from_edge = -0.50  # Distance of guide center from right edge (in m)
 
-    def __init__(self, dummy_mode=False, user_file='', sensitivity=1.0, velocity_threshold=0.01, time_threshold=0.100):
+    def __init__(self, dummy_mode=False, user_file='sample.txt', sensitivity=1.0, velocity_threshold=0.01,
+                 time_threshold=0.100):
         """
         LinearGuide constructor
         :param dummy_mode: dummy mode enabled
@@ -79,7 +80,7 @@ class LinearGuide(object):
                                       time_threshold=self.__time_threshold, origin='origin',
                                       labels=LinearGuide.sensors_label,
                                       dummy_mode=self.__dummy_mode,
-                                      tracked=dict(self.sensors_label))
+                                      tracked=self.sensors_label)
         return self.__tracker
 
     def init(self):
@@ -146,6 +147,22 @@ class LinearGuide(object):
         else:
             return self.tracker.sensors['hand2'].position
 
+    @property
+    def velocity(self):
+        return self.tracker.sensors['hand2'].velocity
+
 
 if __name__ == '__main__':
-    guide = LinearGuide()
+    import time
+
+    # Instantiate LinearGuide
+    guide = LinearGuide(dummy_mode=True)
+
+    # Print guide position for few seconds
+    test_duration = 5.0
+    init_time = time.time()
+    while (time.time() - init_time) < test_duration:
+        print('Guide position: {}'.format(guide.position))
+
+    # Close stream
+    guide.close()
