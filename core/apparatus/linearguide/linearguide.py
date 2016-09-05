@@ -149,7 +149,19 @@ class LinearGuide(object):
 
     @property
     def velocity(self):
+        """
+        Return sensor's velocity
+        :return:
+        """
         return self.tracker.sensors['hand2'].velocity
+
+    @property
+    def moving(self):
+        """
+        Return movement state
+        :return:
+        """
+        return self.velocity >= self.__velocity_threshold
 
 
 if __name__ == '__main__':
@@ -167,11 +179,22 @@ if __name__ == '__main__':
 
     # Start trial
     guide.start_trial(1)
+    mvt_onset = None
     while (time.time() - init_time) < test_duration:
-        print('Guide position: {}'.format(guide.position))
-
+        print('Position: {} | Velocity: {} | Moving: {}'.format(guide.position, guide.velocity, guide.moving))
         # Record date into file
         guide.record()
+
+        if guide.moving and mvt_onset is None:
+            mvt_onset = time.time()
+            print('Movement has started')
+
+        if mvt_onset is not None and not guide.moving:
+            mvt_offset = time.time()
+            mvt_duration = mvt_offset - mvt_onset
+            print('Movement has ended')
+            print('Movement duration: {} s'.format(mvt_duration))
+            break
 
     # Stop trial
     guide.stop_trial(1)
