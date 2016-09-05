@@ -19,7 +19,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 try:
-    from core.apparatus.optotrak.optotrak import OptoTrak
+    from .optotrak.optotrak import OptoTrak
 except ImportError:
     raise ImportError('Could not import OptoTrak class, but we need it to run the LinearGuide!')
 
