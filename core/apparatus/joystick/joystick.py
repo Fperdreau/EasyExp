@@ -24,6 +24,7 @@ import struct
 import os
 import select
 import logging
+from os.path import isfile
 
 
 class Joystick(object):
@@ -38,7 +39,7 @@ class Joystick(object):
 
     joy_response = True
 
-    def __init__(self, calibration_file='joy_calibration.txt', input_file='/dev/input/js0', format='IhBB'):
+    def __init__(self, calibration_file='joy_calibration.txt', input_file='/dev/input/js0', format='IhBB', sensitivity=1.0, calibration_time=5.0):
         """
         JoyStick constructor
         :param calibration_file: path to calibration file
@@ -50,22 +51,19 @@ class Joystick(object):
         """
 
         # Create/open calibration file
-        self.__calibration_file = File(name=calibration_file)
         self.__input_file = File(name=input_file)
         self.__formatSize = struct.calcsize(format)
-        self.__format = format
-        self.__calibrator = None
+        self.__calibrator = Calibration(self, calibration_file=calibration_file, max_time=calibration_time)
 
+        self.__format = format
+        self.__response_getter = None
+        self.__limits = None
         self.calibrated = False
 
         self.__x = 0.0
         self.__y = 0.0
         self.__t = 0.0
 
-        self.xmin = 0.0
-        self.xmax = 0.0
-        self.ymin = 0.0
-        self.ymax = 0.0
 
     def init(self):
         """
@@ -74,13 +72,6 @@ class Joystick(object):
         """
         if not self.calibrated:
             raise Exception('[{}] JoyStick must be calibrated before initialization'.format(__name__))
-
-        # I read the values of the axis from the file joy_calibration obtained during calibration
-        self.__calibration_file.open()
-        self.xmax = int(self.__calibration_file.line)
-        self.xmin = int(self.__calibration_file.line)
-        self.ymax = int(self.__calibration_file.line)
-        self.ymin = int(self.__calibration_file.line)
 
         # open /dev/input/js0 by default or the device given on the command line otherwise
         # open file in binary mode
@@ -117,57 +108,40 @@ class Joystick(object):
                 elif axis == 1:
                     self.__y = value
 
+        if self.calibrated:
+            # Normalize to min/max      
+            if self.__x < 0:
+                self.__x /= -float(self.__limits['right'])
+            else:
+                self.__x /= float(self.__limits['left'])
+            
+            if self.__y > 0:
+                self.__y /= float(self.__limits['top'])
+            else:
+                self.__y /= -float(self.__limits['bottom'])
+                
         return [self.__x, self.__y, self.__t]
 
-    def get_response(self, time_to_respond):
+    def get_response(self, time_to_respond=10.0, response_threshold=0.4):
         """
         Get response from joystick
         :param time_to_respond:
         :return: response and response time
-        :rtype: list (response, response time)
+        :rtype: dict (response, response time)
         """
-        start_time = time.time()
-        running = True
-        response = None
-        resp_time = 0
-        while running:
-            time.sleep(.1)
-            position = self.position
-            if position[0] > 0.4 * self.xmax:
-                response = -1
-                running = False
-                resp_time = time.time() - start_time
-            if position[1] < 0.4 * self.xmin:
-                response = 1
-                running = False
-                resp_time = time.time() - start_time
-            elif time.time() - start_time > time_to_respond:
-                print("[{}] WARNING: JOYSTICK TIMEOUT".format(__name__))
-                response = 99
-                running = False
-                resp_time = time.time() - start_time
-        return [response, resp_time]
+        if self.__response_getter is None:
+            self.__response_getter = Response(device=self, 
+                                              time_to_respond=time_to_respond, 
+                                              response_threshold=response_threshold)
+        return self.__response_getter.response
 
-    def calibrate(self, max_time=30.0):
+    def calibrate(self):
         """
         Calibrates joystick
         :param max_time:
         :return:
         """
-        if self.__calibrator is None:
-            self.__calibrator = Calibration(self, max_time=max_time)
-
-        self.xmin, self.xmax, self.ymin, self.ymax = self.__calibrator.calibrate()
-        self.__calibration_file.open()
-        self.__calibration_file.write("{}\n".format(self.xmax))
-        self.__calibration_file.write("{}\n".format(self.xmin))
-        self.__calibration_file.write("{}\n".format(self.ymax))
-        self.__calibration_file.write("{}\n".format(self.ymin))
-
-        print("[{}] Calibration results: Xmax: {}, Xmin: {}, Ymax: {}, Ymin: {}".format(
-            __name__, self.xmax, self.xmin, self.ymax, self.ymin
-        ))
-
+        self.__limits = self.__calibrator.calibrate()
         self.calibrated = True
 
 
@@ -177,7 +151,7 @@ class Calibration(object):
     Handles joystick calibration
     """
 
-    def __init__(self, device=Joystick, max_time=30.0):
+    def __init__(self, device=Joystick, calibration_file='joy_calibration.txt', max_time=30.0):
         """
         Calibration constructor
         :param device:
@@ -186,38 +160,97 @@ class Calibration(object):
         :type max_time: float
         """
         self.__device = device
+        self.__file = File(name=calibration_file)
         self.__max_time = max_time
+        
         self.__start_time = None
-        self.__limits = [0.0, 0.0, 0.0, 0.0]  # xmin, xmax, ymin, ymax
+        self.__limits = {'left': 0.0, 'top': 0.0, 'right': 0.0, 'bottom': 0.0}
+        self.__axis = {'left': None, 'top': None, 'right': None, 'bottom': None}
+        
 
+    def __str__(self):
+        return ("[{}] Calibration results: {}".format(__name__, 
+        ' '.join(['{}: {}'.format(key, value) for key,value in self.__limits.iteritems()])))
+    
     def calibrate(self):
         """
+        Calibration routine
+        """
+        # Load previous calibration results
+        self.load()
+        
+        # Perform calibration for each axis
+        self.calibrate_axis()
+        
+        # Save calibration results
+        self.save()
+        
+        print(self)
+        return self.__limits
+        
+    def calibrate_axis(self):
+        """
         Calibrate joystick
+        User must move the joystick to the specified direction (top, right, bottom, left)
         :return:
         """
-        if self.__start_time is None:
-            self.__start_time = time.time()
-            
         print('[{}] Starting calibration'.format(__name__))
-            
-        running = True
-        while running:
-            position = self.__device.position
-            time.sleep(.1)
-            sys.stdout.flush()
-            if position[1] > self.__device.ymax:
-                self.__limits[3] = position[1]
-            if position[1] < self.__device.ymin:
-                self.__limits[2] = position[1]
-            if position[0] > self.__device.xmax:
-                self.__limits[1] = position[0]
-            if position[0] < self.__device.xmin:
-                self.__limits[0] = position[0]
-            if (time.time() - self.__start_time) > self.__max_time:
-                running = False
+        
+        for axis in self.__axis:
+            print('[{}] Calibrating "{}" axis'.format(__name__, axis))
+            if self.__start_time is None:
+                self.__start_time = time.time()
+                
+            while True:
+                position = self.__device.position
+                sys.stdout.flush()
+
+                if axis == 'top' and position[1] > self.__limits['top']:
+                    self.__limits['top'] = position[1]
+                if axis == 'right' and position[0] < self.__limits['right']:
+                    self.__limits['right'] = position[0]
+                if axis == 'bottom' and position[1] < self.__limits['bottom']:
+                    self.__limits['bottom'] = position[1]
+                if axis == 'left' and position[0] > self.__limits['left']:
+                    self.__limits['left'] = position[0]
+                
+                if (time.time() - self.__start_time) > self.__max_time:
+                    self.__start_time = None
+                    self.__axis[axis] = True
+                    break
+        
+        for axis, limit in self.__limits.iteritems():
+            if limit == 0.0:
+                raise Exception('Calibration failed')
 
         self.__start_time = None
         return self.__limits
+    
+    def load(self):
+        """
+        Read the values of the axis from the file joy_calibration obtained during calibration
+        :rtype: bool
+        """
+        
+        if isfile(self.__file.name):
+            self.__file.open()
+            self.__limits['right'] = int(self.__file.line)
+            self.__limits['left'] = int(self.__file.line)
+            self.__limits['top'] = int(self.__file.line)
+            self.__limits['bottom'] = int(self.__file.line)
+            return True
+        else:
+            return False
+        
+    def save(self):
+        """
+        Save calibration settings into file
+        """
+        self.__file.open()
+        self.__file.write("{}\n".format(self.__limits['right']))
+        self.__file.write("{}\n".format(self.__limits['left']))
+        self.__file.write("{}\n".format(self.__limits['top']))
+        self.__file.write("{}\n".format(self.__limits['bottom']))
 
 
 class Response(object):
@@ -236,7 +269,6 @@ class Response(object):
         self.__device = device
         self.__time_to_respond = time_to_respond
         self.__response_threshold = response_threshold
-        self.running = False
         self.time_out = False
         self.start_time = None
         self.response_time = None
@@ -247,23 +279,27 @@ class Response(object):
         Returns response from joystick, response time and timeout status
         :rtype: {'response': [left, right, top, bottom], 'response_time': float, 'timeout': bool}
         """
-        response = [False, False, False, False]
+        response = {'top': False, 'right': False, 'bottom': False, 'left': False}
         if self.start_time is None:
             self.start_time = time.time()
 
         # Get position
         position = self.__device.position
-
+        print(position)
         # Compute elapsed response time
         self.response_time = time.time() - self.start_time
 
-        response[0] = position[0] > self.__response_threshold * self.__device.xmax
-        response[1] = position[1] < self.__response_threshold * self.__device.xmin
-        response[2] = position[2] > self.__response_threshold * self.__device.ymax
-        response[3] = position[3] < self.__response_threshold * self.__device.ymin
+        response['left'] = position[0] > self.__response_threshold
+        response['right'] = position[0] < -self.__response_threshold
+        response['top'] = position[1] > self.__response_threshold
+        response['bottom'] = position[1] < -self.__response_threshold
 
         # Did we get any response?
-        response_given = True in response
+        response_given = False
+        for key, status in response.iteritems():
+            if status:
+                response_given = True
+                break
 
         # If we did not and response time is over, then throw a timeout
         if not response_given and self.response_time > self.__time_to_respond:
@@ -296,7 +332,7 @@ class File(object):
         :return:
         """
         try:
-            self.__handler = open(self.name, 'w+b')
+            self.__handler = open(self.name, 'a+b')
         except (IOError, TypeError) as e:
             msg = ("[{}] Could not open datafile: {}".format(__name__, self.name, e))
             logging.fatal(msg)
@@ -316,16 +352,16 @@ class File(object):
         Returns current line
         :return:
         """
-        if self.handler is not None and not self.handler.closed:
-            return self.handler.readline()
+        if self.__handler is not None and not self.__handler.closed:
+            return self.__handler.readline()
 
     def close(self):
         """
         Close data file
         :return:
         """
-        if self.handler is not None and not self.handler.closed:
-            self.handler.close()
+        if self.__handler is not None and not self.__handler.closed:
+            self.__handler.close()
 
     def write(self, datatowrite):
         """
@@ -333,9 +369,9 @@ class File(object):
         :param datatowrite:
         :return:
         """
-        if self.handler is not None and not self.handler.closed:
+        if self.__handler is not None and not self.__handler.closed:
             try:
-                self.handler.write(datatowrite)
+                self.__handler.write(datatowrite)
             except (IOError, TypeError) as e:
                 msg = ("[{}] Could not write into the user's datafile ({}): {}".format(__name__, self.name, e))
                 logging.fatal(msg)
@@ -357,7 +393,14 @@ if __name__ == "__main__":
     # Get response
     response = None
     response_time = None
-    while response is None:
-        [response, response_time] = joy.get_response(10.0)
-    print('Response given: {} (elapsed: {})'.format(response, response))
+    while True:
+        response = joy.get_response()
+        for key, status in response['response'].iteritems():
+            if status:
+                print(key)
+        
+        if response['timeout']:
+            break
+        
+    print('Response given: {} (elapsed: {})'.format(response, response['response_time']))
 
