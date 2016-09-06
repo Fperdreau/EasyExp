@@ -43,7 +43,7 @@ class LinearGuide(object):
     sensors_label = ('Xas', 'Marker2', 'Yas', 'origin', 'hand1', 'hand2')  # Sensors label
     center_from_edge = -0.50  # Distance of guide center from right edge (in m)
 
-    def __init__(self, dummy_mode=False, user_file='sample.txt', sensitivity=1.0, velocity_threshold=0.01,
+    def __init__(self, dummy_mode=False, user_file='sample.txt', sensitivity=1.0, velocity_threshold=0.1,
                  time_threshold=0.100):
         """
         LinearGuide constructor
@@ -168,7 +168,7 @@ if __name__ == '__main__':
     import time
 
     # Instantiate LinearGuide
-    guide = LinearGuide(dummy_mode=True)
+    guide = LinearGuide(dummy_mode=False)
 
     # Print guide position for few seconds
     test_duration = 5.0
