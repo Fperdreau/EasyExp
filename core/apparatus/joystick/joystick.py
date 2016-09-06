@@ -37,28 +37,41 @@ class Joystick(object):
     myJoyStick.init()
     """
 
-    joy_response = True
+    _format = 'IhBB'
 
-    def __init__(self, calibration_file='joy_calibration.txt', input_file='/dev/input/js0', format='IhBB', calibration_time=5.0):
+    def __init__(self, calibration_file='joy_calibration.txt', input_file='/dev/input/js0',
+                 data_file=None, calibration_time=5.0, frequency=500.0):
         """
         JoyStick constructor
         :param calibration_file: path to calibration file
         :type calibration_file: str
         :param input_file: path to device file
         :type input_file: str
-        :param format: input file format (32 bit unsigned, 16 bit signed, 8 bit unsigned, 8 bit unsigned)
-        :type format: str
+        :param data_file: Full path to output file
+        :type data_file: str
+        :param calibration_time: time limit for calibrating an axis
+        :type calibration_time: float
+        :param frequency: recording freqency (in Hz)
+        :type frequency: float
         """
 
-        # Create/open calibration file
+        # Create/open input file
         self._input_file = File(name=input_file)
-        self._formatSize = struct.calcsize(format)
+        # input file format (32 bit unsigned, 16 bit signed, 8 bit unsigned, 8 bit unsigned)
+        self._formatSize = struct.calcsize(self._format)
+
+        # Date file
+        self._record_frequency = 1.0/float(frequency)  # Recording frequency for data file output
+        self._record_clock = None
+        self._data_file = File(name=data_file) if data_file is not None else None
+
+        # Calibration
         self._calibrator = Calibration(self, calibration_file=calibration_file, max_time=calibration_time)
 
-        self._format = format
         self._response_getter = None
         self._limits = None
         self.calibrated = False
+        self.running = False
 
         self._x = 0.0
         self._y = 0.0
@@ -78,7 +91,18 @@ class Joystick(object):
 
         # discard everything in the joystick buffer at the moment
         self.flush()
+
+        # Write header
+        self._writeheader()
+
         print('[{}] Joystick initialized'.format(__name__))
+
+    def close(self):
+        """
+        Closing routine
+        :return:
+        """
+        self._input_file.close()
 
     def flush(self):
         """
@@ -137,11 +161,124 @@ class Joystick(object):
     def calibrate(self):
         """
         Calibrates joystick
-        :param max_time:
-        :return:
         """
         self._limits = self._calibrator.calibrate()
         self.calibrated = True
+
+    def record(self):
+        """
+        Write position into a file
+        :return:
+        """
+        if self.running:
+            if (time.time() - self._record_clock) >= self._record_frequency:
+                # print ('elapsed: {} s'.format(time.time() - self.freqInitTime))
+                self._record_clock = time.time()
+                coordinates = '{} {}\r\n'.format(time.time(), self.position_to_str(self.position))
+                self._data_file.write(coordinates)
+                return True
+            else:
+                return False
+        else:
+            return False
+
+    def start_trial(self, trial, param=None):
+        """
+        Start trial routine
+        :param trial: trial number
+        :type trial: int
+        :param param: Trial parameters
+        :type param: dict
+        :return:
+        """
+        if self._data_file is None:
+            raise Exception('A data file must be specified in JoyStick constructor in order to use this method')
+
+        # Open file
+        self._data_file.open()
+
+        self.send_message('\r\n\r\nTRIALID {}\r\n'.format(trial))
+        if param is not None:
+            data = ''
+            for prop, val in param.iteritems():
+                parsed_param = '{} {}'.format(prop, val)
+                data = ' '.join((data, parsed_param))
+            self.send_message('\nTRIAL_PARAM {}\r\n'.format(data))
+
+        # Start recording
+        self.start_recording()
+
+    def start_recording(self):
+        """
+        Start recording of positions
+        :return:
+        """
+        self.running = True
+        self._record_clock = time.time()
+
+    def stop_recording(self):
+        """
+        Stop recording of position and reset recorder timer
+        :return:
+        """
+        self.running = False
+        self._record_clock = None
+
+    def stop_trial(self, trial, valid=True):
+        """
+        Stop trial routine
+        :param trial: trial id
+        :param valid: boolean (valid or invalid trial)
+        :return:
+        """
+        if self._data_file is None:
+            raise Exception('A data file must be specified in JoyStick constructor in order to use this method')
+
+        if valid:
+            trial_status = 'VALID'
+        else:
+            trial_status = 'INVALID'
+
+        self.send_message('\nTRIAL_END {} {}r\n'.format(trial, trial_status))
+        self.stop_recording()  # Stop recording
+        self._data_file.close()  # Close data file
+
+    def _writeheader(self):
+        """
+        Write header into the data file
+        :return:
+        """
+        if self._data_file is not None:
+            self._data_file.open()
+            header = '############################\r\n' \
+                     '# Joystick data file\r\n' \
+                     '# Date: {}\r\n' \
+                     '# Sampling Frequency: {} ms\r\n' \
+                     '# Calibration results: {}\r\n' \
+                     '############################\r\n'.format(time.strftime("%d-%m-%y"), self._record_frequency,
+                                                               ', '.join(self._limits))
+            self._data_file.write(header)
+
+    def send_message(self, message):
+        """
+        Send an Event message and write it to the datafile
+        :param message:
+        :return:
+        """
+        if self._data_file is None:
+            raise Exception('A data file must be specified in JoyStick constructor in order to use this method')
+
+        self._data_file.write('MSG {0:.4f} {1}\r\n'.format(time.time(), message))
+
+    @staticmethod
+    def position_to_str(to_convert):
+        """
+        Convert position to string
+        :param to_convert:
+        :return: string
+        """
+        converted = ' '.join(str(n) for n in to_convert)
+        return converted
 
 
 class Calibration(object):
@@ -149,6 +286,8 @@ class Calibration(object):
     Calibration class
     Handles joystick calibration
     """
+
+    __default_msg = "Welcome to the JoyStick Calibration"
 
     def __init__(self, device=Joystick, calibration_file='joy_calibration.txt', max_time=30.0):
         """
@@ -162,6 +301,9 @@ class Calibration(object):
         self.__file = File(name=calibration_file)
         self.__max_time = max_time
 
+        self._msg = None
+        self.msg = self.__default_msg
+
         self.__start_time = None
         self.__limits = {'left': 0.0, 'top': 0.0, 'right': 0.0, 'bottom': 0.0}
         self.__axis = {'left': None, 'top': None, 'right': None, 'bottom': None}
@@ -170,58 +312,74 @@ class Calibration(object):
         return ("[{}] Calibration results: {}".format(__name__,
                 ' '.join(['{}: {}'.format(key, value) for key,value in self.__limits.iteritems()])))
 
+    @property
+    def msg(self):
+        return self._msg
+
+    @msg.setter
+    def msg(self, value):
+        print(value)
+        self._msg = value
+
     def calibrate(self):
         """
         Calibration routine
         """
         # Load previous calibration results
-        self.load()
+        if not self.load():
+            self.msg = '[{}] Starting calibration'.format(__name__)
 
-        # Perform calibration for each axis
-        self.calibrate_axis()
+            # Perform calibration for each axis
+            for axis in self.__axis:
+                self.calibrate_axis(axis=axis)
 
-        # Save calibration results
-        self.save()
+            # Check calibration results
+            for axis, limit in self.__limits.iteritems():
+                if limit == 0.0:
+                    raise Exception('Calibration failed')
+
+            # Save calibration results
+            self.save()
 
         print(self)
         return self.__limits
 
-    def calibrate_axis(self):
+    def calibrate_axis(self, axis):
         """
-        Calibrate joystick
+        Calibrate joystick along one axis
         User must move the joystick to the specified direction (top, right, bottom, left)
         :return:
         """
-        print('[{}] Starting calibration'.format(__name__))
+        # Display instructions
+        self.msg = '[{}] Starting calibration of "{}" axis'.format(__name__, axis.capitalize())
+        self.msg = '[{}] Move the joystick to the extremity of the "{}" side and hold the position'.format(
+            __name__, axis.capitalize())
 
-        for axis in self.__axis:
-            print('[{}] Calibrating "{}" axis'.format(__name__, axis))
-            if self.__start_time is None:
-                self.__start_time = time.time()
+        # Start timer
+        if self.__start_time is None:
+            self.__start_time = time.time()
 
-            while True:
-                new_position = self.__device.position
-                sys.stdout.flush()
+        while True:
+            new_position = self.__device.position
+            sys.stdout.flush()
 
-                if axis == 'top' and new_position[1] > self.__limits['top']:
-                    self.__limits['top'] = new_position[1]
-                if axis == 'right' and new_position[0] < self.__limits['right']:
-                    self.__limits['right'] = new_position[0]
-                if axis == 'bottom' and new_position[1] < self.__limits['bottom']:
-                    self.__limits['bottom'] = new_position[1]
-                if axis == 'left' and new_position[0] > self.__limits['left']:
-                    self.__limits['left'] = new_position[0]
+            if axis == 'top' and new_position[1] > self.__limits['top']:
+                self.__limits['top'] = new_position[1]
+            if axis == 'right' and new_position[0] < self.__limits['right']:
+                self.__limits['right'] = new_position[0]
+            if axis == 'bottom' and new_position[1] < self.__limits['bottom']:
+                self.__limits['bottom'] = new_position[1]
+            if axis == 'left' and new_position[0] > self.__limits['left']:
+                self.__limits['left'] = new_position[0]
 
-                if (time.time() - self.__start_time) > self.__max_time:
-                    self.__start_time = None
-                    self.__axis[axis] = True
-                    break
+            if (time.time() - self.__start_time) > self.__max_time:
+                self.__start_time = None
+                self.__axis[axis] = True
+                break
 
-        for axis, limit in self.__limits.iteritems():
-            if limit == 0.0:
-                raise Exception('Calibration failed')
-
+        # Reset timer
         self.__start_time = None
+
         return self.__limits
 
     def load(self):
@@ -229,14 +387,19 @@ class Calibration(object):
         Read the values of the axis from the file joy_calibration obtained during calibration
         :rtype: bool
         """
-
-        if isfile(self.__file.name):
-            self.__file.open()
-            self.__limits['right'] = int(self.__file.line)
-            self.__limits['left'] = int(self.__file.line)
-            self.__limits['top'] = int(self.__file.line)
-            self.__limits['bottom'] = int(self.__file.line)
-            return True
+        if self.__file.exist:
+            proceed = raw_input('Calibration file already exists. Do you want to perform a new calibration? '
+                                '(Yes, No: selected):')
+            if proceed.lower() in ("no", ""):
+                self.__file.open()
+                self.__limits['right'] = int(self.__file.line)
+                self.__limits['left'] = int(self.__file.line)
+                self.__limits['top'] = int(self.__file.line)
+                self.__limits['bottom'] = int(self.__file.line)
+                return True
+            else:
+                self.__file.delete()
+                return False
         else:
             return False
 
@@ -252,20 +415,32 @@ class Calibration(object):
 
 
 class GraphicsJoy(Joystick):
+    """
+    GraphicsJoy
+    Adapted version of JoyStick class to displays
+    """
 
-    def __init__(self, calibration_file='joy_calibration.txt', input_file='/dev/input/js0', format='IhBB',
-                 calibration_time=5.0, sensitivity=0.02, resolution=(1024, 768)):
+    def __init__(self, calibration_file='joy_calibration.txt', input_file='/dev/input/js0', data_file=None,
+                 calibration_time=5.0, sensitivity=0.02, resolution=(1024, 768), frequency=500):
         """
         GraphicsJoy constructor
-        :param calibration_file:
-        :param input_file:
-        :param format:
-        :param calibration_time:
-        :param sensitivity:
-        :param resolution:
+        :param calibration_file: path to calibration file
+        :type calibration_file: str
+        :param input_file: path to device file
+        :type input_file: str
+        :param data_file: Full path to output file
+        :type data_file: str
+        :param calibration_time: time limit for calibrating an axis
+        :type calibration_time: float
+        :param frequency: recording freqency (in Hz)
+        :type frequency: float
+        :param sensitivity: mapping sensitivity (>0)
+        :type sensitivity: float
+        :param resolution: screen resolution
+        :type resolution: tuple
         """
-        super(GraphicsJoy, self).__init__(calibration_file=calibration_file, input_file=input_file, format=format,
-                                          calibration_time=calibration_time)
+        super(GraphicsJoy, self).__init__(calibration_file=calibration_file, input_file=input_file,
+                                          calibration_time=calibration_time, frequency=frequency, data_file=data_file)
         self._sensitivity = sensitivity
         self._resolution = resolution
         self._step = 0.01
@@ -276,12 +451,20 @@ class GraphicsJoy(Joystick):
 
     @sensitivity.setter
     def sensitivity(self, value):
-        if value < 0.0:
-            value = 0.0
-        self._sensitivity = value
+        self._sensitivity = 0.01 if value < 0.1 else value
 
     def set_sensitivity(self, direction=-1):
+        """
+        Increase or decrease sensitivity
+        :param direction: increase (=1) or decrease (-1)
+        :type direction: int
+        """
         self.sensitivity += direction * self._step
+
+    @property
+    def cursor(self):
+        new_position = self.position
+        return [-new_position[0], new_position[1]]
 
     @property
     def position(self):
@@ -316,7 +499,7 @@ class GraphicsJoy(Joystick):
                 self._y /= -float(self._limits['bottom'])
 
             # Multiplies by -1 to match axis orientation of screen
-            self._x *= -1*self._sensitivity * (self._resolution[0] * 0.5)
+            self._x *= self._sensitivity * (self._resolution[0] * 0.5)
             self._y *= self._sensitivity * (self._resolution[1] * 0.5)
 
         return [self._x, self._y, self._t]
@@ -408,6 +591,14 @@ class File(object):
             raise IOError(msg)
 
     @property
+    def exist(self):
+        """
+        Check if handled file exists
+        :return:
+        """
+        return isfile(self.name)
+
+    @property
     def handler(self):
         """
         File handler
@@ -442,20 +633,40 @@ class File(object):
             try:
                 self.__handler.write(data_to_write)
             except (IOError, TypeError) as e:
-                msg = ("[{}] Could not write into the user's datafile ({}): {}".format(__name__, self.name, e))
+                msg = ("[{}] Could not write into the datafile ({}): {}".format(__name__, self.name, e))
                 logging.fatal(msg)
                 raise IOError(msg)
         else:
             logging.warning('[{}] File has not been opened'.format(__name__))
 
+    def delete(self):
+        """
+        Delete file
+        :return:
+        """
+        if self.exist:
+            try:
+                os.remove(self.name)
+            except OSError as e:
+                msg = ("[{}] Could not delete file ({}): {}".format(__name__, self.name, e))
+                logging.fatal(msg)
+                raise OSError(msg)
+        else:
+            msg = ("[{}] Cannot delete file ({}) because it does not exist.".format(__name__, self.name))
+            logging.critical(msg)
+            raise OSError(msg)
 
 if __name__ == "__main__":
     from psychopy import visual
     import numpy as np
     import pygame
+    from os.path import dirname, abspath
+
+    root_folder = dirname(abspath('__file__'))
 
     # Instantiate joystick
-    joy = GraphicsJoy()
+    joy = GraphicsJoy(calibration_file='{}/joy_calibration.txt'.format(root_folder),
+                      data_file='{}/sample.txt'.format(root_folder), resolution=(1400, 525))
 
     # Calibrate joystick
     joy.calibrate()
@@ -482,18 +693,31 @@ if __name__ == "__main__":
     response = None
     response_time = None
     init_time = time.time()
+
+    # Start trial
+    joy.start_trial(1)
+
     while True:
+
+        # Get response
         response = joy.get_response()
         for key, status in response['response'].iteritems():
             if status:
                 print(key)
 
-        position += np.array((joy.position[0], joy.position[1]))
+        # Update cursor position and render it
+        position += np.array(joy.cursor)
         cursor.setPos(position)
         cursor.draw()
-
         win.flip()
 
+        # Record position into a file
+        if joy.record():
+            # Record stimuli position
+            paddle_pos = joy.position_to_str(cursor.pos)
+            joy.send_message('STIM Paddle {}'.format(paddle_pos))
+
+        # Listen to input keys
         pygame.event.pump()
         keys = pygame.key.get_pressed()
         if keys[pygame.K_UP] or keys[pygame.K_DOWN]:
@@ -509,4 +733,11 @@ if __name__ == "__main__":
     print('Response given: {} (elapsed: {})'.format(response,
           response['response_time']))
 
+    # Stop trial
+    joy.stop_trial(1)
+
+    # Close Psychopy window
     win.close()
+
+    # Stop joystick
+    joy.close()
