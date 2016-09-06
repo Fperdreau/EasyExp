@@ -47,17 +47,25 @@ class OptoTrak(object):
     dummy_mode = False
 
     def __init__(self, user_file='sample.txt', freq=60.0, labels=None, origin=None, dummy_mode=False, tracked={'origin'},
-                 velocity_threshold=0.01, time_threshold=0.010, logger_label='root'):
+                 velocity_threshold=0.01, time_threshold=0.010, max_positions=3, logger_label='root'):
         """
-        Constructor
+        OptoTrak constructor
         :param velocity_threshold: Velocity threshold
+        :type velocity_threshold: float
         :param time_threshold:
+        :type time_threshold: float
         :param user_file: file name
+        :type user_file: str
         :param labels: sensor labels
+        :type labels: array
         :param dummy_mode: if False, then runs in dummy mode
+        :type dummy_mode: bool
         :param tracked: the sensors to track
+        :type tracked: array
         :param logger_label: logger name
-        :return:
+        :type logger_label: str
+        :param max_positions: maximum number of positions to be stored in history
+        :type max_positions: int
         """
         self.logger = logging.getLogger(logger_label)
         self.originID = labels.index(origin) if (labels is not None and origin is not None) else 0
@@ -65,6 +73,7 @@ class OptoTrak(object):
         self.velocityThres = velocity_threshold
         self.timeWindow = time_threshold
         self.tracked = tracked
+        self.max_positions = max_positions
 
         # Sensors name
         self.labels = labels if labels is not None else self.default_labels
@@ -412,13 +421,15 @@ class Sensor(OptoTrak):
         self.timeWindow = parent.timeWindow
 
         self.history = None
-        self.nb_positions = 0
+        self.__nb_positions = 0
+        self.__max_positions = parent.max_positions
         self.final_hand_position = False
         self.valid_time = None
 
         # Timer
-        self.tOld = None
         self.time_interval = 0.010
+        self.__dt = 0.0
+        self.__tOld = None
 
     def update(self):
         """
@@ -435,7 +446,6 @@ class Sensor(OptoTrak):
         :return:
         """
         positions = self.client.getPosition()
-        origin = np.asarray(positions[self.originID])
         this = np.asarray(positions[self.id])
         position = np.asarray(this[0])
 
@@ -452,9 +462,18 @@ class Sensor(OptoTrak):
 
     @property
     def dt(self):
-        if self.tOld is None:
-            self.tOld = time.time()
-        return time.time() - self.tOld
+        if self.__tOld is None:
+            self.__tOld = time.time()
+        self.__dt = time.time() - self.__tOld
+        return self.__dt
+
+    def __reset(self):
+        """
+        Reset timer
+        :return:
+        """
+        self.__dt = 0.0
+        self.__tOld = None
 
     def add_history(self, position):
         """
@@ -462,28 +481,33 @@ class Sensor(OptoTrak):
         :return:
         """
         if self.dt >= self.time_interval:
-            if self.history is None:
+            if self.__nb_positions == 0:
                 self.history = np.array(position)
             else:
-                if self.nb_positions == 1:
+                if self.__nb_positions < self.__max_positions:
                     old = self.history
                     self.history = np.vstack((old, position))
                 else:
-                    old = self.history[1]
+                    old = self.history[range(1, self.__max_positions)]
                     self.history = np.vstack((old, position))
-            self.nb_positions += 1
-            self.tOld = None
+
+            self.__nb_positions += 1
+
+            # Reset timer
+            self.__reset()
+
         return self.history
 
     @property
     def velocity(self):
         """
         Get velocity
-        :return:
+        :rtype: float
         """
-        if self.nb_positions >= 2:
-            distance = self.distance(self.history[1], self.history[0])
-            return distance/self.time_interval
+        if self.__nb_positions >= self.__max_positions:
+            distances = [self.distance(self.history[i], self.history[j]) for i, j
+                         in zip(range(0, self.__max_positions-1), range(1, self.__max_positions))]
+            return float(np.mean(np.array(distances)/self.time_interval))
         else:
             return 0.0
 
@@ -763,17 +787,6 @@ if __name__ == '__main__':
     radiusIn = .03  # in meters
     radiusOut = .03
 
-    # Create optotrack instance
-    optotrak = OptoTrak('test', freq=500.0, velocity_threshold=0.010, time_threshold=0.050,
-                        labels=('X-as', 'Marker_2', 'Y-as', 'origin', 'hand1', 'hand2'),
-                        dummy_mode=True, tracked={'hand1', 'hand2'})
-
-    # Initialization and connection procedure
-    optotrak.init()
-    homeFromHand1 = np.array((0, 0.418, 0))  # distance of rail extremity (marker hand1) to sled center
-    initHandPosition = optotrak.sensors['hand1'].getPosition() + homeFromHand1
-    print('Home position: {}'.format(initHandPosition))
-
     # Open window
     win = visual.Window(
         size=(1400, 525),
@@ -786,68 +799,38 @@ if __name__ == '__main__':
         fullscr=False)
     win.setMouseVisible(False)
 
+    # Create optotrack instance
+    optotrak = OptoTrak('test', freq=500.0, velocity_threshold=0.010, time_threshold=0.050,
+                        labels=('X-as', 'Marker_2', 'Y-as', 'origin', 'hand1', 'hand2'),
+                        dummy_mode=True, tracked={'hand1', 'hand2'})
+
+    # Initialization and connection procedure
+    optotrak.init()
+
     # Do some tests
     optotrak.start_trial(1)
-    hand = optotrak.sensors['hand2']
-    PositionChecker = CheckPosition(optotrak, hand, initHandPosition, radiusIn, 0.100)
 
-    init_time = time.time()
-    status = False
-    print('Wait the hand at the initial position')
-    optotrak.send_message('Wait the hand at the initial position')
+    time_init = time.time()
 
-    timeinit = time.time()
-    while not status:
-        recorded = optotrak.record()
-        status = PositionChecker.validateposition()
-        optotrak.sensors['hand2'].getPosition()
-        optotrak.sensors['hand2'].getVelocity()
-        hand_position = optotrak.sensors['hand2'].position
-        hand_to_center = -(hand_position[1] - initHandPosition[1])
-
-        msg = '[Start] init: {0} coord: {1} | ' \
-              'distance: {2:1.2f} ' \
-              'Velocity: {3:1.2f}'.format(initHandPosition, optotrak.sensors['hand2'].position, hand_to_center,
-                                          optotrak.sensors['hand2'].velocity)
-
-        text = visual.TextStim(win, text=msg, pos=(0, 0))
-        text.draw()
-        win.flip()
-        pygame.event.pump()
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_ESCAPE]: break
-
-    print('The hand is at the initial position')
-    optotrak.send_message('The hand is at the initial position')
-
-    print('Wait for the hand starting to move')
-    optotrak.send_message('Wait for the hand starting to move')
-
-    print('Start reponse')
     optotrak.send_message('EVENT_RESPONSE_START')
-    mvtDuration = None
-    status = True
-    while status or hand.validposition(threshold_time=0.050) is not True:
-        recorded = optotrak.record()
-        status = optotrak.sensors['hand2'].checkposition(initHandPosition, radiusOut)
-        optotrak.sensors['hand2'].getPosition()
-        optotrak.sensors['hand2'].getVelocity()
-        if status is False and mvtDuration is None:
-            print('Movement started')
-            mvtDuration = time.time()
 
-        msg = 'Response: init: {} coord: {} | Velocity: {}'.format(initHandPosition, optotrak.sensors['hand2'].position,
-                                                                   optotrak.sensors['hand2'].velocity)
+    while True:
+        optotrak.update()
+        recorded = optotrak.record()
+
+        msg = 'Position: {0} Velocity: {1:1.2f}'.format(optotrak.sensors['hand2'].position,
+                                                        optotrak.sensors['hand2'].velocity)
+
         text = visual.TextStim(win, text=msg, pos=(0, 0))
         text.draw()
         win.flip()
+
         pygame.event.pump()
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_ESCAPE]: break
+        if keys[pygame.K_ESCAPE] or (time.time() - time_init) >= 5.0:
+            break
 
-    print('Got response')
-    print('Mvt Duration: {}'.format(round((time.time() - mvtDuration) * 1000)))
-    optotrak.send_message('EVENT_RESPONSE_END {}'.format(hand.position))
+    optotrak.send_message('EVENT_RESPONSE_END')
 
     # Stop
     optotrak.stop_trial(1)
