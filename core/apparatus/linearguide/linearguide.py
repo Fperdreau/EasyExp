@@ -44,7 +44,7 @@ class LinearGuide(object):
     center_from_edge = -0.50  # Distance of guide center from right edge (in m)
 
     def __init__(self, dummy_mode=False, user_file='sample.txt', sensitivity=1.0, velocity_threshold=0.1,
-                 time_threshold=0.100):
+                 time_threshold=0.100, center_from_edge=None):
         """
         LinearGuide constructor
         :param dummy_mode: dummy mode enabled
@@ -65,6 +65,9 @@ class LinearGuide(object):
         self.__user_file = user_file
         self.__dummy_mode = dummy_mode
 
+        if center_from_edge is not None:
+            self.center_from_edge = center_from_edge
+
         self.__tracker = None
         self.init()
 
@@ -77,7 +80,7 @@ class LinearGuide(object):
         if self.__tracker is None:
             self.__tracker = OptoTrak(user_file=self.__user_file, freq=200.0,
                                       velocity_threshold=self.__velocity_threshold,
-                                      time_threshold=self.__time_threshold, origin='origin',
+                                      time_threshold=self.__time_threshold,
                                       labels=LinearGuide.sensors_label,
                                       dummy_mode=self.__dummy_mode,
                                       tracked=self.sensors_label)
@@ -163,6 +166,21 @@ class LinearGuide(object):
         """
         return self.velocity >= self.__velocity_threshold
 
+    def valideposition(self):
+        """
+        Validate end position of sensor: sensor must not move for a given duration to be considered as stable
+        """
+        return self.tracker.sensors['hand2'].validposition()
+
+    def checkposition(self, (x, y, z), radius):
+        """
+        Check that the tracked hands are located within a range from a given position
+        :param radius:
+        :return:
+        """
+        ref_position = np.array((x, y, z))
+        distance = OptoTrak.distance(ref_position, self.position)
+        return distance <= radius
 
 if __name__ == '__main__':
     import time
