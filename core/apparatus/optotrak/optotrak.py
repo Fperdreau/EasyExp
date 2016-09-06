@@ -354,7 +354,7 @@ class File(object):
         """
         self.name = name
         self.id = None
-        self.handler = None
+        self.__handler = None
 
     def open(self):
         """
@@ -362,19 +362,23 @@ class File(object):
         :return:
         """
         try:
-            self.handler = open(self.name, 'ab', 0)
+            self.__handler = open(self.name, 'ab', 0)
         except (IOError, TypeError) as e:
             msg = ("[Optotrack] Could not write into the user's datafile: {}".format(self.name, e))
             logging.critical(msg)
             raise msg
+
+    @property
+    def handler(self):
+        return self.__handler
 
     def close(self):
         """
         Close data file
         :return:
         """
-        if self.handler is not None and not self.handler.closed:
-            self.handler.close()
+        if self.__handler is not None and not self.__handler.closed:
+            self.__handler.close()
 
     def write(self, datatowrite):
         """
@@ -382,11 +386,9 @@ class File(object):
         :param datatowrite:
         :return:
         """
-        if self.handler is not None:
-            if self.handler.closed:
-                self.open()
+        if self.__handler is not None and not self.__handler.closed:
             try:
-                self.handler.write(datatowrite + '\r\n')
+                self.__handler.write(datatowrite + '\r\n')
             except (IOError, TypeError) as e:
                 msg = ("[{}] Could not write into the user's datafile ({}): {}".format(__name__, self.name, e))
                 logging.critical(msg)
@@ -395,7 +397,7 @@ class File(object):
             logging.warning('[{}] File has not been opened'.format(__name__))
 
 
-class Sensor(OptoTrak):
+class Sensor(object):
     """
     Instantiate tracked sensor
     """
@@ -403,7 +405,7 @@ class Sensor(OptoTrak):
     def __init__(self, parent, name='marker', origin_id=0):
         """
         Sensor constructor
-        :param parent: Instance of Optotrak class
+        :param parent: Instance of OptoTrak class
         :type parent: OptoTrak
         :param name: Sensor's label
         :type name: str
@@ -411,14 +413,14 @@ class Sensor(OptoTrak):
         :type origin_id: int
         :return:
         """
-        super(Sensor, self).__init__()
 
+        self._tracker = parent
         self.name = name
         self.originID = origin_id
-        self.fileName = parent.user_file
-        self.id = parent.labels.index(self.name)
-        self.client = parent.client
-        self.timeWindow = parent.timeWindow
+        self.fileName = self._tracker.user_file
+        self.id = self._tracker.labels.index(self.name)
+        self.timeWindow = self._tracker.timeWindow
+        self.velocityThres = self._tracker.velocityThres
 
         self.history = None
         self.__nb_positions = 0
@@ -445,7 +447,7 @@ class Sensor(OptoTrak):
         Sensor's position
         :return:
         """
-        positions = self.client.getPosition()
+        positions = self._tracker.client.getPosition()
         this = np.asarray(positions[self.id])
         position = np.asarray(this[0])
 
@@ -505,7 +507,7 @@ class Sensor(OptoTrak):
         :rtype: float
         """
         if self.__nb_positions >= self.__max_positions:
-            distances = [self.distance(self.history[i], self.history[j]) for i, j
+            distances = [OptoTrak.distance(self.history[i], self.history[j]) for i, j
                          in zip(range(0, self.__max_positions-1), range(1, self.__max_positions))]
             return float(np.mean(np.array(distances)/self.time_interval))
         else:
@@ -543,13 +545,13 @@ class Sensor(OptoTrak):
 
         if not self.is_moving:
             if self.valid_time is None:
-                self.send_message('EVENT_START_VALIDATION {}'.format(self.name))
+                self._tracker.send_message('EVENT_START_VALIDATION {}'.format(self.name))
                 self.valid_time = time.time()
 
             elif (time.time() - self.valid_time) >= threshold_time:
                 self.final_hand_position = self.position
-                datatowrite = self.position_to_str(self.final_hand_position)
-                self.send_message('EVENT_END_VALIDATION {} {}'.format(self.name, datatowrite))
+                datatowrite = OptoTrak.position_to_str(self.final_hand_position)
+                self._tracker.send_message('EVENT_END_VALIDATION {} {}'.format(self.name, datatowrite))
                 self.valid_time = None
                 validated = True
         else:
@@ -564,7 +566,7 @@ class Sensor(OptoTrak):
         :return:
         """
         ref_position = np.array((x, y, z))
-        distance = self.distance(ref_position, self.position)
+        distance = OptoTrak.distance(ref_position, self.position)
         return distance <= radius
 
 
