@@ -210,7 +210,7 @@ def mm2pix(x, y, px, mm):
     pix_density_y = px[1] / mm[1]
     nx = pix_density_x * x
     ny = pix_density_y * y
-    return np.array((int(nx), int(ny)))
+    return np.array((float(nx), float(ny)))
 
 
 def normsize(x, y, width_mm, height_mm):
