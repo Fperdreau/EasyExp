@@ -25,6 +25,7 @@ import os
 import select
 import logging
 from os.path import isfile
+import pymouse
 
 
 class Joystick(object):
@@ -37,9 +38,7 @@ class Joystick(object):
     myJoyStick.init()
     """
 
-    _format = 'IhBB'
-
-    def __init__(self, calibration_file='joy_calibration.txt', input_file='/dev/input/js0',
+    def __init__(self, dummy_mode=False, calibration_file='joy_calibration.txt', input_file='/dev/input/js0',
                  data_file=None, calibration_time=5.0, frequency=500.0, ptw=None):
         """
         JoyStick constructor
@@ -54,28 +53,43 @@ class Joystick(object):
         :param frequency: recording freqency (in Hz)
         :type frequency: float
         """
+        self.dummy_mode = dummy_mode
+        self._client = None
 
-        # Create/open input file
-        self._input_file = File(name=input_file)
-        # input file format (32 bit unsigned, 16 bit signed, 8 bit unsigned, 8 bit unsigned)
-        self._formatSize = struct.calcsize(self._format)
+        # Initialize attributes
+        self._response_getter = None
+        self._limits = None
+        self.calibrated = False
+        self.running = False
+
+        # Position
+        self._x = 0.0
+        self._y = 0.0
+        self._t = 0.0
 
         # Date file
         self._record_frequency = 1.0/float(frequency)  # Recording frequency for data file output
         self._record_clock = None
         self._data_file = File(name=data_file) if data_file is not None else None
 
+        # Get client
+        self.get_client()
+
         # Calibration
         self._calibrator = Calibration(self, calibration_file=calibration_file, max_time=calibration_time, ptw=ptw)
 
-        self._response_getter = None
-        self._limits = None
-        self.calibrated = False
-        self.running = False
-
-        self._x = 0.0
-        self._y = 0.0
-        self._t = 0.0
+    def get_client(self, input_file=None):
+        """
+        Get joystick position client
+        :param input_file:
+        :return:
+        """
+        if self._client is None:
+            if self.dummy_mode:
+                self._client = JoyStickDummyClient()
+            else:
+                self._client = JoyStickClient(input_file=input_file)
+        return self._client
 
     def init(self):
         """
@@ -85,16 +99,11 @@ class Joystick(object):
         if not self.calibrated:
             raise Exception('[{}] JoyStick must be calibrated before initialization'.format(__name__))
 
-        # open /dev/input/js0 by default or the device given on the command line otherwise
-        # open file in binary mode
-        self._input_file.open()
-
-        # discard everything in the joystick buffer at the moment
-        self.flush()
+        # Initialize client
+        self._client.init()
 
         # Write header
         self._writeheader()
-
         print('[{}] Joystick initialized'.format(__name__))
 
     def close(self):
@@ -102,14 +111,7 @@ class Joystick(object):
         Closing routine
         :return:
         """
-        self._input_file.close()
-
-    def flush(self):
-        """
-        Clears the joystick input file
-        """
-        while len(select.select([self._input_file.handler.fileno()], [], [], 0.0)[0]) > 0:
-            os.read(self._input_file.handler.fileno(), 4096)
+        self._client.close()
 
     @property
     def position(self):
@@ -119,18 +121,16 @@ class Joystick(object):
         :return: joystick position and timestamp (x, y, timestamp)
         :rtype: list
         """
-        self._input_file.open()
-        while len(select.select([self._input_file.handler.fileno()], [], [], 0.0)[0]) > 0:
-            # while there is something to read from the joystick
-            # non blocking read, maximum size: formatSize
-            joy_event = os.read(self._input_file.handler.fileno(), self._formatSize)
-            if len(joy_event) == self._formatSize:
-                (self._t, value, dunno, axis) = struct.unpack(self._format, joy_event)
-                if axis == 0:
-                    self._x = value
-                elif axis == 1:
-                    self._y = value
+        # Get position from client
+        self._x, self._y, self._t = self._client.get_position()
+        return self.map_position()
 
+    def map_position(self):
+        """
+        Normalize joystick position to min/max of each axis
+        :return: normalized position and timestamp (x, y, t)
+        :rtype: list
+        """
         if self.calibrated:
             # Normalize to min/max
             if self._x < 0:
@@ -281,6 +281,110 @@ class Joystick(object):
         return converted
 
 
+class JoyStickClient(object):
+    """
+    JoyStickClient
+    """
+
+    _format = 'IhBB'
+
+    def __init__(self, input_file='/dev/input/js0'):
+        # Create/open input file
+        self._input_file = File(name=input_file)
+        # input file format (32 bit unsigned, 16 bit signed, 8 bit unsigned, 8 bit unsigned)
+        self._formatSize = struct.calcsize(self._format)
+        self._x = 0.0
+        self._y = 0.0
+        self._t = 0.0
+
+    def init(self):
+        """
+        Initialize joystick
+        :return:
+        """
+        # open /dev/input/js0 by default or the device given on the command line otherwise
+        # open file in binary mode
+        self._input_file.open()
+
+        # discard everything in the joystick buffer at the moment
+        self.flush()
+        print('[{}] Joystick initialized'.format(__name__))
+
+    def flush(self):
+        """
+        Clears the joystick input file
+        """
+        while len(select.select([self._input_file.handler.fileno()], [], [], 0.0)[0]) > 0:
+            os.read(self._input_file.handler.fileno(), 4096)
+
+    def get_position(self):
+        """
+        wait for a joystick move and set position variables x and y
+        as soon as a new value is available
+        :return: joystick position and timestamp (x, y, timestamp)
+        :rtype: list
+        """
+        self._input_file.open()
+        while len(select.select([self._input_file.handler.fileno()], [], [], 0.0)[0]) > 0:
+            # while there is something to read from the joystick
+            # non blocking read, maximum size: formatSize
+            joy_event = os.read(self._input_file.handler.fileno(), self._formatSize)
+            if len(joy_event) == self._formatSize:
+                (self._t, value, dunno, axis) = struct.unpack(self._format, joy_event)
+                if axis == 0:
+                    self._x = value
+                elif axis == 1:
+                    self._y = value
+
+        sys.stdout.flush()
+        return self._x, self._y, self._t
+
+    def close(self):
+        """
+        Close input file
+        :return:
+        """
+        self._input_file.close()
+
+
+from psychopy import event
+
+
+class JoyStickDummyClient(object):
+    """
+    Joystick dummy client (Simulated with the mouse)
+    """
+
+    def __init__(self):
+        print('[{}] JoyStick running in Dummy Mode!!'.format(__name__))
+        self._x = 0.0
+        self._y = 0.0
+        self._t = 0.0
+        self._start_time = time.time()
+        self._mouse = event.Mouse()
+
+    def init(self):
+        pass
+
+    def get_position(self):
+        """
+        Get mouse position
+        :rtype: list
+        """
+        event.clearEvents()
+        self._t = time.time() - self._start_time
+        x, y = self._mouse.getPos()
+
+        self._x = -x  # To conform to joystick axis direction
+        self._y = y
+
+        # Return coordinates
+        return [self._x, self._y, self._t]
+
+    def close(self):
+        pass
+
+
 class Calibration(object):
     """
     Calibration class
@@ -367,7 +471,6 @@ class Calibration(object):
 
         while True:
             new_position = self.__device.position
-            sys.stdout.flush()
 
             if axis == 'top' and new_position[1] > self.__limits['top']:
                 self.__limits['top'] = new_position[1]
@@ -427,8 +530,9 @@ class GraphicsJoy(Joystick):
     Adapted version of JoyStick class to displays
     """
 
-    def __init__(self, calibration_file='joy_calibration.txt', input_file='/dev/input/js0', data_file=None,
-                 calibration_time=5.0, sensitivity=0.02, resolution=(1024, 768), frequency=500, ptw=None):
+    def __init__(self, dummy_mode=False, calibration_file='joy_calibration.txt', input_file='/dev/input/js0',
+                 data_file=None, calibration_time=5.0, sensitivity=0.02, resolution=(1024, 768), frequency=500,
+                 ptw=None):
         """
         GraphicsJoy constructor
         :param calibration_file: path to calibration file
@@ -446,8 +550,9 @@ class GraphicsJoy(Joystick):
         :param resolution: screen resolution
         :type resolution: tuple
         """
-        super(GraphicsJoy, self).__init__(calibration_file=calibration_file, input_file=input_file,
-                                          calibration_time=calibration_time, frequency=frequency, data_file=data_file, ptw=ptw)
+        super(GraphicsJoy, self).__init__(dummy_mode=dummy_mode, calibration_file=calibration_file,
+                                          input_file=input_file, calibration_time=calibration_time, frequency=frequency,
+                                          data_file=data_file, ptw=ptw)
         self._sensitivity = sensitivity
         self._resolution = resolution
         self._step = 0.01
@@ -473,26 +578,12 @@ class GraphicsJoy(Joystick):
         new_position = self.position
         return [-new_position[0], new_position[1]]
 
-    @property
-    def position(self):
+    def map_position(self):
         """
-        wait for a joystick move and set position variables x and y
-        as soon as a new value is available
-        :return: joystick position and timestamp (x, y, timestamp)
+        Map joystick position to screen coordinates
+        :return: transformed coordinates and timestamp (x, y, t)
         :rtype: list
         """
-        self._input_file.open()
-        while len(select.select([self._input_file.handler.fileno()], [], [], 0.0)[0]) > 0:
-            # while there is something to read from the joystick
-            # non blocking read, maximum size: formatSize
-            joy_event = os.read(self._input_file.handler.fileno(), self._formatSize)
-            if len(joy_event) == self._formatSize:
-                (self._t, value, dunno, axis) = struct.unpack(self._format, joy_event)
-                if axis == 0:
-                    self._x = value
-                elif axis == 1:
-                    self._y = value
-
         if self.calibrated:
             # Normalize to min/max
             if self._x < 0:
@@ -686,9 +777,8 @@ if __name__ == "__main__":
     position = np.array((0.0, 0.0))
     cursor = visual.Rect(win, width=50, height=50, fillColor=(0.0, 0.0, 0.0), lineColor=None, units='pix', pos=position)
 
-
     # Instantiate joystick
-    joy = GraphicsJoy(calibration_file='{}/joy_calibration.txt'.format(root_folder),
+    joy = GraphicsJoy(dummy_mode=True, calibration_file='{}/joy_calibration.txt'.format(root_folder),
                       data_file='{}/sample.txt'.format(root_folder), resolution=(1400, 525), ptw=win)
 
     # Calibrate joystick
@@ -696,7 +786,6 @@ if __name__ == "__main__":
 
     # Initialize joystick
     joy.init()
-
 
     # Get response
     response = None
