@@ -19,7 +19,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 try:
-    from .optotrak.optotrak import OptoTrak
+    from core.apparatus.optotrak.optotrak import OptoTrak
 except ImportError:
     raise ImportError('Could not import OptoTrak class, but we need it to run the LinearGuide!')
 
@@ -41,10 +41,10 @@ class LinearGuide(object):
     """
 
     sensors_label = ('Xas', 'Marker2', 'Yas', 'origin', 'hand1', 'hand2')  # Sensors label
-    center_from_edge = -0.50  # Distance of guide center from right edge (in m)
+    _step = 0.01
 
     def __init__(self, dummy_mode=False, user_file='sample.txt', sensitivity=1.0, velocity_threshold=0.1,
-                 time_threshold=0.100, center_from_edge=None):
+                 time_threshold=0.100, center_from_edge=-0.50, bar_length=1.0, resolution=(1024, 768)):
         """
         LinearGuide constructor
         :param dummy_mode: dummy mode enabled
@@ -58,17 +58,26 @@ class LinearGuide(object):
         :param time_threshold: time window over which a sensor must stay at the same location to be considered as stable
         (in seconds)
         :type time_threshold: float
+        :param center_from_edge: distance of guide's center from right edge (in m)
+        :type center_from_edge: float
+        :param bar_length: length of the guide (in m)
+        :type bar_length: float
+        :param resolution: screen's resolution
         """
-        self.__sensitivity = sensitivity
         self.__velocity_threshold = velocity_threshold
         self.__time_threshold = time_threshold
         self.__user_file = user_file
         self.__dummy_mode = dummy_mode
-
-        if center_from_edge is not None:
-            self.center_from_edge = center_from_edge
+        self.__center_from_edge = center_from_edge
+        self.__bar_length = bar_length
+        self.__resolution = resolution
+        self.__sensitivity = sensitivity
 
         self.__tracker = None
+        self._position = None
+        self._previous = None
+
+        # Initialize tracker
         self.init()
 
     @property
@@ -130,11 +139,29 @@ class LinearGuide(object):
         self.tracker.record()
 
     @property
+    def sensitivity(self):
+        return self.__sensitivity
+
+    @sensitivity.setter
+    def sensitivity(self, value):
+        self.__sensitivity = 0.01 if value < 0.1 else value
+
+    def set_sensitivity(self, direction=-1):
+        """
+        Increase or decrease sensitivity
+        :param direction: increase (=1) or decrease (-1)
+        :type direction: int
+        """
+        self.sensitivity += direction * self._step
+
+    @property
     def position(self):
         """
         Return position of slider in guide coordinates (centered on guide center).
         :rtype: ndarray
         """
+        self._previous = self._position
+
         if not self.__dummy_mode:
             # Position of linear-guide right extremity in optotrak coordinates
             bar = self.tracker.sensors['hand1'].position
@@ -143,12 +170,51 @@ class LinearGuide(object):
             hand = self.tracker.sensors['hand2'].position
 
             # Position of sled's center in optotrak coordinates
-            bar_center = bar + np.array((0.0, self.center_from_edge, 0.0))
+            bar_center = bar + np.array((0.0, self.__center_from_edge, 0.0))
 
             # Position of hand relative to world (screen) center
-            return hand - bar_center
+            self._position = hand - bar_center
         else:
-            return self.tracker.sensors['hand2'].position
+            self._position = self.tracker.sensors['hand2'].position
+
+        return self._position
+
+    @property
+    def cursor(self):
+        """
+        Returns position mapped into screen coordinates and weighted by sensitivity
+        Screen coordinates system's origin is set on screen's center.
+        x<0: left
+        x>0: right
+        y<0: bottom
+        y>O: top
+        :rtype: list (int, int)
+        """
+        return self.map_screen(self.position)
+
+    def map_screen(self, new_position):
+        """
+        Returns position mapped into screen coordinates and weighted by sensitivity
+        Screen coordinates system's origin is set on screen's center.
+        x<0: left
+        x>0: right
+        y<0: bottom
+        y>O: top
+        :param new_position: ndarray
+        :rtype: list (int, int)
+        """
+        if not self.__dummy_mode:
+            return [int(self.__sensitivity * (new_position[0] / (0.5*self.__bar_length))
+                        * (0.5 * self.__resolution[0])), 0]
+        else:
+            return [int(self.__sensitivity * new_position[0]), 0]
+
+    @property
+    def delta(self):
+        if self._previous is not None:
+            return self.map_screen(self.position - self._previous)
+        else:
+            return 0.0
 
     @property
     def velocity(self):
@@ -184,9 +250,26 @@ class LinearGuide(object):
 
 if __name__ == '__main__':
     import time
+    from psychopy import visual
+    import pygame
+
+    # Open window
+    win = visual.Window(
+        size=(1400, 525),
+        monitor='TestMonitor',
+        color=(-1, -1, -1),
+        units='pix',
+        winType='pygame',
+        pos=(0, 0),
+        waitBlanking=True,
+        fullscr=False)
+    win.setMouseVisible(False)
+
+    position = np.array((0.0, 0.0))
+    cursor = visual.Rect(win, width=50, height=50, fillColor=(0.0, 0.0, 0.0), lineColor=None, units='pix', pos=position)
 
     # Instantiate LinearGuide
-    guide = LinearGuide(dummy_mode=False)
+    guide = LinearGuide(dummy_mode=True, resolution=(1400, 525))
 
     # Print guide position for few seconds
     test_duration = 5.0
@@ -199,7 +282,7 @@ if __name__ == '__main__':
     guide.start_trial(1)
     mvt_onset = None
     while (time.time() - init_time) < test_duration:
-        print('Position: {} | Velocity: {} | Moving: {}'.format(guide.position, guide.velocity, guide.moving))
+        msg = ('Position: {} | Velocity: {} | Moving: {}'.format(guide.position, guide.velocity, guide.moving))
         # Record date into file
         guide.record()
 
@@ -210,8 +293,34 @@ if __name__ == '__main__':
         if mvt_onset is not None and not guide.moving:
             mvt_offset = time.time()
             mvt_duration = mvt_offset - mvt_onset
+            mvt_onset = None
             print('Movement has ended')
             print('Movement duration: {} s'.format(mvt_duration))
+
+        # Update cursor position and render it
+        cursor.setPos(guide.cursor)
+        cursor.draw()
+        text = visual.TextStim(win, text=msg, pos=(0, -200))
+        text.draw()
+        win.flip()
+
+        # Record position into a file
+        if guide.record():
+            # Record stimuli position
+            paddle_pos = guide.tracker.position_to_str(cursor.pos)
+            guide.tracker.send_message('STIM Paddle {}'.format(paddle_pos))
+
+        # Listen to input keys
+        pygame.event.pump()
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_UP] or keys[pygame.K_DOWN]:
+            if keys[pygame.K_UP]:
+                guide.set_sensitivity(1)
+            else:
+                guide.set_sensitivity(-1)
+            print('New sensitivity: {}'.format(guide.sensitivity))
+
+        if keys[pygame.K_ESCAPE]:
             break
 
     # Stop trial
@@ -219,3 +328,6 @@ if __name__ == '__main__':
 
     # Close stream
     guide.close()
+
+    # Close Psychopy window
+    win.close()
