@@ -46,8 +46,9 @@ class OptoTrak(object):
     user_file = 'sample.txt'
     dummy_mode = False
 
-    def __init__(self, user_file='sample.txt', freq=60.0, labels=None, origin=None, dummy_mode=False, tracked={'origin'},
-                 velocity_threshold=0.01, time_threshold=0.010, max_positions=3, logger_label='root'):
+    def __init__(self, user_file='sample.txt', freq=60.0, labels=None, origin=None, dummy_mode=False,
+                 tracked=None, velocity_threshold=0.01, time_threshold=0.010, max_positions=3,
+                 logger_label='root'):
         """
         OptoTrak constructor
         :param velocity_threshold: Velocity threshold
@@ -57,11 +58,11 @@ class OptoTrak(object):
         :param user_file: file name
         :type user_file: str
         :param labels: sensor labels
-        :type labels: list
+        :type labels: tuple
         :param dummy_mode: if False, then runs in dummy mode
         :type dummy_mode: bool
-        :param tracked: the sensors to track
-        :type tracked: list
+        :param tracked: tracked sensors (only corresponding data will be recorded)
+        :type tracked: tuple
         :param logger_label: logger name
         :type logger_label: str
         :param max_positions: maximum number of positions to be stored in history
@@ -83,8 +84,6 @@ class OptoTrak(object):
         # Sampling frequency
         self.freq = 1.0/freq
         self.freqInitTime = time.time()
-
-        # Tracked sensor (only corresponding data will be recorded)
 
         # Arrays
         self.positions = {}
@@ -178,7 +177,7 @@ class OptoTrak(object):
         # collect some samples
         init_time = time.time()
         while time.time() - init_time < 0.100:
-            self.get_position()
+            self.update()
 
         self.send_message('SYNCTIME {}'.format(markersCoord))
 
@@ -219,13 +218,15 @@ class OptoTrak(object):
         if sensor_label in self.tracked:
             del self.sensors[sensor_label]
 
-    def get_position(self):
+    def get_position(self, label):
         """
         Get current position
-        :return:
+        :param label: sensor's label
+        :type label: str
+        :return: sensor position
+        :rtype: ndarray
         """
-        for tracked in self.tracked:
-            self.sensors[tracked].get_position()
+        return self.sensors[label].position
 
     def update(self):
         """
@@ -803,8 +804,8 @@ if __name__ == '__main__':
 
     # Create optotrack instance
     optotrak = OptoTrak('test', freq=500.0, velocity_threshold=0.010, time_threshold=0.050,
-                        labels=('X-as', 'Marker_2', 'Y-as', 'origin', 'hand1', 'hand2'),
-                        dummy_mode=True, tracked={'hand1', 'hand2'})
+                        labels=['X-as', 'Marker_2', 'Y-as', 'origin', 'hand1', 'hand2'],
+                        dummy_mode=True, tracked=['hand1', 'hand2'])
 
     # Initialization and connection procedure
     optotrak.init()
