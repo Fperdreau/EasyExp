@@ -134,9 +134,9 @@ class LinearGuide(object):
     def record(self):
         """
         Record into data file
-        :return: void
+        :rtype: bool
         """
-        self.tracker.record()
+        return self.tracker.record()
 
     @property
     def sensitivity(self):
@@ -178,6 +178,10 @@ class LinearGuide(object):
             self._position = self.tracker.sensors['hand2'].position
 
         return self._position
+
+    def __str__(self):
+        return 'Position: ({}) | Velocity: {} m/s | Moving: {}'.format(self.position, self.velocity,
+                                                                       self.moving)
 
     @property
     def cursor(self):
@@ -280,12 +284,9 @@ if __name__ == '__main__':
 
     # Start trial
     guide.start_trial(1)
+
     mvt_onset = None
     while (time.time() - init_time) < test_duration:
-        msg = ('Position: {} | Velocity: {} | Moving: {}'.format(guide.position, guide.velocity, guide.moving))
-        # Record date into file
-        guide.record()
-
         if guide.moving and mvt_onset is None:
             mvt_onset = time.time()
             print('Movement has started')
@@ -298,9 +299,11 @@ if __name__ == '__main__':
             print('Movement duration: {} s'.format(mvt_duration))
 
         # Update cursor position and render it
-        cursor.setPos(guide.cursor)
+        position += guide.delta
+        cursor.setPos(position)
         cursor.draw()
-        text = visual.TextStim(win, text=msg, pos=(0, -200))
+
+        text = visual.TextStim(win, text=guide.__str__(), pos=(0, -200))
         text.draw()
         win.flip()
 
