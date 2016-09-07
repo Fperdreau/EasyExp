@@ -57,11 +57,11 @@ class OptoTrak(object):
         :param user_file: file name
         :type user_file: str
         :param labels: sensor labels
-        :type labels: array
+        :type labels: list
         :param dummy_mode: if False, then runs in dummy mode
         :type dummy_mode: bool
         :param tracked: the sensors to track
-        :type tracked: array
+        :type tracked: list
         :param logger_label: logger name
         :type logger_label: str
         :param max_positions: maximum number of positions to be stored in history
