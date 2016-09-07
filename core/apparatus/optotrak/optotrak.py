@@ -804,8 +804,8 @@ if __name__ == '__main__':
 
     # Create optotrack instance
     optotrak = OptoTrak('test', freq=500.0, velocity_threshold=0.010, time_threshold=0.050,
-                        labels=['X-as', 'Marker_2', 'Y-as', 'origin', 'hand1', 'hand2'],
-                        dummy_mode=True, tracked=['hand1', 'hand2'])
+                        labels=('X-as', 'Marker_2', 'Y-as', 'origin', 'hand1', 'hand2'),
+                        dummy_mode=True, tracked=('hand1', 'hand2'))
 
     # Initialization and connection procedure
     optotrak.init()
