@@ -451,7 +451,7 @@ class GraphicsJoy(Joystick):
 
     @sensitivity.setter
     def sensitivity(self, value):
-        self._sensitivity = 0.01 if value < 0.1 else value
+        self._sensitivity = 0.01 if value < 0.01 else value
 
     def set_sensitivity(self, direction=-1):
         """
