@@ -157,6 +157,10 @@ class LinearGuide(object):
         :type direction: int
         """
         self.sensitivity += direction * self._step
+        
+    @property
+    def running(self):
+        return self.tracker.running        
 
     @property
     def position(self):
@@ -224,7 +228,7 @@ class LinearGuide(object):
         if self._previous is not None:
             return self.map_screen(self.position - self._previous)
         else:
-            return 0.0
+            return [0.0, 0.0]
 
     @property
     def velocity(self):
