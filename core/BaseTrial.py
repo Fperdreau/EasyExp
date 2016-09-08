@@ -398,11 +398,6 @@ class BaseTrial(object):
             for data, value in self.data.iteritems():
                 self.data[data] = None
 
-            # Reset stimuli triggers
-            self.stimuliTrigger = dict()
-            for label, value in self.stimuli.iteritems():
-                self.stimuliTrigger.update({label: False})
-
             # Reset event triggers
             for label, value in self.triggers.iteritems():
                 self.triggers[label] = False
@@ -415,8 +410,14 @@ class BaseTrial(object):
             # Initialize movie if requested
             if self.trial.settings['setup']['movie']:
                 self.movie = MovieMaker(self.ptw, "{}_TrialID_{}".format(self.core.expname, self.trial.id), "png")
+
             # Initialize stimuli
             self.init_stimuli()
+
+            # Reset stimuli triggers
+            self.stimuliTrigger = dict()
+            for label, value in self.stimuli.iteritems():
+                self.stimuliTrigger.update({label: False})
 
             return True
 
