@@ -142,6 +142,15 @@ class LinearGuide(object):
         """
         return self.tracker.record()
 
+    def send_message(self, msg):
+        """
+        Write message into data file
+        :param msg: message
+        :type msg: str
+        :return:
+        """
+        return self.tracker.send_message(msg)
+
     @property
     def sensitivity(self):
         return self.__sensitivity
