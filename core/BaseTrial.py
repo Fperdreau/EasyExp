@@ -399,7 +399,8 @@ class BaseTrial(object):
                 self.data[data] = None
 
             # Reset stimuli triggers
-            for label, value in self.stimuliTrigger.iteritems():
+            self.stimuliTrigger = dict()
+            for label, value in self.stimuli.iteritems():
                 self.stimuliTrigger[label] = False
 
             # Reset event triggers
@@ -465,7 +466,7 @@ class BaseTrial(object):
                         self.stimuli[stim].draw()
                 else:
                     msg = Exception(
-                        'Stimulus "{}" has been initialized in RunTrial::init_stimuli() method!'.format(
+                        'Stimulus "{}" has not been initialized in RunTrial::init_stimuli() method!'.format(
                             stim))
                     self.logger.logger.critical(msg)
                     raise msg
@@ -529,6 +530,40 @@ class BaseTrial(object):
         Get participant' response
         """
         raise NotImplementedError('Should implement this')
+
+    def __default_fast_states(self):
+        """
+        Define default fast states
+        :return:
+        """
+        if self.state == 'pause':
+            pass
+
+        elif self.state == 'idle':
+            pass
+
+        elif self.state == 'iti':
+            pass
+
+        elif self.state == 'end':
+            pass
+
+    def __default_graphic_states(self):
+        """
+        Define default graphics states
+        :return:
+        """
+        if self.state == 'pause':
+            pass
+
+        elif self.state == 'idle':
+            pass
+
+        elif self.state == 'iti':
+            pass
+
+        elif self.state == 'end':
+            pass
 
     def fast_state_machine(self):
         raise NotImplementedError('Should implement this')
