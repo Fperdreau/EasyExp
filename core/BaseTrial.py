@@ -401,7 +401,7 @@ class BaseTrial(object):
             # Reset stimuli triggers
             self.stimuliTrigger = dict()
             for label, value in self.stimuli.iteritems():
-                self.stimuliTrigger[label] = False
+                self.stimuliTrigger.update({label: False})
 
             # Reset event triggers
             for label, value in self.triggers.iteritems():
