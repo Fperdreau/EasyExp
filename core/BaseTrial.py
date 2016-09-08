@@ -358,7 +358,7 @@ class BaseTrial(object):
         if self.buttons.get_status('pause'):
             self.triggers['pauseRequested'] = True
 
-        # Shall we go on?
+        # Shall we move on?
         if self.timings[self.state] is not False:
             timeToMoveOn = (time.time() - self.state_machine['onset']) >= self.timings[self.state]
         else:
@@ -415,9 +415,11 @@ class BaseTrial(object):
             self.init_stimuli()
 
             # Reset stimuli triggers
-            self.stimuliTrigger = dict()
-            for label, value in self.stimuli.iteritems():
-                self.stimuliTrigger.update({label: False})
+            for label, obj in self.stimuli.iteritems():
+                if label in self.stimuliTrigger:
+                    self.stimuliTrigger[label] = False
+                else:
+                    self.stimuliTrigger.update({label: False})
 
             return True
 
