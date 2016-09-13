@@ -24,6 +24,7 @@ except ImportError:
     raise ImportError('Could not import OptoTrak class, but we need it to run the LinearGuide!')
 
 import numpy as np
+import logging
 
 
 class LinearGuide(object):
@@ -76,6 +77,12 @@ class LinearGuide(object):
         self.__resolution = resolution
         self.__sensitivity = sensitivity
         self.__axis_index = axis_index
+
+        self.__invalid_sample = None  # Set to time.time() if current sample is NaN
+
+        # Tolerance period during which guide's position will not be updated if received sample is NaN. Beyond this
+        # duration an exception will be raised
+        self.__invalid_tolerance = 5.0
 
         self.__tracker = None
         self._position = None
@@ -192,8 +199,26 @@ class LinearGuide(object):
             bar_center = bar + center
 
             # Position of hand relative to world (screen) center
-            self._position = hand - bar_center
+            current_position = hand - bar_center
+
+            # Only set new position if it is valid (not NaN)
+            if True not in np.isnan(current_position[0]):
+                self.__invalid_sample = None
+                self._position = current_position
+            else:
+                if self.__invalid_sample is None:
+                    self.__invalid_sample = time.time()
+                    logging.warning("[{}] Current sensor position is not accessible. "
+                                    "We use the previous valid position as default".format(__name__))
+                elif (time.time() - self.__invalid_sample) >= self.__invalid_tolerance:
+                        msg = "[{0}] Sensor position was not accessible for " \
+                              "more than {1: 1.0f} seconds. Please, make sure sensors are visible from the Optotrak " \
+                              "camera.".format(__name__, self.__invalid_tolerance)
+                        logging.fatal(msg)
+                        raise Exception(msg)
+
         else:
+            # Get mouse position
             self._position = self.tracker.sensors['hand2'].position
 
         return self._position
@@ -296,7 +321,7 @@ if __name__ == '__main__':
         guide = LinearGuide(dummy_mode=False, resolution=(1400, 525))
     
         # Print guide position for few seconds
-        test_duration = 5.0
+        test_duration = 10.0
         init_time = time.time()
     
         # Example of trial parameters: {parameter_name: parameter_value}
@@ -320,7 +345,6 @@ if __name__ == '__main__':
     
             # Update cursor position and render it
             position += guide.delta
-            print(position)
             cursor.setPos(position)
             cursor.draw()
     
