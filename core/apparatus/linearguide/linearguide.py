@@ -25,6 +25,7 @@ except ImportError:
 
 import numpy as np
 import logging
+import time
 
 
 class LinearGuide(object):
