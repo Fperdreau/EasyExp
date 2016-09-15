@@ -249,7 +249,7 @@ class RunTrial(BaseTrial):
                                             time_threshold=100, origin='origin',
                                             labels=('Xas', 'Marker2', 'Yas', 'origin', 'hand1', 'hand2'),
                                             dummy_mode=not self.trial.settings['devices']['optotrak'],
-                                            tracked={'Xas', 'Marker2', 'Yas', 'origin', 'hand1', 'hand2'})
+                                            tracked=('Xas', 'Marker2', 'Yas', 'origin', 'hand1', 'hand2'))
         self.devices['optotrak'].init()
 
     def init_audio(self):
@@ -372,8 +372,6 @@ class RunTrial(BaseTrial):
                 if status is 'pause':
                     self.nextState = 'pause'
                     self.triggers['moveOnRequested'] = True
-
-                    self.data['response'] = False
 
                 # ADD YOUR CODE HERE
                 # Stimuli Triggers
