@@ -30,7 +30,25 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-### Dependencies
+## Requirements
+### General
+* Python 2.7 32 bits
+* Numpy
+* Scipy
+
+### Apparatus
+* PyLink (EyeLink, SR-Research)
+* PyMouse - cross-platform solution for controlling mouse
+* PyHook (required by PyMouse)
+* PySerial
+
+### Display
+* PsychoPy 1.17+
+* Pygame 1.8+
+* PyOpenGl
+* PyQt
+
+## Dependencies
 * FPclient: Copyright &copy; 2012-2015 Wilbert van Ham, licensed under the [GNU GPL 3.0 ](http://www.gnu.org/licenses/).
 * Qeyelink: Copyright &copy; 2012-2015 Wilbert van Ham, licensed under the [GNU GPL 3.0 ](http://www.gnu.org/licenses/).
 * SledClient: Copyright &copy; 2012-2015 Wilbert van Ham, licensed under the [GNU GPL 3.0 ](http://www.gnu.org/licenses/).
