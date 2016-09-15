@@ -436,8 +436,6 @@ class RunTrial(BaseTrial):
                     self.nextState = 'pause'
                     self.triggers['moveOnRequested'] = True
 
-                    self.data['response'] = False
-
                 # ADD YOUR CODE HERE
                 # Self motion settings
                 side = 1 if self.trial.params['side'] == 'right' else -1
