@@ -26,6 +26,7 @@ import select
 import logging
 from os.path import isfile
 import pymouse
+from psychopy import visual
 
 
 class Joystick(object):
@@ -39,7 +40,7 @@ class Joystick(object):
     """
 
     def __init__(self, dummy_mode=False, calibration_file='joy_calibration.txt', input_file='/dev/input/js0',
-                 data_file=None, calibration_time=5.0, frequency=500.0, ptw=None):
+                 user_file=None, calibration_time=5.0, frequency=500.0, ptw=None):
         """
         JoyStick constructor
         :param calibration_file: path to calibration file
@@ -70,10 +71,10 @@ class Joystick(object):
         # Date file
         self._record_frequency = 1.0/float(frequency)  # Recording frequency for data file output
         self._record_clock = None
-        self._data_file = File(name=data_file) if data_file is not None else None
+        self._data_file = File(name=user_file) if user_file is not None else None
 
         # Get client
-        self.get_client()
+        self.get_client(input_file)
 
         # Calibration
         self._calibrator = Calibration(self, calibration_file=calibration_file, max_time=calibration_time, ptw=ptw)
@@ -124,6 +125,13 @@ class Joystick(object):
         # Get position from client
         self._x, self._y, self._t = self._client.get_position()
         return self.map_position()
+
+    def get_position(self):
+        """
+        Wrapper function for compatibility with Validator class
+        :return:
+        """
+        return self.position
 
     def map_position(self):
         """
@@ -531,7 +539,7 @@ class GraphicsJoy(Joystick):
     """
 
     def __init__(self, dummy_mode=False, calibration_file='joy_calibration.txt', input_file='/dev/input/js0',
-                 data_file=None, calibration_time=5.0, sensitivity=0.02, resolution=(1024, 768), frequency=500,
+                 user_file=None, calibration_time=5.0, sensitivity=0.02, resolution=(1024, 768), frequency=500,
                  ptw=None):
         """
         GraphicsJoy constructor
@@ -552,7 +560,7 @@ class GraphicsJoy(Joystick):
         """
         super(GraphicsJoy, self).__init__(dummy_mode=dummy_mode, calibration_file=calibration_file,
                                           input_file=input_file, calibration_time=calibration_time, frequency=frequency,
-                                          data_file=data_file, ptw=ptw)
+                                          user_file=user_file, ptw=ptw)
         self._sensitivity = sensitivity
         self._resolution = resolution
         self._step = 0.01
@@ -778,8 +786,8 @@ if __name__ == "__main__":
     cursor = visual.Rect(win, width=50, height=50, fillColor=(0.0, 0.0, 0.0), lineColor=None, units='pix', pos=position)
 
     # Instantiate joystick
-    joy = GraphicsJoy(dummy_mode=True, calibration_file='{}/joy_calibration.txt'.format(root_folder),
-                      data_file='{}/sample.txt'.format(root_folder), resolution=(1400, 525), ptw=win)
+    joy = GraphicsJoy(dummy_mode=False, calibration_file='{}/joy_calibration.txt'.format(root_folder),
+                      user_file='{}/sample.txt'.format(root_folder), resolution=(1400, 525), ptw=win)
 
     # Calibrate joystick
     joy.calibrate()

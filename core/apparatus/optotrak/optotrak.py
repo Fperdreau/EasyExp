@@ -25,7 +25,11 @@ from os.path import isfile
 import time
 import math
 import numpy as np
-import pymouse
+
+try:
+    import pymouse
+except ImportError as e:
+    raise ImportError('PyMouse module is missing on this computer: {}'.format(e))
 
 # FPClient
 try:
@@ -467,7 +471,10 @@ class Sensor(object):
     def dt(self):
         if self.__tOld is None:
             self.__tOld = time.time()
-        self.__dt = time.time() - self.__tOld
+
+        if self.__tOld is not None:
+            self.__dt = time.time() - self.__tOld
+
         return self.__dt
 
     def __reset(self):
