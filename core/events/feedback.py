@@ -33,43 +33,64 @@ class FeedBack(object):
         :param field: "correct response" field in data array
         :type field: str
         """
-        self.count = 0
-        self.frequency = frequency
-        self.field = field
-        self.prev_score = 0.0
-        self.msg = ''
+        self._count = 0
+        self._frequency = frequency
+        self._field = field
+        self._prev_score = 0.0
+        self._score = 0.0
+        self._progression = 0.0
+        self._msg = None
 
-    def timeToUpdate(self):
+    @property
+    def time_to_update(self):
         """
         Check if it is time to show a feedback
         :return: True if is time to update. False otherwise
         """
-        self.count += 1
-        print('Feedback count: {}'.format(self.count))
-        do_update = self.count >= self.frequency
+        self._count += 1
+        print('Feedback count: {}'.format(self._count))
+        do_update = self._count >= self._frequency
         if do_update:
-            self.count = 0
+            self._count = 0
         return do_update
 
-    def getFeedBack(self, data, nplayed):
+    @property
+    def progression(self):
+        """
+        Compute progression since last feedback
+        :return:
+        """
+        self._progression = ((self._score - self._prev_score) / self._prev_score) * 100.0
+        return self._progression
+
+    @property
+    def msg(self):
+        self._msg = self.__str__()
+        return self._msg
+
+    @property
+    def score(self):
+        return self._score
+
+    def update(self, data, played):
         """
         Get feedback message indicating current score and progression since last feedback
         :param data: data array
         :type data: array-like (trial x property)
-        :param nplayed: number of played trials
-        :type nplayed: int
-        :return str msg: message to display
+        :param played: number of played trials
+        :type played: int
+        :return void
         """
-        if len(data) > 0 and nplayed > 0:
-            correct_trials = [data[ii] for ii in range(len(data)) if data[ii][self.field] == 'True']
-            nCorrect = len(correct_trials)
-            score = (nCorrect/nplayed) * 100.0
-            progression = ((score - self.prev_score) / self.prev_score) * 100
+
+        if len(data) > 0 and played > 0:
+            correct_trials = [data[ii] for ii in range(len(data)) if data[ii][self._field] == 'True']
+            n_correct = len(correct_trials)
+            score = (n_correct / played) * 100.0
         else:
             score = 0.0
-            progression = 0.0
 
-        self.prev_score = score
-        self.msg = 'Score: {0: 1.1f}% | Progression: {1:1.1f}%'.format(score, progression)
-        print(self.msg)
-        return self.msg
+        self._prev_score = self._score
+        self._score = score
+
+    def __str__(self):
+        return 'Score: {0: 1.1f}% | Progression: {1:1.1f}%'.format(self._score, self._progression)
