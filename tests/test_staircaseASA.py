@@ -86,9 +86,9 @@ def main():
         # Plot responses
         for i in range(len(intensities)):
             if responses[i] == 'True':
-                plt.plot(i+1, intensities[i], 'o')
+                plt.plot(i, intensities[i], 'o')
             else:
-                plt.plot(i+1, intensities[i], 'x')
+                plt.plot(i, intensities[i], 'x')
 
         # Plot hidden state
         state = np.ones((1, len(intensities))) * float(stairs[stair]['true'])
