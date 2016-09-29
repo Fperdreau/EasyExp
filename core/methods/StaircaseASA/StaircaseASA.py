@@ -197,17 +197,18 @@ class StaircaseASA(MethodBase):
             self.resp_list = responses
             self.cpt_stair = len(intensities)
 
-        if self.cpt_stair <= self._options['warm_up']:
+        if self.cpt_stair < self._options['warm_up']:
             # If warm-up phase, then present extremes values
             self.intensity = self._options['stimRange'][self.cpt_stair % 2]
             return self.intensity
-        elif self.cpt_stair == self._options['warm_up'] + 1:
+        elif self.cpt_stair == self._options['warm_up']:
             # If this is the first trial for the current staircase, then returns initial intensity
             self.intensity = self._options['stimRange'][direction]
             return self.intensity
 
         # Compute new intensity
-        nn = self.cpt_stair  # number of int_list displayed so far(including current)
+        # number of intensities displayed so far (including current, excluding warm-up)
+        nn = self.cpt_stair - self._options['warm_up']
         int_curr = self.int_list[0, nn-1]  # current intensity being displayed
         cc = self._options['maxInitialStepSize'] / max(self._options['threshold'],
                                                        1 - self._options['threshold'])
@@ -248,20 +249,25 @@ class StaircaseASA(MethodBase):
 
     def _get_lists(self):
         """
-        Makes responses and intensities lists from data array
+        Makes responses and intensities lists from data array (excluding warm-up trials)
 
         Returns
         -------
         void
         """
-        resp_list = np.zeros((1, self._options['nTrials']))
-        int_list = np.zeros((1, self._options['nTrials']))
+        resp_list = np.zeros((1, self._options['nTrials'] - self._options['warm_up']))
+        int_list = np.zeros((1, self._options['nTrials'] - self._options['warm_up']))
 
         cpt_stair = 0
+        t = 0
         for trial in self.data:
             if trial['Replay'] == "False" and int(trial['staircaseID']) == self.cur_stair:
-                resp_list[0, cpt_stair] = 1 if trial[self._options['response_field']] == 'True' else 0
-                int_list[0, cpt_stair] = float(trial[self._options['intensity_field']])
+                # Only store previous responses and intensities if warm-up is over
+                if cpt_stair >= self._options['warm_up']:
+                    resp_list[0, t] = 1 if trial[self._options['response_field']] == 'True' else 0
+                    int_list[0, t] = float(trial[self._options['intensity_field']])
+                    t += 1
+
                 cpt_stair += 1
         self.cpt_stair = cpt_stair
         self.resp_list = resp_list
