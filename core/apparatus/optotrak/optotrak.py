@@ -198,9 +198,7 @@ class OptoTrak(object):
         Init tracked sensors
         :return:
         """
-        print(self.tracked)
         for sensor in self.tracked:
-            print("Adding {}".format(sensor))
             self.add_sensor(sensor)
 
     def add_sensor(self, sensor_label):
