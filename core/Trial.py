@@ -262,7 +262,7 @@ class Trial(object):
         else:
             self.valid()
         self.endtime = time.time() - self.inittime
-        self.__logger.info("\n[{0}] Trial {1}: END (duration: {2:.2f})".format(__name__, self.id, self.endtime))
+        self.__logger.info("[{0}] Trial {1}: END (duration: {2:.2f})".format(__name__, self.id, self.endtime))
 
     def replay(self):
         """
