@@ -260,7 +260,7 @@ class RunTrial(BaseTrial):
                                                     winsize=self.screen.size, inner_tgcol=(127, 127, 127),
                                                     outer_tgcol=(255, 255, 255), targetsize_out=1.0, targetsize_in=0.25)
             self.devices['eyetracker'].run()
-            self.state = 'calibration'
+            self.state_machine.state = 'calibration'
 
     def init_audio(self):
         """
@@ -382,25 +382,23 @@ class RunTrial(BaseTrial):
         # Get sled (viewer) position
         self.getviewerposition()
 
-        if self.state == 'idle':
+        if self.state_machine.state == 'idle':
             # IDLE state
             # DO NOT MODIFY
-            self.nextState = 'iti'
+            self.state_machine.next_state = 'iti'
 
-        elif self.state == 'quit':
+        elif self.state_machine.state == 'quit':
             # QUIT experiment
             # DO NOT MODIFY
 
-            if self.state_machine['singleshot']:
-                self.state_machine['singleshot'] = False
+            if self.state_machine.singleshot():
                 self.quit()
 
-        elif self.state == 'pause':
+        elif self.state_machine.state == 'pause':
             # PAUSE experiment
             # DO NOT MODIFY
-            self.nextState = 'iti'
-            if self.state_machine['singleshot']:
-                self.state_machine['singleshot'] = False
+            self.state_machine.next_state = 'iti'
+            if self.state_machine.singleshot('pause'):
                 self.triggers['pauseRequested'] = False
 
                 # Move the sled back to its default position
@@ -409,33 +407,22 @@ class RunTrial(BaseTrial):
                     time.sleep(self.mvtBackDuration)
                     self.devices['sled'].lights(True)  # Turn the lights off
 
-        elif self.state == 'calibration':
+        elif self.state_machine.state == 'calibration':
             # Eye-tracker calibration
-            self.nextState = 'iti'
+            self.state_machine.next_state = 'iti'
 
-        elif self.state == 'iti':
+        elif self.state_machine.state == 'iti':
             # Inter-trial interval
-            self.nextState = 'start'
-            if self.state_machine['singleshot']:
-                self.state_machine['singleshot'] = False
+            self.state_machine.next_state = 'start'
+            if self.state_machine.singleshot('sled_light'):
                 if self.devices['sled'] is not None:
                     self.devices['sled'].lights(False)  # Turn the lights off
 
-        elif self.state == 'start':
+        elif self.state_machine.state == 'start':
             # Start trial: get trial information and update trial's parameters accordingly
-            self.nextState = 'first'
+            self.state_machine.next_state = 'first'
 
-            if self.state_machine['singleshot'] is True:
-                # DO NOT MODIFY THE LINES BELOW
-                self.state_machine['singleshot'] = False
-                status = self.init_trial()  # Get trial parameters
-                if not status:
-                    self.nextState = 'quit'
-                    self.triggers['moveOnRequested'] = True
-                if status is 'pause':
-                    self.nextState = 'pause'
-                    self.triggers['moveOnRequested'] = True
-
+            if self.state_machine.singleshot('start'):
                 # ADD YOUR CODE HERE
                 # Self motion settings
                 side = 1 if self.trial.params['side'] == 'right' else -1
@@ -469,39 +456,36 @@ class RunTrial(BaseTrial):
                 else:
                     self.timings['start'] = 0.1
 
-        elif self.state == 'first':
-            self.nextState = 'probe1'
-            if self.state_machine['singleshot'] is True:
-                self.state_machine['singleshot'] = False
+        elif self.state_machine.state == 'first':
+            self.state_machine.next_state = 'probe1'
+            if self.state_machine.singleshot():
                 self.timers['sled_start'].start()
                 self.devices['sled'].move(self.sledFinal, self.mvtDuration)
 
-        elif self.state == 'probe1':
-            self.nextState = 'probeInterval'
+        elif self.state_machine.state == 'probe1':
+            self.state_machine.next_state = 'probeInterval'
             self.stimuliTrigger['probe1'] = True
-            if self.state_machine['singleshot'] is True:
-                self.state_machine['singleshot'] = False
+            if self.state_machine.singleshot():
                 self.data['sled_probe1'] = self.pViewer[0]
                 self.data['time_probe1'] = self.timers['sled_start'].get_time('elapsed')
 
-        elif self.state == 'probeInterval':
-            self.nextState = 'probe2'
+        elif self.state_machine.state == 'probeInterval':
+            self.state_machine.next_state = 'probe2'
             self.stimuliTrigger['probe1'] = False
 
-        elif self.state == 'probe2':
-            self.nextState = 'last'
+        elif self.state_machine.state == 'probe2':
+            self.state_machine.next_state = 'last'
             self.stimuliTrigger['probe2'] = True
-            if self.state_machine['singleshot'] is True:
-                self.state_machine['singleshot'] = False
+            if self.state_machine.singleshot():
                 self.data['sled_probe2'] = self.pViewer[0]
                 self.data['time_probe2'] = self.timers['sled_start'].get_time('elapsed')
 
-        elif self.state == 'last':
-            self.nextState = 'response'
+        elif self.state_machine.state == 'last':
+            self.state_machine.next_state = 'response'
             self.stimuliTrigger['probe2'] = False
 
-        elif self.state == 'response':
-            self.nextState = 'end'
+        elif self.state_machine.state == 'response':
+            self.state_machine.next_state = 'end'
 
             # Get participant's response
             self.get_response()
@@ -515,17 +499,16 @@ class RunTrial(BaseTrial):
                 else:
                     self.triggers['moveOnRequested'] = True
 
-        elif self.state == 'end':
+        elif self.state_machine.state == 'end':
             # End of trial. Call ending routine.
             if self.triggers['pauseRequested']:
-                self.nextState = "pause"
+                self.state_machine.next_state = "pause"
             elif self.triggers['quitRequested']:
-                self.nextState = "quit"
+                self.state_machine.next_state = "quit"
             else:
-                self.nextState = 'iti'
+                self.state_machine.next_state = 'iti'
 
-            if self.state_machine['singleshot'] is True:
-                self.state_machine['singleshot'] = False
+            if self.state_machine.singleshot():
                 self.triggers['startTrigger'] = False
 
                 # End trial routine
@@ -542,20 +525,19 @@ class RunTrial(BaseTrial):
         -------
 
         """
-        if self.state == 'idle':
+        if self.state_machine.state == 'idle':
             text = visual.TextStim(self.ptw, pos=(0.0, 0.0), text=self.textToDraw, units="pix")
             text.draw()
 
-        elif self.state == 'pause':
+        elif self.state_machine.state == 'pause':
             text = 'PAUSE {0}/{1} [Replayed: {2}]'.format(self.trial.nplayed, self.trial.ntrials,
                                                           self.trial.nreplay)
             text = visual.TextStim(self.ptw, pos=(0, 0), text=text, units="pix")
             text.draw()
 
-        elif self.state == 'calibration':
-            self.nextState = 'iti'
-            if self.state_machine['singleshot']:
-                self.state_machine['singleshot'] = False
+        elif self.state_machine.state == 'calibration':
+            self.state_machine.next_state = 'iti'
+            if self.state_machine.singleshot('el_calibration'):
                 # Create calibration points (polar grid, with points spaced by 45 degrees)
                 x, y = pol2cart(0.25 * (self.screen.resolution[0] / 2), np.linspace(0, 2 * np.pi, 9))
                 x += 0.5 * self.screen.resolution[0]  # Center coordinates on screen center

@@ -616,6 +616,8 @@ class BaseTrial(object):
     def __default_fast_states(self):
         """
         Define default fast states
+        Default flow is:
+        loading -> idle -> iti -> init -> ...(custom states)... -> end
         :return:
         """
         if self.state_machine.state == 'pause':
@@ -645,7 +647,7 @@ class BaseTrial(object):
             # Get trial information and update trial's parameters accordingly
             self.state_machine.next_state = 'start'
 
-            if self.state_machine.singleshot:
+            if self.state_machine.singleshot():
                 status = self.init_trial()  # Get trial parameters
                 if not status:
                     self.state_machine.next_state = 'quit'
@@ -657,16 +659,16 @@ class BaseTrial(object):
         elif self.state_machine.state == 'quit':
             # QUIT experiment
             # DO NOT MODIFY
-            if self.state_machine.singleshot:
+            if self.state_machine.singleshot():
                 self.clear_screen()
-                self.quit()
+                self.status = False
 
         elif self.state_machine.state == 'pause':
             # PAUSE experiment
             # DO NOT MODIFY
             self.state_machine.next_state = 'iti'
             self.triggers['pauseRequested'] = False
-            if self.state_machine.singleshot['pause']:
+            if self.state_machine.singleshot('fast_pause'):
                 self.clear_screen()
 
         elif self.state_machine.state == 'end':
@@ -680,7 +682,7 @@ class BaseTrial(object):
             else:
                 self.state_machine.next_state = 'iti'
 
-            if self.state_machine.singleshot:
+            if self.state_machine.singleshot():
                 self.triggers['startTrigger'] = False
 
                 # End trial routine
