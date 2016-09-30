@@ -38,12 +38,111 @@ import numpy as np
 # Multi-threading
 import threading
 
+import logging
+
+
 # EasyExp modules
 from Core import Core
 from movie.moviemaker import MovieMaker
 from buttons.buttons import UserInput
 from display.fpscounter import FpsCounter
 from events.timer import Timer
+from StateMachine import StateMachine
+
+
+class ThreadManager(object):
+    """
+    ThreadManager
+    Singleton class that handles threading
+    """
+
+    __instances = {}
+
+    def add(self, label, target):
+        """
+        Add thread to watched list
+        :param label: thread label
+        :type label: str
+        :param target: target function/method
+        :type target: object
+        :return:
+        """
+        if label not in self.__instances:
+            self.__instances[label] = threading.Thread(target=target)
+            logging.debug('[{}] Thread "{}" added successfully'.format(__name__, label))
+
+    def get_instance(self, label):
+        """
+        Return thread
+        :param label: thread label
+        :type label: str
+        :return: threading.Thread
+        """
+        if label in self.__instances:
+            return self.__instances[label]
+
+    def remove(self, label):
+        """
+        Join and delete thread
+        :param label:
+        :raise: RuntimeError
+        """
+        if label in self.__instances and self.__instances[label].isAlive():
+            try:
+                self.get_instance(label).join()
+                logging.debug('[{}] Thread "{}" closed successfully'.format(__name__, label))
+            except RuntimeError as e:
+                msg = '[{}] Could not join thread "{}": {}'.format(__name__, label, e)
+                logging.critical(msg)
+                raise RuntimeError(msg)
+
+            del self.__instances[label]
+
+    def quit(self):
+        """
+        Close all threads
+        :return:
+        """
+        for label in self.__instances:
+            self.remove(label)
+
+
+class Loading(object):
+    """
+    A simple loading animation
+    """
+    __dft_text = 'Loading '
+    __animation_style = '.'
+    __animation = ''
+    __msg = ''
+    __n = 0
+    __dt = 0.500
+    __timer = Timer()
+
+    @property
+    def text(self):
+        """
+        :rtype: str
+        :return:
+        """
+        if self.__timer.get_time('start') is None:
+            self.__timer.start()
+
+        if self.__n == 0:
+            self.__animation = ''
+
+        if self.__timer.get_time('elapsed') >= self.__dt:
+            self.__animation = '{}{}'.format(self.__animation, self.__animation_style)
+            self.__n += 1
+            if self.__n > 3:
+                self.__n = 0
+
+            # Reset timer
+            self.__timer.reset()
+
+        # Update message
+        self.__msg = "{}{}".format(self.__dft_text, self.__animation)
+        return self.__msg
 
 
 class BaseTrial(object):
@@ -88,7 +187,8 @@ class BaseTrial(object):
     - RunTrial.graphics_state_machine(): Slow state machine.
     """
 
-    homeMsg = 'Welcome!'  # Message prompted at the beginning of the experiment
+    __homeMsg = 'Welcome!'  # Message prompted at the beginning of the experiment
+    __loading = Loading()
 
     def __init__(self, exp_core=Core):
         """
@@ -103,31 +203,19 @@ class BaseTrial(object):
         ##################################
         # DO NOT MODIFY THE LINES BELLOW #
         ##################################
-        # super(RunTrial, self).__init__(core=core)
-
         self.core = exp_core
         self.screen = exp_core.screen
         self.trial = exp_core.trial
         self.user = exp_core.user
         self.ptw = self.screen.ptw
-        self.textToDraw = BaseTrial.homeMsg
+        self.textToDraw = BaseTrial.__homeMsg
         self.thread = None
 
-        # State Machine
-        # =============
-        self.state_machine = {
-            'current': None,
-            'status': False,
-            'singleshot': True,
-            'timer': None,
-            'duration': 0.0,
-            'onset': 0.0,
-            'offset': 0.0
-        }
         self.status = True
-        self.state = 'idle'
-        self.nextState = "iti"
+        self._running = False
         self.validTrial = False
+        self.threads = dict()
+        self.lock = threading.RLock()
 
         # Dependencies
         # ============
@@ -141,33 +229,24 @@ class BaseTrial(object):
         # =======
         self.stimuli = dict()
 
-        # Devices
-        # Devices should be implemented in RunTrial::init_devices() method.
-        # =======
-        self.devices = dict()
-        self.init_devices()
-
-        # Audio/Video
-        # ===========
-        # Initialize audio
-        self.sounds = dict()
-        self.init_audio()
-        self.movie = None
-
         # Timings
         # =======
-        self.timings = self.trial.parameters['durations']
+        # Default timings
+        self.timings = {
+            'loading': False,
+            "quit": 0.0,
+            "idle": False,
+            "pause": False,
+            "init": 0.0
+        }
+        # Custom timings specified in parameters.json
+        self.timings.update(self.trial.parameters['durations'])
 
-        ################################
-        # LINES BELOW CAN BE MODIFIED #
-        ################################
-        # Experiment settings
-        # ===================
-        # Experiment's parameters can accessed by calling self.trial.parameters['parameter_name']
-        # Because parameters are loaded from a JSON file, they are imported as string. Therefore, it might be necessary
-        # to convert the parameter's type: e.g. as a float number.
-        # Example:
-        # my_parameter = float(self.trial.parameters['my_parameter']
+        # State Machine
+        # =============
+        self.state_machine = StateMachine(timings=self.timings, logger=exp_core.logger)
+        self.state_machine.state = 'loading'
+        self.state_machine.next_state = 'idle'
 
         # Events triggers
         # ===============
@@ -206,6 +285,7 @@ class BaseTrial(object):
         # timers['timer_name'].reset()
         self.timers = {
             'runtime': Timer(),  # DO NOT MODIFY
+            'loading': Timer()
         }
 
         # Data
@@ -246,21 +326,49 @@ class BaseTrial(object):
         # Response keys
         # Add your response keys below
 
+        # Devices
+        # Devices should be implemented in RunTrial::init_devices() method.
+        # =======
+        self.devices = dict()
+
+        # Audio/Video
+        # ===========
+        # Initialize audio
+        self.sounds = dict()
+        self.movie = None
+
     # =========================================
     # STATE MACHINE
     # =========================================
+
+    def start(self):
+        with self.lock:
+            self._running = True
 
     def run(self):
         """
         Application main loop
         DO NOT MODIFY
         """
-        self.thread = threading.Thread(target=self.fast_loop)
-        self.thread.start()
+        self.threads['fast'] = threading.Thread(target=self.fast_loop, name='fast')
+        self.threads['fast'].daemon = False
+        self.threads['fast'].start()
+        self.graphics_loop()
+
+    def graphics_loop(self):
+        """
+        Graphic state machine loop
+        :return:
+        """
         while self.status:
+            # Default states for this state machine
+            self.__default_graphic_states()
+
+            # Custom Graphics state
             self.graphics_state_machine()
+
+            # Update display
             self.update_graphics()
-        self.thread.join()
 
     def fast_loop(self):
         """
@@ -268,60 +376,18 @@ class BaseTrial(object):
         :return:
         """
         while self.status:
+            # Default states for this state machine
+            self.__default_fast_states()
+
             # Check state status
-            self.change_state()
+            if self.state_machine.change_state(force_move_on=self.go_next()):
+                # Send events to devices that will be written into their data file
+                for device in self.devices:
+                    if hasattr(self.devices[device], 'send_message'):
+                        self.devices[device].send_message('EVENT_STATE_{}'.format(self.state_machine.state))
 
+            # Custom Fast states
             self.fast_state_machine()
-
-    def change_state(self):
-        """
-        This function handles transition between states
-        DO NOT MODIFY
-        :rtype: bool
-        """
-        if self.timers['runtime'] is None or self.timers['runtime'].get_time('start') is None:
-            self.timers['runtime'] = Timer()
-            self.timers['runtime'].start()
-
-        if self.state_machine['current'] is None:
-            # If we enter a new state
-            self.state_machine['current'] = self.state
-            self.state_machine['timer'] = Timer(max_duration=self.timings[self.state])
-            self.state_machine['timer'].start()
-            self.state_machine['onset'] = self.state_machine['timer'].get_time('start')
-            self.state_machine['status'] = True
-            self.triggers['moveOnRequested'] = False
-            self.state_machine['singleshot'] = True  # Enable single shot events
-
-            # Send events to devices that will be written into their data file
-            for device in self.devices:
-                if hasattr(self.devices[device], 'send_message'):
-                    self.devices[device].send_message('EVENT_STATE_{}'.format(self.state))
-
-        # Check inputs and timers
-        self.triggers['moveOnRequested'] = self.go_next() if self.triggers['moveOnRequested'] is False else True
-
-        # If we transition to the next state
-        if self.triggers['moveOnRequested'] and self.state_machine['status']:
-            self.state_machine['timer'].stop()
-            self.state_machine['offset'] = self.state_machine['timer'].get_time('stop')
-            self.state_machine['duration'] = self.state_machine['timer'].get_time('elapsed')
-            self.state_machine['timer'].reset()
-
-            state_str = '[STATE]: {0}=>{1}' \
-                        ' [START: {2:.3f}s | DUR: {3:.3f}s]'.format(self.state, self.nextState,
-                                                                    self.state_machine['onset'] -
-                                                                    self.timers['runtime'].get_time('start'),
-                                                                    self.state_machine['duration'])
-            self.logger.logger.info(state_str)
-
-            self.state = self.nextState
-            self.triggers['moveOnRequested'] = False
-            self.state_machine['status'] = False
-            self.state_machine['current'] = None
-            return True
-        else:
-            return False
 
     def quit(self):
         """
@@ -329,7 +395,7 @@ class BaseTrial(object):
         :return:
         """
         # Set in idle mode
-        self.state = 'idle'
+        self.state_machine.state = 'idle'
         self.textToDraw = "Experiment is over!"
 
         # Shutdown devices
@@ -339,6 +405,11 @@ class BaseTrial(object):
                 self.devices[device].close()
 
         self.status = False
+
+        # Quit all opened threads
+        for t in self.threads:
+            if self.threads[t].isAlive():
+                self.threads[t].join()
 
     def go_next(self):
         """
@@ -350,21 +421,22 @@ class BaseTrial(object):
         # Update input devices state
         self.buttons.update()
 
+        if self.triggers['moveOnRequested']:
+            return True
+
         # Does the user want to quit the experiment?
         if self.buttons.get_status('quit'):
             self.triggers['quitRequested'] = True
+            self.state_machine.next_state = 'quit'
+            return True
 
         # Does the user want a break?
         if self.buttons.get_status('pause'):
             self.triggers['pauseRequested'] = True
+            self.state_machine.next_state = 'pause'
+            return True
 
-        # Shall we move on?
-        if self.timings[self.state] is not False:
-            timeToMoveOn = (time.time() - self.state_machine['onset']) >= self.timings[self.state]
-        else:
-            timeToMoveOn = self.buttons.get_status('move_on')
-
-        return timeToMoveOn
+        return self.buttons.get_status('move_on')
 
     def init_trial(self):
         """
@@ -378,15 +450,15 @@ class BaseTrial(object):
         status = self.trial.setup()
         if status is False:
             # If no more trials to run, then quit the experiment
-            self.nextState = 'quit'
-            self.triggers['moveOnRequested'] = True
+            self.state_machine.next_state = 'quit'
+            self.state_machine.change_state(force_move_on=True)
             return False
         else:
             self.status = status
             if self.status is "pause":
                 self.triggers['pauseRequested'] = True
-                self.nextState = 'pause'
-                self.triggers['moveOnRequested'] = True
+                self.state_machine.next_state = 'pause'
+                self.state_machine.change_state(force_move_on=True)
                 return 'pause'
 
             # Start a new trial
@@ -475,8 +547,7 @@ class BaseTrial(object):
                     raise msg
         else:
             # Clear screen
-            for key, stim in self.stimuli.iteritems():
-                stim.setAutoDraw(False)
+            self.clear_screen()
 
         # Flip the screen
         self.fpsCounter.flip()
@@ -484,6 +555,14 @@ class BaseTrial(object):
         # Make Movie
         if self.triggers['startTrigger'] and self.trial.settings['setup']['movie']:
             self.movie.run()
+
+    def clear_screen(self):
+        """
+        Clear screen: set all stimuli triggers to False
+        """
+        # Clear screen
+        for key, stim in self.stimuli.iteritems():
+            stim.setAutoDraw(False)
 
     ################################
     # CUSTOMIZATION STARTS HERE    #
@@ -539,36 +618,122 @@ class BaseTrial(object):
         Define default fast states
         :return:
         """
-        if self.state == 'pause':
-            pass
+        if self.state_machine.state == 'pause':
+            self.state_machine.next_state = 'iti'
 
-        elif self.state == 'idle':
-            pass
+        elif self.state_machine.state == 'loading':
+            self.state_machine.next_state = 'idle'
+            if self.state_machine.singleshot('loading'):
+                self.init_devices()
 
-        elif self.state == 'iti':
-            pass
+                self.init_audio()
 
-        elif self.state == 'end':
-            pass
+                self._running = True
+
+            self.state_machine.change_state(force_move_on=True)
+
+        elif self.state_machine.state == 'idle':
+            # IDLE state
+            # DO NOT MODIFY
+            self.state_machine.next_state = 'iti'
+
+        elif self.state_machine.state == 'iti':
+            # Inter-trial interval
+            self.state_machine.next_state = 'init'
+
+        elif self.state_machine.state == 'init':
+            # Get trial information and update trial's parameters accordingly
+            self.state_machine.next_state = 'start'
+
+            if self.state_machine.singleshot:
+                status = self.init_trial()  # Get trial parameters
+                if not status:
+                    self.state_machine.next_state = 'quit'
+                    self.state_machine.change_state(force_move_on=True)
+                if status is 'pause':
+                    self.state_machine.next_state = 'pause'
+                    self.state_machine.change_state(force_move_on=True)
+
+        elif self.state_machine.state == 'quit':
+            # QUIT experiment
+            # DO NOT MODIFY
+            if self.state_machine.singleshot:
+                self.clear_screen()
+                self.quit()
+
+        elif self.state_machine.state == 'pause':
+            # PAUSE experiment
+            # DO NOT MODIFY
+            self.state_machine.next_state = 'iti'
+            self.triggers['pauseRequested'] = False
+            if self.state_machine.singleshot['pause']:
+                self.clear_screen()
+
+        elif self.state_machine.state == 'end':
+            self.triggers['response_given'] = True
+
+            # End of trial. Call ending routine.
+            if self.triggers['pauseRequested']:
+                self.state_machine.next_state = "pause"
+            elif self.triggers['quitRequested']:
+                self.state_machine.next_state = "quit"
+            else:
+                self.state_machine.next_state = 'iti'
+
+            if self.state_machine.singleshot:
+                self.triggers['startTrigger'] = False
+
+                # End trial routine
+                self.end_trial()
 
     def __default_graphic_states(self):
         """
         Define default graphics states
         :return:
         """
-        if self.state == 'pause':
-            pass
 
-        elif self.state == 'idle':
-            pass
+        if self.state_machine.state == 'loading':
+            """
+            Display loading message while preparing the experiment
+            """
+            msg = self.__loading.text
+            text = visual.TextStim(self.ptw, pos=(0, 0), text=msg, units="pix", height=30.0)
+            text.draw()
 
-        elif self.state == 'iti':
-            pass
+        elif self.state_machine.state == 'idle':
+            text = visual.TextStim(self.ptw, pos=(0.0, 0.0), text=self.textToDraw, units="pix", height=30.0)
+            text.draw()
 
-        elif self.state == 'end':
-            pass
+        elif self.state_machine.state == 'quit':
+            text = visual.TextStim(self.ptw, pos=(0.0, 0.0), text="Experiment is over", units="pix", height=30.0)
+            text.draw()
+
+        elif self.state_machine.state == 'pause':
+            text = 'PAUSE {0}/{1} [Replayed: {2}]'.format(self.trial.nplayed, self.trial.ntrials,
+                                                          self.trial.nreplay)
+            text = visual.TextStim(self.ptw, pos=(0, 0), text=text, units="pix", height=30.0)
+            text.draw()
 
     def fast_state_machine(self):
+        """
+        Real-time state machine: state changes are triggered by keys or timers. States always have the same order.
+        This state machine runs at close to real-time speed. Event handlers (key press, etc.) and position trackers
+        (optotrak, eye-tracker or sled) should be called within this state machine.
+        Rendering of stimuli should be implemented in the graphics_state_machine()
+        Default state order is:
+        1. loading: preparing experiment (loading devices, ...)
+        2. idle: display welcome message and wait for user input
+        3. iti: inter-trial interval
+        4. init: load trial parameters
+        ...
+        last. end: end trial and save data
+
+        'loading', 'idle', and 'end' states are already implemented in BaseTrial.__default_fast_states() method, but
+        these implementations can be overwritten in RunTrial.fast_state_machines(). To do so, simply define these states
+        as usual. For instance:
+        if self.state_machine.state == "idle":
+            # do something
+        """
         raise NotImplementedError('Should implement this')
 
     def graphics_state_machine(self):
@@ -577,10 +742,19 @@ class BaseTrial(object):
         instance, this state machine will be updated every 17 ms with a 60Hz screen. For this reason, only slow events
         (display of stimuli) should be described here. Everything that requires faster (close to real-time) processing
         should be specified in the RunTrial::fast_state_machine() method.
+        Default state order is:
+        1. loading: preparing experiment (loading devices, ...)
+        2. idle: display welcome message and wait for user input
+        3. iti: inter-trial interval
+        4. init: load trial parameters
+        ...
+        last. end: end trial and save data
 
-        Returns
-        -------
-
+         'loading', 'idle', and 'pause' states are already implemented in BaseTrial.__default_fast_states() method, but
+        these implementations can be overwritten in RunTrial.fast_state_machines(). To do so, simply define these states
+        as usual. For instance:
+        if self.state_machine.state == "idle":
+            # do something
         """
         raise NotImplementedError('Should implement this')
 
