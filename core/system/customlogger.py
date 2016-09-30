@@ -37,7 +37,7 @@ class CustomLogger(object):
     >>> mylogger.logger.critical('critical message')
     """
 
-    default_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    default_format = '%(asctime)s - %(processName)s - %(threadName)s - %(name)s - %(levelname)s - %(message)s'
     allowed_level = ['debug', 'info', 'warning', 'critical', 'fatal']
 
     def __init__(self, name='', file_name='log.txt', level='debug', format_str=None):
@@ -105,3 +105,53 @@ class CustomLogger(object):
             self._level = logging.CRITICAL
         elif level == 'fatal':
             self._level = logging.FATAL
+
+    def info(self, msg, *args, **kwargs):
+        """
+        Wrapper method for info messages
+        :param msg:
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        self.logger.info(msg=msg, *args, **kwargs)
+
+    def debug(self, msg, *args, **kwargs):
+        """
+        Wrapper method for debug messages
+        :param msg:
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        self.logger.debug(msg=msg, *args, **kwargs)
+
+    def warning(self, msg, *args, **kwargs):
+        """
+        Wrapper method for warning messages
+        :param msg:
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        self.logger.warning(msg=msg, *args, **kwargs)
+
+    def critical(self, msg, *args, **kwargs):
+        """
+        Wrapper method for critical messages
+        :param msg:
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        self.logger.critical(msg=msg, *args, **kwargs)
+
+    def fatal(self,  msg, *args, **kwargs):
+        """
+        Wrapper method for fatal messages
+        :param msg:
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        self.logger.fatal(msg=msg, *args, **kwargs)
