@@ -27,6 +27,10 @@ from os.path import isdir, isfile
 # GUI
 from gui.gui_wrapper import GuiWrapper
 
+# Logger
+import logging
+logger = logging.getLogger("EasyExp")
+
 
 class User(object):
     """
@@ -56,6 +60,7 @@ class User(object):
         self.expname = expname
         self.demo = demo
         self.session = session
+        self.__logger = logging.getLogger('EasyExp')
 
         # Subject information
         # ===================
@@ -118,9 +123,27 @@ class User(object):
 
         self.designfile = "{}_design.txt".format(self.dftName)
         self.datafilename = '{}_data.txt'.format(self.dftName)
-        self.logfilename = '{}_log.txt'.format(self.dftName)
+        self.logfilename = '{}_log.log'.format(self.dftName)
 
+        # Delete previous data and design files if running in demo mode
+        if self.demo:
+            self.__clean_files()
+
+        # Make new user
         self.make(cli)
+
+    def __clean_files(self):
+        """
+        Delete previous data and design files
+        :return:
+        """
+        import os
+        for file_to_delete in [self.designfile, self.datafilename]:
+            if isfile(file_to_delete):
+                try:
+                    os.remove(file_to_delete)
+                except IOError as e:
+                    self.__logger.warning('Could not delete previous data and design files: {}'.format(e))
 
     def checkuser(self):
         """
@@ -150,10 +173,10 @@ class User(object):
             self.getinfo(cli)
         # Else, we simply load and read the info file and display its content.
         else:
-            print("[{}] User '{}' already exists.".format(__name__, self.name))
-            print("[{}] Loading information".format(__name__))
+            logger.info("[{}] User '{}' already exists.".format(__name__, self.name))
+            logger.info("[{}] Loading information".format(__name__))
             self.loadinfo()
-        print(self)
+        logger.info(self)
 
     def get_user_name(self, cli):
         """
