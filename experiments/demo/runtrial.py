@@ -205,23 +205,13 @@ class RunTrial(BaseTrial):
         # Inputs.update()
 
         # Access watched key's status
-        # Inputs.get_status('a')  # returns True or False
+        # Inputs.get_status('_name_of_key')  # returns True or False
         # ================
-        self.buttons = UserInput()
-        # Input devices used in the experiment
-        self.buttons.add_device('keyboard')
-        self.buttons.add_device('mouse', visible=False, newPos=None, win=self.ptw)
-
-        # GUI related keys
-        # quit, pause and move on keys must be specified
-        self.buttons.add_listener('keyboard', 'pause', pygame.K_SPACE)
-        self.buttons.add_listener('keyboard', 'quit', pygame.K_q)
-        self.buttons.add_listener('mouse', 'move_on', 0)
-
         # Response keys
         # Add your response keys below
         self.buttons.add_listener('mouse', 'left', 0)
         self.buttons.add_listener('mouse', 'right', 2)
+        self.buttons.add_listener('keyboard', 'calibration', pygame.K_c)
 
         # Staircase
         # =========
@@ -368,6 +358,20 @@ class RunTrial(BaseTrial):
         p = self.devices['sled'].getposition(t=self.devices['sled'].client.time())
         self.pViewer = (p[0], p[1])
 
+    def wait_sled(self, position):
+        """
+        Check if sled is at excepted position. If not, then move sled to this position.
+        :param position: expected position of sled
+        :return: Sled at position and not moving
+        """
+        at_position = np.abs(self.pViewer[0] - position) <= 0.01
+        if not self.devices['sled'].is_moving and not at_position:
+            # Move sled to position if it is not there already
+            self.logger.warning('Sled is not at expected position: {} instead of {}'.format(self.pViewer[0], position))
+            self.devices['sled'].move(position, self.mvtBackDuration)
+
+        return at_position and not self.devices['sled'].is_moving
+
     # =========================================
     # State machines
     # =========================================
@@ -380,27 +384,12 @@ class RunTrial(BaseTrial):
         """
 
         # Get sled (viewer) position
-        self.getviewerposition()
+        if self._running:
+            self.getviewerposition()
 
-        if self.state_machine.state == 'idle':
-            # IDLE state
-            # DO NOT MODIFY
-            self.state_machine.next_state = 'iti'
-
-        elif self.state_machine.state == 'quit':
-            # QUIT experiment
-            # DO NOT MODIFY
-
-            if self.state_machine.singleshot():
-                self.quit()
-
-        elif self.state_machine.state == 'pause':
+        if self.state_machine.state == 'pause':
             # PAUSE experiment
-            # DO NOT MODIFY
-            self.state_machine.next_state = 'iti'
-            if self.state_machine.singleshot('pause'):
-                self.triggers['pauseRequested'] = False
-
+            if self.state_machine.singleshot('pause_sled'):
                 # Move the sled back to its default position
                 if 'sled' in self.devices and self.devices['sled'] is not None:
                     self.devices['sled'].move(self.sledHome, self.mvtBackDuration)
@@ -412,27 +401,24 @@ class RunTrial(BaseTrial):
             self.state_machine.next_state = 'iti'
 
         elif self.state_machine.state == 'iti':
-            # Inter-trial interval
-            self.state_machine.next_state = 'start'
             if self.state_machine.singleshot('sled_light'):
-                if self.devices['sled'] is not None:
+                if 'sled' in self.devices:
                     self.devices['sled'].lights(False)  # Turn the lights off
 
         elif self.state_machine.state == 'start':
             # Start trial: get trial information and update trial's parameters accordingly
             self.state_machine.next_state = 'first'
 
-            if self.state_machine.singleshot('start'):
+            if self.state_machine.singleshot('start_trial'):
                 # ADD YOUR CODE HERE
-                # Self motion settings
+                # Stimuli Triggers
+                self.triggers['startTrigger'] = True
+                self.stimuliTrigger['fixation'] = True
+
                 side = 1 if self.trial.params['side'] == 'right' else -1
                 self.sledStart = side * float(self.trial.parameters['sledStart'])  # Sled homing position (in m)
                 self.mvtAmplitude = float(self.trial.parameters['movDistance'])
                 self.sledFinal = self.sledStart + side * self.mvtAmplitude  # Final sled position
-
-                # Stimuli Triggers
-                self.triggers['startTrigger'] = True
-                self.stimuliTrigger['fixation'] = True
 
                 # Compute states duration
                 screen_latency = 0.050  # Screen latency in ms
@@ -442,23 +428,16 @@ class RunTrial(BaseTrial):
                 self.timings['probe2'] = self.timings['probe1']
                 self.timings['last'] = 0.0
 
-                # Move sled to starting position if it is not there already
-                if np.abs(self.pViewer[0] - self.sledStart) > 0.01:
-                    self.logger.logger.debug(
-                        'Sled is not at starting position: {} instead of {}'.format(self.pViewer[0],
-                                                                                    self.sledStart))
-                    self.devices['sled'].move(self.sledStart, self.mvtBackDuration)
-                    self.timings['start'] = self.mvtBackDuration + 0.1
-                    time.sleep(self.mvtBackDuration)
-                    self.getviewerposition()  # Get SLED's position
-                    self.logger.logger.debug('Sled after move command: {}'.format(self.pViewer[0]))
+                # Update states duration
+                self.state_machine.durations = self.timings
 
-                else:
-                    self.timings['start'] = 0.1
+            # Move sled to starting position if it is not there already
+            if self.wait_sled(self.sledStart):
+                self.state_machine.change_state(force_move_on=True)
 
         elif self.state_machine.state == 'first':
             self.state_machine.next_state = 'probe1'
-            if self.state_machine.singleshot():
+            if self.state_machine.singleshot('sled_start'):
                 self.timers['sled_start'].start()
                 self.devices['sled'].move(self.sledFinal, self.mvtDuration)
 
@@ -490,29 +469,11 @@ class RunTrial(BaseTrial):
             # Get participant's response
             self.get_response()
 
-            # If we got a response before the end of the sled's displacement, then wait until the sled has arrived,
-            # or move directly to next state
-            if self.triggers['response_given']:
-                if self.trial.params['mvt'] == 'True':
-                    if self.timers['sled_start'].get_time('elapsed') >= self.trial.parameters['movDuration']:
-                        self.triggers['moveOnRequested'] = True
-                else:
-                    self.triggers['moveOnRequested'] = True
-
         elif self.state_machine.state == 'end':
-            # End of trial. Call ending routine.
-            if self.triggers['pauseRequested']:
-                self.state_machine.next_state = "pause"
-            elif self.triggers['quitRequested']:
-                self.state_machine.next_state = "quit"
-            else:
-                self.state_machine.next_state = 'iti'
-
-            if self.state_machine.singleshot():
-                self.triggers['startTrigger'] = False
-
-                # End trial routine
-                self.end_trial()
+            if self.state_machine.singleshot('end_print'):
+                if not self.wait_sled(self.sledFinal):
+                    self.logger.warning('TRIAL {}: Sled is not at final position: {} instead of {}'.format(
+                        self.trial.id, self.pViewer[0], self.sledFinal))
 
     def graphics_state_machine(self):
         """
@@ -525,18 +486,7 @@ class RunTrial(BaseTrial):
         -------
 
         """
-        if self.state_machine.state == 'idle':
-            text = visual.TextStim(self.ptw, pos=(0.0, 0.0), text=self.textToDraw, units="pix")
-            text.draw()
-
-        elif self.state_machine.state == 'pause':
-            text = 'PAUSE {0}/{1} [Replayed: {2}]'.format(self.trial.nplayed, self.trial.ntrials,
-                                                          self.trial.nreplay)
-            text = visual.TextStim(self.ptw, pos=(0, 0), text=text, units="pix")
-            text.draw()
-
-        elif self.state_machine.state == 'calibration':
-            self.state_machine.next_state = 'iti'
+        if self.state_machine.state == 'calibration':
             if self.state_machine.singleshot('el_calibration'):
                 # Create calibration points (polar grid, with points spaced by 45 degrees)
                 x, y = pol2cart(0.25 * (self.screen.resolution[0] / 2), np.linspace(0, 2 * np.pi, 9))

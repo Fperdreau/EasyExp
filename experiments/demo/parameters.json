@@ -15,7 +15,7 @@
     "idle": false,
     "pause": false,
     "calibration": 0.0,
-    "start": 0.1,
+    "start": false,
     "iti": 0.500,
     "first": 0.100,
     "probe1": 0.300,
