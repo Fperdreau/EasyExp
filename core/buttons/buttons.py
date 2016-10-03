@@ -125,6 +125,7 @@ class UserInput(object):
         """
         self.__listeners = dict()
         self.__devices = dict()
+        self.__behavior = dict()
 
     def add_device(self, device, **kwargs):
         """
@@ -144,7 +145,7 @@ class UserInput(object):
         for label, device in self.__devices.iteritems():
             device.update()
 
-    def add_listener(self, device, name, code):
+    def add_listener(self, device, name, code, target=None, **kwargs):
         """
         Add a listener
         :param device: name of device
@@ -162,6 +163,14 @@ class UserInput(object):
                     'code': code
                 }
             })
+
+            if target is not None:
+                self.__behavior.update({
+                    name: {
+                        'target': target,
+                        'args': kwargs
+                    }
+                })
 
     def remove_listener(self, name):
         """
@@ -192,10 +201,25 @@ class UserInput(object):
         :rtype: bool
         """
         if name in self.__listeners:
-            return self.__devices[self.__listeners[name]['device']].status(self.__listeners[name]['code'])
+            status = self.__devices[self.__listeners[name]['device']].status(self.__listeners[name]['code'])
+            if status:
+                self.__trigger(name)
+            return status
         else:
             raise Exception('"{}" is not present in the listeners list. You must add it by calling '
                             'UserInput.add_listener() method')
+
+    def __trigger(self, name):
+        """
+        Execute function binded to event
+        :param name:
+        :return:
+        """
+        if name in self.__behavior:
+            try:
+                self.__behavior[name]['target'](**self.__behavior[name]['args'])
+            except Exception as e:
+                raise Exception(e)
 
 
 class Buttons(object):
@@ -239,6 +263,7 @@ class Buttons(object):
         :return:
         """
         self.init_buttons()
+        pygame.event.clear()
         pygame.event.pump()
         if self.device == 'keyboard':
             keys = self.device.get_pressed()
