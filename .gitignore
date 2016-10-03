@@ -97,3 +97,5 @@ ENV/
 /data/
 /analyses/data/
 /analyses/figures/
+
+/logs/
