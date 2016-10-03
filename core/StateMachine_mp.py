@@ -36,8 +36,8 @@ class StateMachine(object):
         ----------
         :param timings: dictionary specifying states timings
         :type timings: dict
-        :param logger: application logger
-        :type logger: CustomLogger
+        :param configurer: logger configurer
+        :type queue: Multiprocessing queue
         """
         self.durations = timings
 
@@ -52,9 +52,13 @@ class StateMachine(object):
         self._runtime.start()
 
     def get_logger(self, queue, configurer):
+        """
+        Get application logger. Logger runs in an independent process?
+        :param queue:
+        :param configurer:
+        :return:
+        """
         configurer(queue)
-        name = mp.current_process().name
-        print('Worker started: %s' % name)
         self.logger = logging.getLogger('root')
 
     @property
