@@ -129,6 +129,10 @@ class Sled(object):
         self.moveType = movetype
         self.client.goto(pos, duration)
 
+    @property
+    def is_moving(self):
+        return len(self.client.moves) > 0
+
     def stop(self):
         """
         Stop the sled movement and stop the timer
