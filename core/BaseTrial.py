@@ -233,7 +233,7 @@ class BaseTrial(object):
         # =======
         # Default timings
         self.timings = {
-            'loading': False,
+            'loading': 0.0,
             "quit": 0.0,
             "idle": False,
             "pause": False,
@@ -310,7 +310,7 @@ class BaseTrial(object):
         # Inputs.update()
 
         # Access watched key's status
-        # Inputs.get_status('a')  # returns True or False
+        # Inputs.get_status('_name_of_key')  # returns True or False
         # ================
         self.buttons = UserInput()
         # Input devices used in the experiment
@@ -322,9 +322,6 @@ class BaseTrial(object):
         self.buttons.add_listener('keyboard', 'pause', pygame.K_SPACE)
         self.buttons.add_listener('keyboard', 'quit', pygame.K_q)
         self.buttons.add_listener('mouse', 'move_on', 0)
-
-        # Response keys
-        # Add your response keys below
 
         # Devices
         # Devices should be implemented in RunTrial::init_devices() method.
@@ -341,10 +338,6 @@ class BaseTrial(object):
     # STATE MACHINE
     # =========================================
 
-    def start(self):
-        with self.lock:
-            self._running = True
-
     def run(self):
         """
         Application main loop
@@ -354,6 +347,7 @@ class BaseTrial(object):
         self.threads['fast'].daemon = False
         self.threads['fast'].start()
         self.graphics_loop()
+        self.quit()
 
     def graphics_loop(self):
         """
@@ -376,11 +370,18 @@ class BaseTrial(object):
         :return:
         """
         while self.status:
+            if self._running:
+                # Update input devices state
+                self.buttons.update()
+                move_on = self.go_next()
+            else:
+                move_on = False
+
             # Default states for this state machine
             self.__default_fast_states()
 
             # Check state status
-            if self.state_machine.change_state(force_move_on=self.go_next()):
+            if self.state_machine.change_state(force_move_on=move_on):
                 # Send events to devices that will be written into their data file
                 for device in self.devices:
                     if hasattr(self.devices[device], 'send_message'):
@@ -418,9 +419,6 @@ class BaseTrial(object):
         file.
         :rtype: bool
         """
-        # Update input devices state
-        self.buttons.update()
-
         if self.triggers['moveOnRequested']:
             return True
 
@@ -436,7 +434,7 @@ class BaseTrial(object):
             self.state_machine.next_state = 'pause'
             return True
 
-        return self.buttons.get_status('move_on')
+        return False
 
     def init_trial(self):
         """
@@ -632,12 +630,12 @@ class BaseTrial(object):
 
                 self._running = True
 
-            self.state_machine.change_state(force_move_on=True)
-
         elif self.state_machine.state == 'idle':
             # IDLE state
             # DO NOT MODIFY
             self.state_machine.next_state = 'iti'
+            if self.buttons.get_status('move_on'):
+                self.state_machine.change_state(True)
 
         elif self.state_machine.state == 'iti':
             # Inter-trial interval
@@ -662,6 +660,7 @@ class BaseTrial(object):
             if self.state_machine.singleshot():
                 self.clear_screen()
                 self.status = False
+                self._running = False
 
         elif self.state_machine.state == 'pause':
             # PAUSE experiment
@@ -672,8 +671,6 @@ class BaseTrial(object):
                 self.clear_screen()
 
         elif self.state_machine.state == 'end':
-            self.triggers['response_given'] = True
-
             # End of trial. Call ending routine.
             if self.triggers['pauseRequested']:
                 self.state_machine.next_state = "pause"
