@@ -20,7 +20,9 @@
 
 from events.timer import Timer
 import time
-import numpy as np
+
+# Logger
+import logging
 
 
 class StateMachine(object):
@@ -29,33 +31,29 @@ class StateMachine(object):
     Implement state of state machine
     """
 
-    def __init__(self, timings=dict, logger=None, queue=None, configurer=None):
+    def __init__(self, timings=dict, logger=None):
         """
         State constructor
         Parameters
         ----------
-        :param timings: dictionary specifying states timings
+        :param timings: dictionary specifying states timings (in seconds)
+            if duration is False, then the state machine will stay within the same state until told otherwise
+            if duration is 0.0, then the state machine will immediately move to the next state
+            if duration is float > 0.0, then the state machine will stay in the same state for the given duration
         :type timings: dict
         :param logger: application logger
-        :type logger: CustomLogger
+        :type logger: logging|Customlogger
         """
-        self.durations = timings
+        self.__durations = timings
 
         self._state = None
         self._current = None
         self._next_state = None
 
-        self.logger = logger
-        # self.get_logger(queue, configurer)
+        self.logger = logger if logger is not None else logging.getLogger("EasyExp")
 
         self._runtime = Timer()
         self._runtime.start()
-
-    def get_logger(self, queue, configurer):
-        configurer(queue)
-        name = mp.current_process().name
-        print('Worker started: %s' % name)
-        self.logger = logging.getLogger('root')
 
     @property
     def current(self):
@@ -77,6 +75,20 @@ class StateMachine(object):
     def next_state(self, next_state):
         self._next_state = next_state
 
+    @property
+    def durations(self):
+        return self.__durations
+
+    @durations.setter
+    def durations(self, timings):
+        """
+        Update timings or set new timings
+        :param timings:
+        :type timings: dict
+        :return:
+        """
+        self.__durations.update(timings)
+
     def singleshot(self, name='default', target=None, **kwargs):
         """
         Fire singleshot event
@@ -97,7 +109,7 @@ class StateMachine(object):
         :rtype: bool
         """
         # If we enter a new state
-        self._current = State(self.state, duration=self.durations[self.state])
+        self._current = State(self.state, duration=self.__durations[self.state])
         self._current.start()
         msg = "[{0}] '{1}' state starting [t={2:1.3f}]".format(__name__,
                                                                self.state.upper(), self.current.start_time
@@ -124,9 +136,6 @@ class StateMachine(object):
             # If we enter a new state
             self.start()
             return True
-
-        # Check inputs and timers
-        # move_on = force_move_on or (self._current.status and self._current.running)
 
         # If we transition to the next state
         if force_move_on or (self._current.status and self._current.running):
@@ -308,6 +317,10 @@ class SingleShot(object):
             return False
 
 
+#######################################
+# Example-related functions and classes
+#######################################
+
 def go_next():
     """
     Check if we should move to next state. For example, this function could listen to key press and return True if a
@@ -328,17 +341,17 @@ def show(text):
     print(text)
 
 
-from system import mplogger as l
 from system.customlogger import CustomLogger
-
-# import multiprocessing as mp
-import multiprocess as mp
 import logging
 import threading
 
 
 class TestMachine(object):
-    def __init__(self, my_logger=None):
+    """
+    Test machine
+    """
+
+    def __init__(self):
         self.threads = None
         self.status = True
         self.timings = {
@@ -487,20 +500,6 @@ class TestMachine(object):
             self.state_machine.next_state = 'quit'
             if self.state_machine.singleshot('graphics_duration'):
                 self.logger.debug('Duration')
-
-
-# States duration (in seconds)
-# if duration is False, then the state machine will stay within the same state until told otherwise
-# if duration is 0.0, then the state machine will immediately move to the next state
-# if duration is float > 0.0, then the state machine will stay in the same state for the given duration
-
-durations = {
-    "no_duration": False,
-    "zero": 0.0,
-    "duration": 2.0,
-    "quit": 0.0
-}
-
 
 if __name__ == "__main__":
     import numpy as np
