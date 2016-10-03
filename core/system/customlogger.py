@@ -19,6 +19,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
+import logging.handlers
+import sys
 
 
 class CustomLogger(object):
@@ -39,6 +41,7 @@ class CustomLogger(object):
 
     default_format = '%(asctime)s - %(processName)s - %(threadName)s - %(name)s - %(levelname)s - %(message)s'
     allowed_level = ['debug', 'info', 'warning', 'critical', 'fatal']
+    bytes = 100000
 
     def __init__(self, name='', file_name='log.txt', level='debug', format_str=None):
         """
@@ -73,13 +76,17 @@ class CustomLogger(object):
         self.__ch.setFormatter(formatter)
 
         # Set handler and output format
-        self._handler = logging.FileHandler(self._file_name)
+        self._handler = logging.handlers.RotatingFileHandler(self._file_name, 'a', self.bytes, 10)
         self._handler.setFormatter(formatter)
         self.logger.setLevel(self._level)
         self._handler.setLevel(self._level)
 
-        # Add handler to logger
+        # Stream handler
+        stream = logging.StreamHandler(stream=sys.stdout)
+
+        # Add handlers to logger
         self.logger.addHandler(self._handler)
+        self.logger.addHandler(stream)
 
     def _set_level(self, level):
         """
@@ -155,3 +162,6 @@ class CustomLogger(object):
         :return:
         """
         self.logger.fatal(msg=msg, *args, **kwargs)
+
+    def exception(self, msg, *args, **kwargs):
+        self.logger.exception(msg, exc_info=1)
