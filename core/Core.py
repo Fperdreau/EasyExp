@@ -192,15 +192,15 @@ class Core(object):
         Run and time experiment
         """
 
-        self.logger.logger.info("[{}] --- Start Experiment: '{}' ---".format(__name__, self.expname))
+        self.logger.info("[{}] --- Start Experiment: '{}' ---".format(__name__, self.expname))
 
         # Import experiment class from experiment's folder (e.g.: experiments/experiment_name/runtrial.py)
         try:
             sys.path.append(self.folders['expFolder'])
             from runtrial import RunTrial
         except ImportError as e:
-            self.logger.logger.fatal('[{}] Could not import RunTrial. Make sure you changed the name of '
-                                     '"runtrial_template.py" to "runtrial.py": {}'.format(__name__, e))
+            self.logger.fatal('[{}] Could not import RunTrial. Make sure you changed the name of '
+                              '"runtrial_template.py" to "runtrial.py": {}'.format(__name__, e))
             raise e
 
         # Start timer
@@ -222,9 +222,13 @@ class Core(object):
                 sys.exit(self.screen.QTapp.exec_())
             elif self.screen.display_type == 'psychopy':
                 runtrial.run()
-        except Exception as e:
+        except (KeyboardInterrupt, SystemExit):
+            runtrial.quit()
+            self.stop()
+            raise
+        except:
             msg = '[{0}] An unexpected error has occurred: {1}'.format(__name__, e)
-            self.logger.logger.fatal(msg)
+            self.logger.exception(msg)
             runtrial.quit()
             self.stop()
             raise Exception(msg)
