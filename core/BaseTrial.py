@@ -38,8 +38,8 @@ import numpy as np
 # Multi-threading
 import threading
 
+# Loger
 import logging
-
 
 # EasyExp modules
 from Core import Core
@@ -202,13 +202,15 @@ class BaseTrial(StateMachine):
         ##################################
         # DO NOT MODIFY THE LINES BELLOW #
         ##################################
+        super(BaseTrial, self).__init__()
+
         self.core = exp_core
         self.screen = exp_core.screen
         self.trial = exp_core.trial
         self.user = exp_core.user
         self.ptw = self.screen.ptw
+        self.logger = exp_core.logger
         self.textToDraw = BaseTrial.__homeMsg
-        self.thread = None
 
         self.status = True
         self._running = False
@@ -221,31 +223,22 @@ class BaseTrial(StateMachine):
         # FPScounter: measures flip duration or simply flips the screen
         self.fpsCounter = FpsCounter(self.screen.ptw)
 
-        # Logger: verbose level can be set by changing level to 'debug', 'info' or 'warning'
-        self.logger = exp_core.logger
-
         # Stimuli
         # =======
         self.stimuli = dict()
 
-        # Timings
-        # =======
-        # Default timings
-        self.timings = {
+        # State Machine
+        # =============
+        # Default states duration
+        self.durations = {
             'loading': 0.0,
             "quit": 0.0,
             "idle": False,
             "pause": False,
             "init": 0.0
         }
-        # Custom timings specified in parameters.json
-        self.timings.update(self.trial.parameters['durations'])
-
-        super(BaseTrial, self).__init__(timings=self.timings, logger=self.logger)
-
-        # State Machine
-        # =============
-        self.state_machine = StateMachine(timings=self.timings, logger=exp_core.logger)
+        # Custom states duration specified in parameters.json
+        self.durations = self.trial.parameters['durations']
         self.state = 'loading'
         self.next_state = 'idle'
 
