@@ -422,14 +422,15 @@ class RunTrial(BaseTrial):
 
                 # Compute states duration
                 screen_latency = 0.050  # Screen latency in ms
-                self.timings['first'] = float(self.trial.params['timing']) - screen_latency
-                self.timings['probe1'] = float(self.trial.parameters['probeDuration'])
-                self.timings['probeInterval'] = float(self.trial.parameters['probeInterval'])
-                self.timings['probe2'] = self.timings['probe1']
-                self.timings['last'] = 0.0
+                timings = dict()
+                timings['first'] = float(self.trial.params['timing']) - screen_latency
+                timings['probe1'] = float(self.trial.parameters['probeDuration'])
+                timings['probeInterval'] = float(self.trial.parameters['probeInterval'])
+                timings['probe2'] = timings['probe1']
+                timings['last'] = 0.0
 
                 # Update states duration
-                self.durations = self.timings
+                self.durations = timings
 
             # Move sled to starting position if it is not there already
             if self.wait_sled(self.sledStart):
