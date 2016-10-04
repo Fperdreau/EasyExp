@@ -139,7 +139,8 @@ class RunTrial(BaseTrial):
         }
 
         # Add your stimulus trigger to this dictionary. If self.stimuliTrigger['stimulus_name'] = True,
-        # then self.stimuli['stimulus_name'].draw() will be called.
+        # then self.stimuli['stimulus_name'].draw() will be called. Stimuli are rendered in the same order as the
+        # triggers defined in stimuliTrigger dictionary.
         self.stimuliTrigger = {
             'probe1': False,
             'probe2': False,
