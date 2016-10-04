@@ -19,6 +19,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+__app_name__ = "EasyExp"
 __author__ = "Florian Perdreau"
 __copyright__ = "Copyright 2016, Florian Perdreau"
 __license__ = "GPL"
