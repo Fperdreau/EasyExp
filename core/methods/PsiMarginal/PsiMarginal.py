@@ -52,59 +52,62 @@ def PF(parameters, psyfun='cGauss'):
     
     Arguments
     ---------
-        parameters: ndarray containing parameters as columns
+    :param parameters: ndarray containing parameters as columns
             alpha   : threshold
-            
+
             beta    : slope
-            
+
             gamma   : guessing rate (optional), default is 0.2
-            
+
             lambda  : lapse rate (optional), default is 0.04
-            
+
             x       : stimulus intensity
-            
-        psyfun (str): type of psychometric function.
+    :type parameters: [alpha, beta, lambda, x]
+
+    :param psyfun: type of psychometric function.
             'cGauss' cumulative Gaussian
-            
+
             'Gumbel' Gumbel, aka log Weibull
+    :type psyfun: str
 
     Returns
     -------
     1D-array of conditional probabilities p(response | alpha,beta,gamma,lambda,x)
     """
 
-    ## Unpack parameters
-    if np.size(parameters,1) == 5:
-        [alpha,beta,gamma,llambda,x] = np.transpose(parameters)
-    elif np.size(parameters,1) == 4:
-        [alpha,beta,llambda,x] = np.transpose(parameters)
-        gamma           = llambda
-    elif np.size(parameters,1) == 3:
-        [alpha,beta,x]  = np.transpose(parameters)
-        gamma           = 0.2
-        llambda         = 0.04
-    else: # insufficient number of parameters will give a flat line
-        psyfun          = None
-        gamma           = 0.2
-        llambda         = 0.04
+    # Unpack parameters
+    if np.size(parameters, 1) == 5:
+        [alpha, beta, gamma, llambda, x] = np.transpose(parameters)
+    elif np.size(parameters, 1) == 4:
+        [alpha, beta, llambda, x] = np.transpose(parameters)
+        gamma = llambda
+    elif np.size(parameters, 1) == 3:
+        [alpha, beta, x] = np.transpose(parameters)
+        gamma = 0.2
+        llambda = 0.04
+    else:  # insufficient number of parameters will give a flat line
+        psyfun = None
+        gamma = 0.2
+        llambda = 0.04
     
-    ## Psychometric function
-    ones                = np.ones(np.shape(alpha))
+    # Psychometric function
+    ones = np.ones(np.shape(alpha))
     if psyfun == 'cGauss':
-        #F(x; alpha, beta) = Normcdf(alpha, beta) = 1/2 * erfc(-beta * (x-alpha) /sqrt(2))
-        pf              = ones/2* erfc(np.multiply(-beta, (np.subtract(x, alpha))) /np.sqrt(2))
+        # F(x; alpha, beta) = Normcdf(alpha, beta) = 1/2 * erfc(-beta * (x-alpha) /sqrt(2))
+        pf = ones/2 * erfc(np.multiply(-beta, (np.subtract(x, alpha))) /np.sqrt(2))
     elif psyfun == 'Gumbel':
         # F(x; alpha, beta) = 1 - exp(-10^(beta(x-alpha)))
-        pf              = ones - np.exp(-np.power((np.multiply(ones,10.0)), (np.multiply(beta, (np.subtract(x, alpha))))))
+        pf = ones - np.exp(-np.power((np.multiply(ones,10.0)), (np.multiply(beta, (np.subtract(x, alpha))))))
     else:
         # flat line if no psychometric function is specified
-        pf              = np.ones(np.shape(alpha))
+        pf = np.ones(np.shape(alpha))
     y = gamma + np.multiply((ones - gamma - llambda), pf)
     return y
 
 
 class PsiMarginal(MethodBase):
-    """Find the stimulus intensity with minimum expected entropy for each trial, to determine the psychometric function.
+    """
+    Find the stimulus intensity with minimum expected entropy for each trial, to determine the psychometric function.
   
     Psi adaptive staircase procedure for use in psychophysics.   
     
@@ -181,22 +184,22 @@ class PsiMarginal(MethodBase):
 
     # Default options
     _options = {
-        'stimRange': (0, 1),                    # Boundaries of stimulus range
-        'Pfunction': 'cGauss',                  # Underlying Psychometric function
-        'nTrials': 50,                          # Number of trials per staircase
-        'threshold': None,                      # Threshold estimate
-        'thresholdPrior': ('uniform', None),    # Prior on threshold
-        'slope': None,                          # Slope estimate
-        'slopePrior': ('uniform', None),        # Prior on slope
-        'guessRate': None,                      # Guess-rate estimate
-        'guessPrior': ('uniform', None),        # Prior on Guess-rate
-        'lapseRate': None,                      # Lapse-rate estimate
-        'lapsePrior': ('uniform', None),        # Prior on lapse-rate
-        'marginalize': True,                    #
-        'nbStairs': 1,                          # Number of staircase per condition
-        "warm_up": 4,                           # Number of warm-up trials per staircase (only extremes intensity)
-        "response_field": "response",           # Name of response field in data file
-        "intensity_field": "intensity"          # Name of intensity field in data file
+        'stimRange': (0, 1),  # Boundaries of stimulus range
+        'Pfunction': 'cGauss',  # Underlying Psychometric function
+        'nTrials': 50,  # Number of trials per staircase
+        'threshold': (-10, 10, 0.1),  # Threshold estimate
+        'thresholdPrior': ('uniform',),  # Prior on threshold
+        'slope': (0.005, 10, 0.1),  # Slope estimate and prior
+        'slopePrior': ('uniform',),  # Prior on slope
+        'guessRate': (0.0, 0.11, 0.01),  # Guess-rate estimate and prior
+        'guessPrior': ('uniform',),  # Prior on guess rate
+        'lapseRate': (0.0, 0.11, 0.01),  # Lapse-rate estimate and prior
+        'lapsePrior': ('uniform',),  # Prior on lapse rate
+        'marginalize': True,  # Marginalize out the nuisance parameters guess rate and lapse rate?
+        'nbStairs': 1,  # Number of staircase per condition
+        'warm_up': 4,  # Number of warm-up trials per staircase (only extreme intensities)
+        'response_field': 'response',  # Name of response field in data file
+        'intensity_field': 'intensity'  # Name of intensity field in data file
     }
 
     def __init__(self, settings_file=None, data_file=None, options=None):
@@ -220,41 +223,39 @@ class PsiMarginal(MethodBase):
         self._load_options(options)
 
         # Psychometric function parameters
-        self.stimRange      = self._options['stimRange']  # range of stimulus intensities
-        self.threshold      = np.arange(-10, 10, 0.1)
-        self.slope          = np.arange(0.005, 20, 0.1)
-        self.guessRate      = np.arange(0.0, 0.11, 0.05)
-        self.lapseRate      = np.arange(0.0, 0.11, 0.05)
-        self.marginalize    = self._options['marginalize']  # marginalize out nuisance parameters gamma and lambda?
-            
-        if self._options['threshold'] is not None:
-            self.threshold  = self._options['threshold']
-        if self._options['slope'] is not None:
-            self.slope      = self._options['slope']
-        if self._options['guessRate'] is not None:
-            self.guessRate  = self._options['guessRate']
-        if self._options['lapseRate'] is not None:
-            self.lapseRate  = self._options['lapseRate']
+        list_ranges = ('threshold', 'slope', 'guessRate', 'lapseRate')
+        self.ranges = dict()
+        for opt in list_ranges:
+            self.ranges[opt] = np.linspace(self._options[opt][0], self._options[opt][1], self._options[opt][2])
+
+        print(self.ranges)
+        self.stimRange = self._options['stimRange']
+        self.marginalize = self._options['marginalize']
+        self.threshold = self.ranges['threshold']
+        self.slope = self.ranges['slope']
+        self.guessRate = self.ranges['guessRate']
+        self.lapseRate = self.ranges['lapseRate']
 
         # remove any singleton dimensions
-        self.threshold      = np.squeeze(self.threshold)
-        self.slope          = np.squeeze(self.slope)
-        self.guessRate      = np.squeeze(self.guessRate)
-        self.lapseRate      = np.squeeze(self.lapseRate)
+        self.threshold = np.squeeze(self.threshold)
+        self.slope = np.squeeze(self.slope)
+        self.guessRate = np.squeeze(self.guessRate)
+        self.lapseRate = np.squeeze(self.lapseRate)
 
         print('threshold: {}'.format(self.threshold))
         print('slope: {}'.format(self.slope))
         print('guessRate: {}'.format(self.guessRate))
         print('lapse: {}'.format(self.lapseRate))
-        ## Priors
-        self.priorAlpha     = self.__genprior(self.threshold, *self._options['thresholdPrior'])
-        self.priorBeta      = self.__genprior(self.slope, *self._options['slopePrior'])
-        self.priorGamma     = self.__genprior(self.guessRate, *self._options['guessPrior'])
-        self.priorLambda    = self.__genprior(self.lapseRate, *self._options['lapsePrior'])
+
+        # Priors
+        self.priorAlpha = self.__genprior(self.threshold, *self._options['thresholdPrior'])
+        self.priorBeta = self.__genprior(self.slope, *self._options['slopePrior'])
+        self.priorGamma = self.__genprior(self.guessRate, *self._options['guessPrior'])
+        self.priorLambda = self.__genprior(self.lapseRate, *self._options['lapsePrior'])
         
         # if guess rate equals lapse rate, and they have equal priors,
         # then gamma can be left out, as the distributions will be the same
-        self.gammaEQlambda       = all([[all(self.guessRate == self.lapseRate)], [all(self.priorGamma == self.priorLambda)]])
+        self.gammaEQlambda = all([[all(self.guessRate == self.lapseRate)], [all(self.priorGamma == self.priorLambda)]])
         
         # likelihood: table of conditional probabilities p(response | alpha,beta,gamma,lambda,x)
         # prior: prior probability over all parameters p_0(alpha,beta,gamma,lambda)
@@ -263,98 +264,99 @@ class PsiMarginal(MethodBase):
             self.parameters = cartesian((self.threshold, self.slope, self.lapseRate, self.stimRange))   
             self.likelihood = PF(self.parameters, psyfun=self._options['Pfunction'])
             self.likelihood = np.reshape(self.likelihood, self.dimensions) # dims: (alpha, beta, lambda, x)
-            self.pr         = cartesian((self.priorAlpha, self.priorBeta, self.priorLambda))
-            self.prior      = np.prod(self.pr, axis=1) # row-wise products of prior probabilities
-            self.prior      = np.reshape(self.prior, self.dimensions[:-1]) # dims: (alpha, beta, lambda)
+            self.pr = cartesian((self.priorAlpha, self.priorBeta, self.priorLambda))
+            self.prior = np.prod(self.pr, axis=1) # row-wise products of prior probabilities
+            self.prior = np.reshape(self.prior, self.dimensions[:-1]) # dims: (alpha, beta, lambda)
         else:
             self.dimensions = (len(self.threshold), len(self.slope), len(self.guessRate),
                                len(self.lapseRate), len(self._options['stimRange']))
             self.parameters = cartesian((self.threshold, self.slope, self.guessRate, self.lapseRate, self.stimRange))   
             self.likelihood = PF(self.parameters, psyfun=self._options['Pfunction'])
             self.likelihood = np.reshape(self.likelihood, self.dimensions) # dims: (alpha, beta, gamma, lambda, x)
-            self.pr         = cartesian((self.priorAlpha, self.priorBeta, self.priorGamma, self.priorLambda))
-            self.prior      = np.prod(self.pr, axis=1) # row-wise products of prior probabilities
-            self.prior      = np.reshape(self.prior, self.dimensions[:-1]) # dims: (alpha, beta, gamma, lambda)
+            self.pr = cartesian((self.priorAlpha, self.priorBeta, self.priorGamma, self.priorLambda))
+            self.prior = np.prod(self.pr, axis=1) # row-wise products of prior probabilities
+            self.prior = np.reshape(self.prior, self.dimensions[:-1]) # dims: (alpha, beta, gamma, lambda)
         
         # normalize prior
-        self.prior          = self.prior / np.sum(self.prior)
+        self.prior = self.prior / np.sum(self.prior)
 
-        ## Set probability density function to prior
-        self.pdf            = np.copy(self.prior)
+        # Set probability density function to prior
+        self.pdf = np.copy(self.prior)
 
         # settings
-        self.iTrial         = 0
-        self.nTrials        = self._options['nTrials']
-        self.stop           = 0
-        self.response       = []
+        self.iTrial = 0
+        self.nTrials = self._options['nTrials']
+        self.stop = 0
+        self.response = []
 
         # Settings (expFrame)
         self.cpt_stair = 0
 
-        ## Generate the first stimulus intensity
+        # Generate the first stimulus intensity
         self.minEntropyStim()
 
     def __genprior(self, x, distr='uniform', mu=0, sig=1): # prior probability distribution
         if distr == 'uniform':
-            nx              = len(x)
-            p               = np.ones(nx)/nx
+            nx = len(x)
+            p = np.ones(nx)/nx
         elif distr == 'normal':
-            p               = norm.pdf(x, mu, sig)
+            p = norm.pdf(x, mu, sig)
         else:
-            nx              = len(x)
-            p               = np.ones(nx)/nx
+            nx = len(x)
+            p = np.ones(nx)/nx
         return p
 
     def __entropy(self, pdf): # Shannon entropy of probability density function
-        ## Marginalize out all nuisance parameters, i.e. all except alpha and beta
-        postDims            = np.ndim(pdf)
+        # Marginalize out all nuisance parameters, i.e. all except alpha and beta
+        postDims = np.ndim(pdf)
         if self.marginalize == True:
-            while postDims  > 3: # marginalize out second-to-last dimension, last dim is x
-                pdf         = np.sum(pdf, axis=-2)
-                postDims    -= 1
+            while postDims > 3:  # marginalize out second-to-last dimension, last dim is x
+                pdf = np.sum(pdf, axis=-2)
+                postDims -= 1
         # find expected entropy, suppress divide-by-zero and invalid value warnings
         # as this is handled by the NaN redefinition to 0
         with np.errstate(divide='ignore', invalid='ignore'):
-            entropy             = np.multiply(pdf, np.log(pdf))
-        entropy[np.isnan(entropy)] = 0 # define 0*log(0) to equal 0
-        dimSum              = tuple(range(postDims-1)) # dimensions to sum over. also a Chinese dish
-        entropy             = -(np.sum(entropy, axis=dimSum))
+            entropy = np.multiply(pdf, np.log(pdf))
+        entropy[np.isnan(entropy)] = 0  # define 0*log(0) to equal 0
+        dimSum = tuple(range(postDims-1))  # dimensions to sum over. also a Chinese dish
+        entropy = -(np.sum(entropy, axis=dimSum))
         return entropy
 
     def minEntropyStim(self):
-        """Find the stimulus intensity based on the expected information gain.
+        """
+        Find the stimulus intensity based on the expected information gain.
         
         Minimum Shannon entropy is used as selection criterion for the stimulus intensity in the upcoming trial.
         """
-        self.pdf            = self.pdf
-        self.nX             = len(self.stimRange)
-        self.nDims          = np.ndim(self.pdf)
+        self.pdf = self.pdf
+        self.nX = len(self.stimRange)
+        self.nDims = np.ndim(self.pdf)
 
         # make pdf the same dims as conditional prob table likelihood
-        self.pdfND          = np.expand_dims(self.pdf, axis=self.nDims) # append new axis
-        self.pdfND          = np.tile(self.pdfND, (self.nX)) # tile along new axis
+        self.pdfND = np.expand_dims(self.pdf, axis=self.nDims)  # append new axis
+        self.pdfND = np.tile(self.pdfND, self.nX)  # tile along new axis
         
-        ## Probabilities of response r (succes, failure) after presenting a stimulus
-        ## with stimulus intensity x at the next trial, multiplied with the prior (pdfND)
+        # Probabilities of response r (success, failure) after presenting a stimulus
+        # with stimulus intensity x at the next trial, multiplied with the prior (pdfND)
         self.pTplus1success = np.multiply(self.likelihood, self.pdfND)
         self.pTplus1failure = self.pdfND - self.pTplus1success
         
-        ## Probability of success or failure given stimulus intensity x, p(r|x)
-        self.sumAxes        = tuple(range(self.nDims)) # sum over all axes except the stimulus intensity axis
+        # Probability of success or failure given stimulus intensity x, p(r|x)
+        self.sumAxes = tuple(range(self.nDims))  # sum over all axes except the stimulus intensity axis
         self.pSuccessGivenx = np.sum(self.pTplus1success, axis=self.sumAxes)
         self.pFailureGivenx = np.sum(self.pTplus1failure, axis=self.sumAxes)
         
-        ## Posterior probability of parameter values given stimulus intensity x and response r
-        ## p(alpha, beta | x, r)
+        # Posterior probability of parameter values given stimulus intensity x and response r
+        # p(alpha, beta | x, r)
         self.posteriorTplus1success = self.pTplus1success / self.pSuccessGivenx
         self.posteriorTplus1failure = self.pTplus1failure / self.pFailureGivenx
         
-        ## Expected entropy for the next trial at intensity x, producing response r
+        # Expected entropy for the next trial at intensity x, producing response r
         self.entropySuccess = self.__entropy(self.posteriorTplus1success)
         self.entropyFailure = self.__entropy(self.posteriorTplus1failure)      
-        self.expectEntropy  = np.multiply(self.entropySuccess, self.pSuccessGivenx) + np.multiply(self.entropyFailure, self.pFailureGivenx)
-        self.minEntropyInd  = np.argmin(self.expectEntropy) # index of smallest expected entropy
-        self.xCurrent       = self.stimRange[self.minEntropyInd] # stim intensity at minimum expected entropy
+        self.expectEntropy = np.multiply(self.entropySuccess, self.pSuccessGivenx) + np.multiply(self.entropyFailure, self.pFailureGivenx)
+        self.minEntropyInd = np.argmin(self.expectEntropy) # index of smallest expected entropy
+        self.xCurrent = self.stimRange[self.minEntropyInd] # stim intensity at minimum expected entropy
         self.intensity = self.xCurrent
 
         self.iTrial         += 1
@@ -421,41 +423,42 @@ class PsiMarginal(MethodBase):
         """
         self.response.append(response)
         
-        self.xCurrent   = None        
+        self.xCurrent = None
         
-        ## Keep the posterior probability distribution that corresponds to the recorded response
-        if response ==1:
+        # Keep the posterior probability distribution that corresponds to the recorded response
+        if response == 1:
             # select the posterior that corresponds to the stimulus intensity of lowest entropy
-            self.pdf    = self.posteriorTplus1success[Ellipsis, self.minEntropyInd]
+            self.pdf = self.posteriorTplus1success[Ellipsis, self.minEntropyInd]
         elif response == 0:
-            self.pdf    = self.posteriorTplus1failure[Ellipsis, self.minEntropyInd]
+            self.pdf = self.posteriorTplus1failure[Ellipsis, self.minEntropyInd]
 
         # normalize the pdf
-        self.pdf        = self.pdf / np.sum(self.pdf)
+        self.pdf = self.pdf / np.sum(self.pdf)
 
         ## Marginalized probabilities per parameter      
         if self.gammaEQlambda:
             self.pThreshold = np.sum(self.pdf, axis=(1,2))
-            self.pSlope     = np.sum(self.pdf, axis=(0,2))
-            self.pLapse     = np.sum(self.pdf, axis=(0,1))
-            self.pGuess     = self.pLapse
+            self.pSlope = np.sum(self.pdf, axis=(0,2))
+            self.pLapse = np.sum(self.pdf, axis=(0,1))
+            self.pGuess = self.pLapse
         else:
             self.pThreshold = np.sum(self.pdf, axis=(1,2,3))
-            self.pSlope     = np.sum(self.pdf, axis=(0,2,3))
-            self.pLapse     = np.sum(self.pdf, axis=(0,1,2))
-            self.pGuess     = np.sum(self.pdf, axis=(0,1,3))
-        ## Distribution means as expected values of parameters
-        self.eThreshold     = np.sum( np.multiply(self.threshold,   self.pThreshold))
-        self.eSlope         = np.sum( np.multiply(self.slope,       self.pSlope))
-        self.eLapse         = np.sum( np.multiply(self.lapseRate,   self.pLapse))
-        self.eGuess         = np.sum( np.multiply(self.guessRate,   self.pGuess))
+            self.pSlope = np.sum(self.pdf, axis=(0,2,3))
+            self.pLapse = np.sum(self.pdf, axis=(0,1,2))
+            self.pGuess = np.sum(self.pdf, axis=(0,1,3))
+
+        # Distribution means as expected values of parameters
+        self.eThreshold = np.sum( np.multiply(self.threshold,   self.pThreshold))
+        self.eSlope = np.sum( np.multiply(self.slope,       self.pSlope))
+        self.eLapse = np.sum( np.multiply(self.lapseRate,   self.pLapse))
+        self.eGuess = np.sum( np.multiply(self.guessRate,   self.pGuess))
         
-        ## Start calculating the next minimum entropy stimulus
+        # Start calculating the next minimum entropy stimulus
         threading.Thread(target=self.minEntropyStim).start()
 
     """
-    From here start expFrame-specific methods. Could be better to actually create an abstract class implementing these
-    methods. However, then we may loose modularity if one wishes to use this class outside expFrame.
+    From here start EasyExp-specific methods. Could be better to actually create an abstract class implementing these
+    methods. However, then we may loose modularity if one wishes to use this class outside EasyExp.
     """
 
     @staticmethod
@@ -587,6 +590,7 @@ class PsiMarginal(MethodBase):
                 self._set_options(data['options'])
                 json_info.close()
             else:
-                print("[StairCaseASA] The settings file '{}' cannot be found!".format(self._settings_file))
+                import logging
+                logging.getLogger('EasyExp').fatal("[{}] The settings file '{}' cannot be found!".format(__name__, self._settings_file))
         return self._options
 
