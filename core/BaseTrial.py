@@ -145,7 +145,7 @@ class Loading(object):
         return self.__msg
 
 
-class BaseTrial(object):
+class BaseTrial(StateMachine):
     """
     RunTrial class
     This class handles experiment's trials procedure
@@ -199,7 +199,6 @@ class BaseTrial(object):
         :param Core exp_core: Core object
         :type exp_core: Core
         """
-
         ##################################
         # DO NOT MODIFY THE LINES BELLOW #
         ##################################
@@ -242,11 +241,13 @@ class BaseTrial(object):
         # Custom timings specified in parameters.json
         self.timings.update(self.trial.parameters['durations'])
 
+        super(BaseTrial, self).__init__(timings=self.timings, logger=self.logger)
+
         # State Machine
         # =============
         self.state_machine = StateMachine(timings=self.timings, logger=exp_core.logger)
-        self.state_machine.state = 'loading'
-        self.state_machine.next_state = 'idle'
+        self.state = 'loading'
+        self.next_state = 'idle'
 
         # Events triggers
         # ===============
@@ -381,11 +382,11 @@ class BaseTrial(object):
             self.__default_fast_states()
 
             # Check state status
-            if self.state_machine.change_state(force_move_on=move_on):
+            if self.change_state(force_move_on=move_on):
                 # Send events to devices that will be written into their data file
                 for device in self.devices:
                     if hasattr(self.devices[device], 'send_message'):
-                        self.devices[device].send_message('EVENT_STATE_{}'.format(self.state_machine.state))
+                        self.devices[device].send_message('EVENT_STATE_{}'.format(self.state))
 
             # Custom Fast states
             self.fast_state_machine()
@@ -396,7 +397,7 @@ class BaseTrial(object):
         :return:
         """
         # Set in idle mode
-        self.state_machine.state = 'idle'
+        self.state = 'idle'
         self.textToDraw = "Experiment is over!"
 
         # Shutdown devices
@@ -425,13 +426,13 @@ class BaseTrial(object):
         # Does the user want to quit the experiment?
         if self.buttons.get_status('quit'):
             self.triggers['quitRequested'] = True
-            self.state_machine.next_state = 'quit'
+            self.next_state = 'quit'
             return True
 
         # Does the user want a break?
         if self.buttons.get_status('pause'):
             self.triggers['pauseRequested'] = True
-            self.state_machine.next_state = 'pause'
+            self.next_state = 'pause'
             return True
 
         return False
@@ -448,15 +449,15 @@ class BaseTrial(object):
         status = self.trial.setup()
         if status is False:
             # If no more trials to run, then quit the experiment
-            self.state_machine.next_state = 'quit'
-            self.state_machine.change_state(force_move_on=True)
+            self.next_state = 'quit'
+            self.change_state(force_move_on=True)
             return False
         else:
             self.status = status
             if self.status is "pause":
                 self.triggers['pauseRequested'] = True
-                self.state_machine.next_state = 'pause'
-                self.state_machine.change_state(force_move_on=True)
+                self.next_state = 'pause'
+                self.change_state(force_move_on=True)
                 return 'pause'
 
             # Start a new trial
@@ -618,68 +619,68 @@ class BaseTrial(object):
         loading -> idle -> iti -> init -> ...(custom states)... -> end
         :return:
         """
-        if self.state_machine.state == 'pause':
-            self.state_machine.next_state = 'iti'
+        if self.state == 'pause':
+            self.next_state = 'iti'
 
-        elif self.state_machine.state == 'loading':
-            self.state_machine.next_state = 'idle'
-            if self.state_machine.singleshot('loading'):
+        elif self.state == 'loading':
+            self.next_state = 'idle'
+            if self.singleshot('loading'):
                 self.init_devices()
 
                 self.init_audio()
 
                 self._running = True
 
-        elif self.state_machine.state == 'idle':
+        elif self.state == 'idle':
             # IDLE state
             # DO NOT MODIFY
-            self.state_machine.next_state = 'iti'
+            self.next_state = 'iti'
             if self.buttons.get_status('move_on'):
-                self.state_machine.change_state(True)
+                self.change_state(True)
 
-        elif self.state_machine.state == 'iti':
+        elif self.state == 'iti':
             # Inter-trial interval
-            self.state_machine.next_state = 'init'
+            self.next_state = 'init'
 
-        elif self.state_machine.state == 'init':
+        elif self.state == 'init':
             # Get trial information and update trial's parameters accordingly
-            self.state_machine.next_state = 'start'
+            self.next_state = 'start'
 
-            if self.state_machine.singleshot():
+            if self.singleshot():
                 status = self.init_trial()  # Get trial parameters
                 if not status:
-                    self.state_machine.next_state = 'quit'
-                    self.state_machine.change_state(force_move_on=True)
+                    self.next_state = 'quit'
+                    self.change_state(force_move_on=True)
                 if status is 'pause':
-                    self.state_machine.next_state = 'pause'
-                    self.state_machine.change_state(force_move_on=True)
+                    self.next_state = 'pause'
+                    self.change_state(force_move_on=True)
 
-        elif self.state_machine.state == 'quit':
+        elif self.state == 'quit':
             # QUIT experiment
             # DO NOT MODIFY
-            if self.state_machine.singleshot():
+            if self.singleshot():
                 self.clear_screen()
                 self.status = False
                 self._running = False
 
-        elif self.state_machine.state == 'pause':
+        elif self.state == 'pause':
             # PAUSE experiment
             # DO NOT MODIFY
-            self.state_machine.next_state = 'iti'
+            self.next_state = 'iti'
             self.triggers['pauseRequested'] = False
-            if self.state_machine.singleshot('fast_pause'):
+            if self.singleshot('fast_pause'):
                 self.clear_screen()
 
-        elif self.state_machine.state == 'end':
+        elif self.state == 'end':
             # End of trial. Call ending routine.
             if self.triggers['pauseRequested']:
-                self.state_machine.next_state = "pause"
+                self.next_state = "pause"
             elif self.triggers['quitRequested']:
-                self.state_machine.next_state = "quit"
+                self.next_state = "quit"
             else:
-                self.state_machine.next_state = 'iti'
+                self.next_state = 'iti'
 
-            if self.state_machine.singleshot():
+            if self.singleshot():
                 self.triggers['startTrigger'] = False
 
                 # End trial routine
@@ -691,7 +692,7 @@ class BaseTrial(object):
         :return:
         """
 
-        if self.state_machine.state == 'loading':
+        if self.state == 'loading':
             """
             Display loading message while preparing the experiment
             """
@@ -699,15 +700,15 @@ class BaseTrial(object):
             text = visual.TextStim(self.ptw, pos=(0, 0), text=msg, units="pix", height=30.0)
             text.draw()
 
-        elif self.state_machine.state == 'idle':
+        elif self.state == 'idle':
             text = visual.TextStim(self.ptw, pos=(0.0, 0.0), text=self.textToDraw, units="pix", height=30.0)
             text.draw()
 
-        elif self.state_machine.state == 'quit':
+        elif self.state == 'quit':
             text = visual.TextStim(self.ptw, pos=(0.0, 0.0), text="Experiment is over", units="pix", height=30.0)
             text.draw()
 
-        elif self.state_machine.state == 'pause':
+        elif self.state == 'pause':
             text = 'PAUSE {0}/{1} [Replayed: {2}]'.format(self.trial.nplayed, self.trial.ntrials,
                                                           self.trial.nreplay)
             text = visual.TextStim(self.ptw, pos=(0, 0), text=text, units="pix", height=30.0)
@@ -730,7 +731,7 @@ class BaseTrial(object):
         'loading', 'idle', and 'end' states are already implemented in BaseTrial.__default_fast_states() method, but
         these implementations can be overwritten in RunTrial.fast_state_machines(). To do so, simply define these states
         as usual. For instance:
-        if self.state_machine.state == "idle":
+        if self.state == "idle":
             # do something
         """
         raise NotImplementedError('Should implement this')
@@ -752,7 +753,7 @@ class BaseTrial(object):
          'loading', 'idle', and 'pause' states are already implemented in BaseTrial.__default_fast_states() method, but
         these implementations can be overwritten in RunTrial.fast_state_machines(). To do so, simply define these states
         as usual. For instance:
-        if self.state_machine.state == "idle":
+        if self.state == "idle":
             # do something
         """
         raise NotImplementedError('Should implement this')

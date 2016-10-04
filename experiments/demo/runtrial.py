@@ -250,7 +250,7 @@ class RunTrial(BaseTrial):
                                                     winsize=self.screen.size, inner_tgcol=(127, 127, 127),
                                                     outer_tgcol=(255, 255, 255), targetsize_out=1.0, targetsize_in=0.25)
             self.devices['eyetracker'].run()
-            self.state_machine.state = 'calibration'
+            self.state = 'calibration'
 
     def init_audio(self):
         """
@@ -387,29 +387,29 @@ class RunTrial(BaseTrial):
         if self._running:
             self.getviewerposition()
 
-        if self.state_machine.state == 'pause':
+        if self.state == 'pause':
             # PAUSE experiment
-            if self.state_machine.singleshot('pause_sled'):
+            if self.singleshot('pause_sled'):
                 # Move the sled back to its default position
                 if 'sled' in self.devices and self.devices['sled'] is not None:
                     self.devices['sled'].move(self.sledHome, self.mvtBackDuration)
                     time.sleep(self.mvtBackDuration)
                     self.devices['sled'].lights(True)  # Turn the lights off
 
-        elif self.state_machine.state == 'calibration':
+        elif self.state == 'calibration':
             # Eye-tracker calibration
-            self.state_machine.next_state = 'iti'
+            self.next_state = 'iti'
 
-        elif self.state_machine.state == 'iti':
-            if self.state_machine.singleshot('sled_light'):
+        elif self.state == 'iti':
+            if self.singleshot('sled_light'):
                 if 'sled' in self.devices:
                     self.devices['sled'].lights(False)  # Turn the lights off
 
-        elif self.state_machine.state == 'start':
+        elif self.state == 'start':
             # Start trial: get trial information and update trial's parameters accordingly
-            self.state_machine.next_state = 'first'
+            self.next_state = 'first'
 
-            if self.state_machine.singleshot('start_trial'):
+            if self.singleshot('start_trial'):
                 # ADD YOUR CODE HERE
                 # Stimuli Triggers
                 self.triggers['startTrigger'] = True
@@ -429,48 +429,48 @@ class RunTrial(BaseTrial):
                 self.timings['last'] = 0.0
 
                 # Update states duration
-                self.state_machine.durations = self.timings
+                self.durations = self.timings
 
             # Move sled to starting position if it is not there already
             if self.wait_sled(self.sledStart):
-                self.state_machine.change_state(force_move_on=True)
+                self.change_state(force_move_on=True)
 
-        elif self.state_machine.state == 'first':
-            self.state_machine.next_state = 'probe1'
-            if self.state_machine.singleshot('sled_start'):
+        elif self.state == 'first':
+            self.next_state = 'probe1'
+            if self.singleshot('sled_start'):
                 self.timers['sled_start'].start()
                 self.devices['sled'].move(self.sledFinal, self.mvtDuration)
 
-        elif self.state_machine.state == 'probe1':
-            self.state_machine.next_state = 'probeInterval'
+        elif self.state == 'probe1':
+            self.next_state = 'probeInterval'
             self.stimuliTrigger['probe1'] = True
-            if self.state_machine.singleshot():
+            if self.singleshot():
                 self.data['sled_probe1'] = self.pViewer[0]
                 self.data['time_probe1'] = self.timers['sled_start'].get_time('elapsed')
 
-        elif self.state_machine.state == 'probeInterval':
-            self.state_machine.next_state = 'probe2'
+        elif self.state == 'probeInterval':
+            self.next_state = 'probe2'
             self.stimuliTrigger['probe1'] = False
 
-        elif self.state_machine.state == 'probe2':
-            self.state_machine.next_state = 'last'
+        elif self.state == 'probe2':
+            self.next_state = 'last'
             self.stimuliTrigger['probe2'] = True
-            if self.state_machine.singleshot():
+            if self.singleshot():
                 self.data['sled_probe2'] = self.pViewer[0]
                 self.data['time_probe2'] = self.timers['sled_start'].get_time('elapsed')
 
-        elif self.state_machine.state == 'last':
-            self.state_machine.next_state = 'response'
+        elif self.state == 'last':
+            self.next_state = 'response'
             self.stimuliTrigger['probe2'] = False
 
-        elif self.state_machine.state == 'response':
-            self.state_machine.next_state = 'end'
+        elif self.state == 'response':
+            self.next_state = 'end'
 
             # Get participant's response
             self.get_response()
 
-        elif self.state_machine.state == 'end':
-            if self.state_machine.singleshot('end_print'):
+        elif self.state == 'end':
+            if self.singleshot('end_print'):
                 if not self.wait_sled(self.sledFinal):
                     self.logger.warning('TRIAL {}: Sled is not at final position: {} instead of {}'.format(
                         self.trial.id, self.pViewer[0], self.sledFinal))
@@ -486,8 +486,8 @@ class RunTrial(BaseTrial):
         -------
 
         """
-        if self.state_machine.state == 'calibration':
-            if self.state_machine.singleshot('el_calibration'):
+        if self.state == 'calibration':
+            if self.singleshot('el_calibration'):
                 # Create calibration points (polar grid, with points spaced by 45 degrees)
                 x, y = pol2cart(0.25 * (self.screen.resolution[0] / 2), np.linspace(0, 2 * np.pi, 9))
                 x += 0.5 * self.screen.resolution[0]  # Center coordinates on screen center
