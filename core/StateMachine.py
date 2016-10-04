@@ -24,6 +24,8 @@ import time
 # Logger
 import logging
 
+import version
+
 
 class StateMachine(object):
     """
@@ -31,7 +33,7 @@ class StateMachine(object):
     Implement state of state machine
     """
 
-    def __init__(self, timings=dict, logger=None):
+    def __init__(self, timings=None, logger=None):
         """
         State constructor
         Parameters
@@ -42,18 +44,25 @@ class StateMachine(object):
             if duration is float > 0.0, then the state machine will stay in the same state for the given duration
         :type timings: dict
         :param logger: application logger
-        :type logger: logging|Customlogger
+        :type logger: logging.logger|CustomLogger
         """
-        self.__durations = timings
+        self.__durations = timings if timings is not None else dict()
+        self.__logger = logger
 
         self._state = None
         self._current = None
         self._next_state = None
 
-        self.logger = logger if logger is not None else logging.getLogger("EasyExp")
-
         self._runtime = Timer()
         self._runtime.start()
+
+    @property
+    def logger(self):
+        return self.__logger if self.__logger is not None else logging.getLogger(version.__app_name__)
+
+    @logger.setter
+    def logger(self, logger):
+        self.__logger = logger
 
     @property
     def current(self):
@@ -114,7 +123,7 @@ class StateMachine(object):
         msg = "[{0}] '{1}' state starting [t={2:1.3f}]".format(__name__,
                                                                self.state.upper(), self.current.start_time
                                                                - self._runtime.get_time('start'))
-        self.logger.info(msg)
+        self.__logger.info(msg)
 
     def stop(self):
         """
@@ -123,7 +132,7 @@ class StateMachine(object):
         """
         if self.current is not None:
             self.current.stop()
-            self.logger.info(self)
+            self.__logger.info(self)
             self.state = self.next_state
 
     def change_state(self, force_move_on=False):
