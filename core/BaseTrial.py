@@ -255,7 +255,8 @@ class BaseTrial(StateMachine):
         }
 
         # Add your stimulus trigger to this dictionary. If self.stimuliTrigger['stimulus_name'] = True,
-        # then self.stimuli['stimulus_name'].draw() will be called.
+        # then self.stimuli['stimulus_name'].draw() will be called. Stimuli are rendered in the same order as the
+        # triggers defined in stimuliTrigger dictionary.
         self.stimuliTrigger = dict()
 
         # Timers
@@ -523,11 +524,13 @@ class BaseTrial(StateMachine):
     def update_graphics(self):
         """
         Update graphics
+        This function check status of stimuli triggers, and if True, then draw the corresponding stimulus object.
+        Stimuli are drawn in the same order as triggers defined in stimuliTrigger dictionary.
         :return:
         """
         # Draw stimuli
         if self.triggers['startTrigger']:
-            for stim, status in self.stimuliTrigger.iteritems():
+            for stim, status in sorted(self.stimuliTrigger.iteritems()):
                 if stim in self.stimuli:
                     if status:
                         self.stimuli[stim].draw()
