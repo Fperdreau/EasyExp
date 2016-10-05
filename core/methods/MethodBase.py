@@ -20,12 +20,20 @@
 
 from __future__ import print_function
 
+# Data I/O
+from os.path import isfile
+import json
+import csv
+
+# Math
+import numpy as np
+
 
 class MethodBase(object):
     """
     Abstract class for methods. Every method implementation should supply the following methods and properties
     - _options - list of default options
-    - make_design() - Generates trials list
+    - static make_design() - Generates trials list
     - _get_lists() - Makes responses and intensities lists from data array
     - _load_data() - load data array from file
     - _set_options() - Loads staircase settings from json file
@@ -35,6 +43,13 @@ class MethodBase(object):
         'nbStairs': 1,
         'nTrials': 40
     }
+
+    _data_file = None
+    _settings_file = None
+    cur_stair = None
+    cpt_stair = 0
+    resp_list = None
+    int_list = None
 
     @staticmethod
     def make_design(factors, options, conditions_name):
@@ -60,7 +75,7 @@ class MethodBase(object):
         """
         raise NotImplementedError("Should have implemented this")
 
-    def _get_lists(self):
+    def _get_lists(self, response=None, intensity=None):
         """
         Makes responses and intensities lists from data array
 
@@ -68,7 +83,23 @@ class MethodBase(object):
         -------
         void
         """
-        raise NotImplementedError("Should have implemented this")
+        if response is None:
+            resp_list = np.zeros((1, self._options['nTrials']))
+            int_list = np.zeros((1, self._options['nTrials']))
+            cpt_stair = 0
+            for trial in self.data:
+                if trial['Replay'] == "False" and int(trial['staircaseID']) == self.cur_stair:
+                    resp_list[0, cpt_stair] = 1 if trial[self._options['response_field']] == 'True' else 0
+                    int_list[0, cpt_stair] = float(trial[self._options['intensity_field']])
+                    cpt_stair += 1
+
+            self.cpt_stair = cpt_stair
+            self.resp_list = resp_list
+            self.int_list = int_list
+        else:
+            self.resp_list = np.append(self.resp_list, [1 if response == 'True' else 0])
+            self.int_list = np.append(self.int_list, intensity)
+            self.cpt_stair = len(self.resp_list) - 1
 
     def _load_data(self):
         """
@@ -79,7 +110,16 @@ class MethodBase(object):
         :return data
         :rtype: 2d-array
         """
-        raise NotImplementedError("Should have implemented this")
+        data = []
+        try:
+            with open(self._data_file) as csvfile:
+                reader = csv.DictReader(csvfile)
+                for row in reader:
+                    data.append(row)
+            self.data = data
+        except (IOError, TypeError):
+            self.data = {}
+            print('[{}] User Data filename does not exist yet!'.format(__name__))
 
     def _set_options(self, options):
         """
@@ -93,7 +133,8 @@ class MethodBase(object):
         -------
         void
         """
-        raise NotImplementedError("Should have implemented this")
+        for prop, value in options.iteritems():
+            self._options[prop] = value
 
     def _load_options(self, options=None):
         """
@@ -109,5 +150,17 @@ class MethodBase(object):
         :return _options: dictionary providing staircase's settings
         :rtype _options: dict
         """
-        raise NotImplementedError("Should have implemented this")
+        if options is not None:
+            self._set_options(options)
+        else:
+            # Read from file
+            if isfile(self._settings_file):
+                json_info = open(self._settings_file, 'r')
+                data = json.load(json_info)
+                self._set_options(data['options'])
+                json_info.close()
+            else:
+                import logging
+                logging.getLogger('EasyExp').fatal("[{}] The settings file '{}' cannot be found!".format(__name__, self._settings_file))
+        return self._options
 
