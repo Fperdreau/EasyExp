@@ -14,6 +14,7 @@ sys.path.append("{}/libs".format(root_folder))
 from core.Core import Core
 from core.Trial import Trial
 from core.methods.PsiMarginal.PsiMarginal import PsiMarginal
+import logging
 
 
 def main():
@@ -21,10 +22,10 @@ def main():
     Main function: call experiment's routines
     """
     options = {
-        'stimRange': (0, 1),  # Boundaries of stimulus range
+        'stimRange': (-3.0, 3.0, 0.5),  # Boundaries of stimulus range
         'Pfunction': 'cGauss',  # Underlying Psychometric function
-        'nTrials': 50,  # Number of trials per staircase
-        'threshold': (-10, 10, 0.1),  # Threshold estimate
+        'nTrials': 20,  # Number of trials per staircase
+        'threshold': (-3.0, 3.0, 0.01),  # Threshold estimate
         'thresholdPrior': ('uniform',),  # Prior on threshold
         'slope': (0.005, 10, 0.1),  # Slope estimate and prior
         'slopePrior': ('uniform',),  # Prior on slope
@@ -34,8 +35,8 @@ def main():
         'lapsePrior': ('uniform',),  # Prior on lapse rate
         'marginalize': True,  # Marginalize out the nuisance parameters guess rate and lapse rate?
         'nbStairs': 1,  # Number of staircase per condition
-        'warm_up': 4,  # Number of warm-up trials per staircase (only extreme intensities)
-        'response_field': 'response',  # Name of response field in data file
+        'warm_up': 2,  # Number of warm-up trials per staircase (only extreme intensities)
+        'response_field': 'correct',  # Name of response field in data file
         'intensity_field': 'intensity'  # Name of intensity field in data file
     }
 
@@ -49,46 +50,82 @@ def main():
 
     staircase = PsiMarginal(settings_file=Exp.files['conditions'], data_file=Exp.user.datafilename, options=options)
 
-    stairs = {}
-    while trial.status is not False:
-        trial.setup()
+    run = False
+    if run:
+        stairs = {}
+        while trial.status is not False:
+            trial.setup()
 
-        if trial.status is not False:
-            intensity = staircase.update(int(trial.params['staircaseID']), int(trial.params['staircaseDir']))
+            if trial.status is not False:
+                intensity = staircase.intensity
 
-            if trial.params['staircaseID'] not in stairs:
-                stairs.update({trial.params['staircaseID']: {'true': np.random.uniform(-2.0, 2.0)}})
+                if trial.params['staircaseID'] not in stairs:
+                    stairs.update({trial.params['staircaseID']: {'true': np.random.uniform(-2.0, 2.0)}})
 
-            mu = stairs[trial.params['staircaseID']]['true']
-            sd = 0.1  # std
+                mu = stairs[trial.params['staircaseID']]['true']
+                sd = 0.1  # std
 
-            internal_rep = intensity + sd * np.random.normal()
-            resp_curr = internal_rep > mu
+                internal_rep = intensity + sd * np.random.normal()
+                resp_curr = internal_rep > mu
 
-            print('ID: {} mu: {} intensity: {} internal: {} response: {}'.format(trial.params['staircaseID'], mu,
-                                                                                 intensity, internal_rep, resp_curr))
+                logging.getLogger('EasyExp').info('ID: {} mu: {} intensity: {} internal: {} response: {}'.format(
+                    trial.params['staircaseID'], mu, intensity, internal_rep, resp_curr))
 
-            # Simulate lapse
-            valid = np.random.uniform(0.0, 1.0) < 0.8
-            trial.stop(valid)
+                # Simulate lapse
+                valid = np.random.uniform(0.0, 1.0) < 0.8
+                trial.stop(valid)
 
-            # Write data
-            trial.writedata({'intensity': intensity, 'correct': resp_curr})
+                # Write data
+                trial.writedata({'intensity': intensity, 'correct': resp_curr})
+                staircase.update(int(trial.params['staircaseID']), int(trial.params['staircaseDir']))
 
     # Load data from datafile
     data = trial.loadData()
 
+    # Analysis
+    import pandas as pd
+    import pprint
+    # Plot staircase results
+    import matplotlib.pyplot as plt
+
     res = {}
+    default_fields = {
+        'intensities': [],
+        'response': [],
+        'n': [],
+        'bin_intensities': [],
+        'bin_responses': []
+    }
+
+    # data = pd.DataFrame(data)
+    # subdata = data[data.Replay != 'False', :]
+
     for trial in data:
         if trial['Replay'] == 'False':
             if trial['staircaseID'] not in res:
-                res[trial['staircaseID']] = {'intensities': [], 'response': []}
+                res[trial['staircaseID']] = default_fields
 
             res[trial['staircaseID']]['intensities'].append(float(trial['intensity']))
-            res[trial['staircaseID']]['response'].append(trial['correct'])
+            res[trial['staircaseID']]['response'].append(1 if trial['correct'] == "True" else 0)
 
-    # Plot staircase results
-    import matplotlib.pyplot as plt
+    for ind, stair in res.iteritems():
+        pprint.pprint(stair)
+        bins = np.linspace(min(stair['intensities']), max(stair['intensities']), 10)
+        [n, x] = np.histogram(stair['intensities'], bins)
+        indices = np.digitize(stair['intensities'], bins)
+        stair['response'] = np.array(stair['response'])
+        print(n, indices)
+        stair['bin_responses'] = np.zeros((1, len(bins)))
+        stair['n'] = n
+        for b in range(1, len(bins)):
+            total_correct = np.sum(stair['response'][indices == b])
+            stair['bin_responses'][b] = total_correct / stair['n'][b-1]
+        stair['bin_intensities'] = bins
+
+        # Plot responses
+        markersize = (stair['n'] / float(np.max(stair['n']))) * 20
+        for i in range(len(stair['bin_responses'])):
+            plt.plot(i, stair['bin_responses'][i], 'o', markersize=markersize[i])
 
     trues = []
     estimates = []
