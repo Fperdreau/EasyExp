@@ -35,6 +35,8 @@ import numpy as np
 from os.path import isfile
 
 # Import Base class
+import time
+
 from ..MethodBase import MethodBase
 
 # Data I/O
@@ -44,7 +46,7 @@ import csv
 from sklearn.utils.extmath import cartesian
 from scipy.stats import norm
 from scipy.special import erfc
-import threading
+import logging
 
 
 def PF(parameters, psyfun='cGauss'):
@@ -171,10 +173,10 @@ class PsiMarginal(MethodBase):
             >>> s   = range(-5,5) # possible stimulus intensities
             obj = Psi(s)
         
-        The stimulus intensity to be used in the current trial can be found in the field xCurrent.
+        The stimulus intensity to be used in the current trial can be found in the field intensity.
         
         Example:
-            >>> stim = obj.xCurrent
+            >>> stim = obj.intensity
         
         After each trial, update the psi staircase with the subject response, by calling the addData method.
         
@@ -184,7 +186,7 @@ class PsiMarginal(MethodBase):
 
     # Default options
     _options = {
-        'stimRange': (0, 1),  # Boundaries of stimulus range
+        'stimRange': (-5, 5, 0.1),  # Boundaries of stimulus range
         'Pfunction': 'cGauss',  # Underlying Psychometric function
         'nTrials': 50,  # Number of trials per staircase
         'threshold': (-10, 10, 0.1),  # Threshold estimate
@@ -226,10 +228,10 @@ class PsiMarginal(MethodBase):
         list_ranges = ('threshold', 'slope', 'guessRate', 'lapseRate')
         self.ranges = dict()
         for opt in list_ranges:
-            self.ranges[opt] = np.linspace(self._options[opt][0], self._options[opt][1], self._options[opt][2])
+            self.ranges[opt] = np.arange(self._options[opt][0], self._options[opt][1], self._options[opt][2])
 
-        print(self.ranges)
-        self.stimRange = self._options['stimRange']
+        self.stimRange = np.arange(float(self._options['stimRange'][0]), float(self._options['stimRange'][1]),
+                                   float(self._options['stimRange'][2]))
         self.marginalize = self._options['marginalize']
         self.threshold = self.ranges['threshold']
         self.slope = self.ranges['slope']
@@ -242,10 +244,10 @@ class PsiMarginal(MethodBase):
         self.guessRate = np.squeeze(self.guessRate)
         self.lapseRate = np.squeeze(self.lapseRate)
 
-        print('threshold: {}'.format(self.threshold))
-        print('slope: {}'.format(self.slope))
-        print('guessRate: {}'.format(self.guessRate))
-        print('lapse: {}'.format(self.lapseRate))
+        logging.getLogger('EasyExp').info('threshold: {}'.format(self.threshold))
+        logging.getLogger('EasyExp').info('slope: {}'.format(self.slope))
+        logging.getLogger('EasyExp').info('guessRate: {}'.format(self.guessRate))
+        logging.getLogger('EasyExp').info('lapse: {}'.format(self.lapseRate))
 
         # Priors
         self.priorAlpha = self.__genprior(self.threshold, *self._options['thresholdPrior'])
@@ -289,6 +291,10 @@ class PsiMarginal(MethodBase):
         self.stop = 0
         self.response = []
 
+        self.resp_list = np.zeros(())
+        self.int_list = np.zeros(())
+        self.intensity = None
+
         # Settings (expFrame)
         self.cpt_stair = 0
 
@@ -306,10 +312,10 @@ class PsiMarginal(MethodBase):
             p = np.ones(nx)/nx
         return p
 
-    def __entropy(self, pdf): # Shannon entropy of probability density function
+    def __entropy(self, pdf):  # Shannon entropy of probability density function
         # Marginalize out all nuisance parameters, i.e. all except alpha and beta
         postDims = np.ndim(pdf)
-        if self.marginalize == True:
+        if self.marginalize:
             while postDims > 3:  # marginalize out second-to-last dimension, last dim is x
                 pdf = np.sum(pdf, axis=-2)
                 postDims -= 1
@@ -355,14 +361,13 @@ class PsiMarginal(MethodBase):
         self.entropySuccess = self.__entropy(self.posteriorTplus1success)
         self.entropyFailure = self.__entropy(self.posteriorTplus1failure)      
         self.expectEntropy = np.multiply(self.entropySuccess, self.pSuccessGivenx) + np.multiply(self.entropyFailure, self.pFailureGivenx)
-        self.minEntropyInd = np.argmin(self.expectEntropy) # index of smallest expected entropy
-        self.xCurrent = self.stimRange[self.minEntropyInd] # stim intensity at minimum expected entropy
-        self.intensity = self.xCurrent
+        self.minEntropyInd = np.argmin(self.expectEntropy)  # index of smallest expected entropy
+        self.intensity = self.stimRange[self.minEntropyInd]  # stim intensity at minimum expected entropy
 
-        self.iTrial         += 1
+        self.iTrial += 1
         if self.iTrial == (self.nTrials -1):
             self.stop = 1
-        print('computed intensity: {}'.format(self.intensity))
+        logging.getLogger('EasyExp').info('computed intensity: {}'.format(self.intensity))
 
     def update(self, stair_id, direction, intensities=None, responses=None):
         """
@@ -389,26 +394,22 @@ class PsiMarginal(MethodBase):
         # First, we make response and intensity lists from data
         if intensities is None:
             self._load_data()
-            self._get_lists()
-        else:
-            self.int_list = intensities
-            self.resp_list = responses
-            self.cpt_stair = len(intensities)
+
+        self._get_lists(intensity=intensities, response=responses)
 
         if self.cpt_stair <= self._options['warm_up']:
             # If warm-up phase, then present extremes values
             self.intensity = self._options['stimRange'][self.cpt_stair % 2]
-            self.xCurrent = self.intensity
             return self.intensity
         elif self.cpt_stair == self._options['warm_up'] + 1:
             # If this is the first trial for the current staircase, then returns initial intensity
             self.intensity = self._options['stimRange'][direction]
-            self.xCurrent = self.intensity
             return self.intensity
 
-        self.addData(self.resp_list[0, self.cpt_stair])
-
-        return self.xCurrent
+        init_time = time.time()
+        self.addData(self.resp_list[0, self.cpt_stair-1])
+        logging.getLogger('EasyExp').info('it took {} s'.format(time.time() - init_time))
+        return self.intensity
 
     def addData(self, response):
         """
@@ -423,7 +424,7 @@ class PsiMarginal(MethodBase):
         """
         self.response.append(response)
         
-        self.xCurrent = None
+        self.intensity = None
         
         # Keep the posterior probability distribution that corresponds to the recorded response
         if response == 1:
@@ -435,26 +436,26 @@ class PsiMarginal(MethodBase):
         # normalize the pdf
         self.pdf = self.pdf / np.sum(self.pdf)
 
-        ## Marginalized probabilities per parameter      
+        # Marginalized probabilities per parameter
         if self.gammaEQlambda:
-            self.pThreshold = np.sum(self.pdf, axis=(1,2))
-            self.pSlope = np.sum(self.pdf, axis=(0,2))
-            self.pLapse = np.sum(self.pdf, axis=(0,1))
+            self.pThreshold = np.sum(self.pdf, axis=(1, 2))
+            self.pSlope = np.sum(self.pdf, axis=(0, 2))
+            self.pLapse = np.sum(self.pdf, axis=(0, 1))
             self.pGuess = self.pLapse
         else:
-            self.pThreshold = np.sum(self.pdf, axis=(1,2,3))
-            self.pSlope = np.sum(self.pdf, axis=(0,2,3))
-            self.pLapse = np.sum(self.pdf, axis=(0,1,2))
-            self.pGuess = np.sum(self.pdf, axis=(0,1,3))
+            self.pThreshold = np.sum(self.pdf, axis=(1, 2, 3))
+            self.pSlope = np.sum(self.pdf, axis=(0, 2, 3))
+            self.pLapse = np.sum(self.pdf, axis=(0, 1, 2))
+            self.pGuess = np.sum(self.pdf, axis=(0, 1, 3))
 
         # Distribution means as expected values of parameters
         self.eThreshold = np.sum( np.multiply(self.threshold,   self.pThreshold))
         self.eSlope = np.sum( np.multiply(self.slope,       self.pSlope))
         self.eLapse = np.sum( np.multiply(self.lapseRate,   self.pLapse))
         self.eGuess = np.sum( np.multiply(self.guessRate,   self.pGuess))
-        
+
         # Start calculating the next minimum entropy stimulus
-        threading.Thread(target=self.minEntropyStim).start()
+        self.minEntropyStim()
 
     """
     From here start EasyExp-specific methods. Could be better to actually create an abstract class implementing these
@@ -510,87 +511,4 @@ class PsiMarginal(MethodBase):
 
         return design, conditions_name
 
-    def _get_lists(self):
-        """
-        Makes responses and intensities lists from data array
-
-        Returns
-        -------
-        void
-        """
-        resp_list = np.zeros((1, self._options['nTrials']))
-        int_list = np.zeros((1, self._options['nTrials']))
-
-        cpt_stair = 0
-        for trial in self.data:
-            if trial['Replay'] == "False" and int(trial['staircaseID']) == self.cur_stair:
-                resp_list[0, cpt_stair] = 1 if trial[self._options['response_field']] == 'True' else 0
-                int_list[0, cpt_stair] = float(trial[self._options['intensity_field']])
-                cpt_stair += 1
-        self.cpt_stair = cpt_stair
-        self.resp_list = resp_list
-        self.int_list = int_list
-
-    def _load_data(self):
-        """
-        Loads data from file
-
-        Returns
-        -------
-        :return data
-        :rtype: 2d-array
-        """
-        data = []
-        try:
-            with open(self._data_file) as csvfile:
-                reader = csv.DictReader(csvfile)
-                for row in reader:
-                    data.append(row)
-            self.data = data
-        except (IOError, TypeError):
-            self.data = {}
-            print('[StairCaseASA] User Data filename does not exist yet!')
-
-    def _set_options(self, options):
-        """
-
-        Parameters
-        ----------
-        :param options: dictionary providing staircase settings
-        :type options: dict
-
-        Returns
-        -------
-        void
-        """
-        for prop, value in options.iteritems():
-            self._options[prop] = value
-
-    def _load_options(self, options=None):
-        """
-        Loads staircase settings from json file
-
-        Parameters
-        ----------
-        :param options: dictionary providing staircase settings
-        :type options: dict
-
-        Returns
-        -------
-        :return _options: dictionary providing staircase's settings
-        :rtype _options: dict
-        """
-        if options is not None:
-            self._set_options(options)
-        else:
-            # Read from file
-            if isfile(self._settings_file):
-                json_info = open(self._settings_file, 'r')
-                data = json.load(json_info)
-                self._set_options(data['options'])
-                json_info.close()
-            else:
-                import logging
-                logging.getLogger('EasyExp').fatal("[{}] The settings file '{}' cannot be found!".format(__name__, self._settings_file))
-        return self._options
 
