@@ -24,6 +24,8 @@ from sledclient import SledClient
 from sledclientsimulator import *
 from ...com.fpclient.fpclient import FpClient
 
+import logging
+
 __author__ = 'Florian Perdreau'
 __copyright__ = '2016'
 __license__ = 'GPL'
@@ -54,7 +56,7 @@ class Sled(object):
     home = 0.0
     dummy_mode = False
 
-    def __init__(self, dummy_mode=False, server=False, port=3375):
+    def __init__(self, dummy_mode=False, server=False, port=3375, logger=None):
         """
         MySled constructor
         Parameters
@@ -67,11 +69,13 @@ class Sled(object):
         :type port: int
         """
         self.dummy_mode = dummy_mode
+        self.port = port
+        self.server = server
+        self.__position_tracker = PositionTracker()
+        self.__logger = logger if logger is not None else logging.getLogger('EasyExp')
         self.client = None
         self.positionClient = None
-        self.port = port
         self.position = 0.0
-        self.server = server
         self.timer = None
         self.lightStatus = True  # The Sled lights should be off before initialization
         self.moveType = 'Sinusoid'  # Default profile
@@ -84,6 +88,7 @@ class Sled(object):
         Connects to sled Server (server=True) or simulate a sled server (server=False)
         """
         if self.dummy_mode:
+            self.__logger.warning('[{}] !!! Sled running in dummy mode !!!'.format(__name__))
             self.client = DummyClient()  # for visual only mode
         else:
             try:
@@ -102,7 +107,7 @@ class Sled(object):
         Make sure this function is called after connectSledServer so that the fall back option is present.
         :param server:
         """
-        # logging.debug("requested position server: " + str(server))
+        self.__logger.debug("requested position server: " + str(server))
         if not server:
             self.positionClient = self.client
         elif server == "mouse":
@@ -131,7 +136,7 @@ class Sled(object):
 
     @property
     def is_moving(self):
-        return len(self.client.moves) > 0
+        return self.__position_tracker.is_moving
 
     def stop(self):
         """
@@ -142,7 +147,7 @@ class Sled(object):
         self.client.sendCommand('{} stop'.format(self.moveType))
         duration = time.time() - self.timer
         self.timer = time.time()
-        print('[{0}] Sled duration: {1} seconds'.format(__name__, duration))
+        self.__logger.debug('[{0}] Sled duration: {1} seconds'.format(__name__, duration))
         return duration
 
     def close(self):
@@ -159,20 +164,20 @@ class Sled(object):
         self.lights(True)
 
         # Close clients
-        print("[{}] Closing Sled client".format(__name__))  # logger may not exist anymore
+        self.__logger.info("[{}] Closing Sled client".format(__name__))  # logger may not exist anymore
         try:
             self.client.stopStream()
         except Exception:
             raise Exception('[{}] Could not stop client stream')
 
         if hasattr(self, "positionClient") and hasattr(self.positionClient, "stopStream"):
-            print("[{}] closing Position client".format(__name__))  # logger may not exist anymore
+            self.__logger.info("[{}] closing Position client".format(__name__))  # logger may not exist anymore
             try:
                 self.positionClient.stopStream()
             except Exception:
                 raise Exception('[{}] Could not stop positionClient stream')
 
-        print('[{}] Stream successfully stopped'.format(__name__))
+        self.__logger.info('[{}] Stream successfully stopped'.format(__name__))
 
         self.client.sendCommand('Bye')
         self.client.__del__()
@@ -184,7 +189,11 @@ class Sled(object):
         """
         pp = self.client.getPosition(t=t, dt=dt)
         self.position = np.array(pp).ravel().tolist()  # python has too many types
+        self.__position_tracker.add_history(self.position[0])
         return self.position
+
+    def getvelocity(self):
+        return self.__position_tracker.velocity
 
     def lights(self, status=True):
         """
@@ -203,6 +212,98 @@ class Sled(object):
             self.client.sendCommand("Lights On")
         else:
             self.client.sendCommand("Lights Off")
+
+
+class PositionTracker(object):
+    """
+    PositionTracker class: track positions of sled over time, compute current velocity and estimate motion state
+     (is moving or not)
+    """
+    __max_positions = 3
+    __time_interval = 0.01
+    __velocity_threshold = 0.01
+
+    def __init__(self):
+        self.__history = []
+        self.__previous = []
+        self.__position = []
+        self.__dt = 0.0
+        self.__tOld = None
+        self.__nb_positions = 0
+
+    @property
+    def dt(self):
+        if self.__tOld is None:
+            self.__tOld = time.time()
+
+        if self.__tOld is not None:
+            self.__dt = time.time() - self.__tOld
+
+        return self.__dt
+
+    def __reset(self):
+        """
+        Reset timer
+        :return:
+        """
+        self.__dt = 0.0
+        self.__tOld = None
+
+    def add_history(self, position):
+        """
+        Add new position to sensor's position history in order to compute statistics
+        :return:
+        """
+        if self.dt >= self.__time_interval:
+            if self.__nb_positions == 0:
+                self.__history = np.array(position)
+            else:
+                if self.__nb_positions < self.__max_positions:
+                    old = self.__history
+                    self.__history = np.vstack((old, position))
+                else:
+                    old = self.__history[range(1, self.__max_positions)]
+                    self.__history = np.vstack((old, position))
+
+            self.__nb_positions += 1
+
+            # Reset timer
+            self.__reset()
+
+        return self.__history
+
+    @property
+    def velocity(self):
+        """
+        Get velocity
+        :rtype: float
+        """
+        if self.__nb_positions >= self.__max_positions:
+            distances = [self.distance(self.__history[i], self.__history[j]) for i, j
+                         in zip(range(0, self.__max_positions - 1), range(1, self.__max_positions))]
+            return float(np.mean(np.array(distances) / self.__time_interval))
+        else:
+            return 0.0
+
+    @property
+    def is_moving(self):
+        """
+        Check if sensor is moving
+        :return: sensor is moving (True)
+        """
+        return self.velocity >= self.__velocity_threshold
+
+    @staticmethod
+    def distance(init, end):
+        """
+        Compute spherical distance between two given position
+        :param init:
+        :type init: float
+        :param end:
+        :type end: float
+        :return:
+        """
+        return math.sqrt((end - init)**2)
 
 
 class DummyClient(SledClientSimulator):
@@ -224,7 +325,6 @@ class DummyClient(SledClientSimulator):
         self._duration = 0.0
         self._distance = 0.0
         self._direction = 1
-        print('[{}] !!! Sled running in dummy mode !!!'.format(__name__))
 
     def connect(self):
         pass
@@ -296,34 +396,30 @@ class DummyClient(SledClientSimulator):
 if __name__ == '__main__':
     import time
 
-    homePos = -0.30  # Home Position
-    EndPos = 0.30
-    movDistance = 0.60
-    movDuration = 2.0
+    def move(sled_obj, position, duration):
+        # Move sled to a given position and print its current position and velocity
+        sled_obj.move(position, duration)
+        init_time = time.time()
+        while (time.time() - init_time) <= duration:
+            sled_obj.getposition()
+            print('Position: {0: 1.2f} m | Velocity: {1: 1.2f} m/s: Moving: {2}'.format(sled_obj.position[0],
+                                                                                        sled_obj.getvelocity(),
+                                                                                        sled_obj.is_moving))
+
+    homePos = -0.20  # Home Position
+    EndPos = 0.20
+    movDistance = 0.40
+    movDuration = 1.0
     movBackDuration = 3.0
 
-    sled = Sled(status=True, server='sled')
+    sled = Sled(dummy_mode=True, server='sled')
     sled.lights(False)  # Turn the lights OFF
 
-    sled.move(homePos, movBackDuration)
-    time.sleep(movBackDuration)
-    sled.getposition()
-    print('Home Position - Sled position: {}'.format(sled.position[0]))
+    # Move sled to start position
+    move(sled, homePos, movBackDuration)
 
-    sled.move(EndPos, movDuration)
-    time.sleep(movDuration)
-    sled.getposition()
-    print('EndPosition - Sled position: {}'.format(sled.position[0]))
-
-    sled.move(homePos, movBackDuration)
-    time.sleep(movBackDuration)
-    sled.getposition()
-    print('Home Position: Sled position: {}'.format(sled.position[0]))
-
-    sled.move(0.0, 1.5)
-    time.sleep(1.5)
-    sled.getposition()
-    print('Center: Sled position: {}'.format(sled.position[0]))
+    # Move sled to final position
+    move(sled, EndPos, movDuration)
 
     sled.lights(True)  # Turn the lights ON
     sled.close()
