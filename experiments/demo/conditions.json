@@ -1,12 +1,16 @@
 {
   "timing": [
-    0.150
+    0.150,
+    0.400,
+    0.650
   ],
   "first": [
+    "bottom",
     "top"
   ],
   "repetition": 1,
   "side": [
+    "left",
     "right"
   ],
   "mvt": [
@@ -21,7 +25,7 @@
     "maxInitialStepSize": 1.5,
     "stoppingStep": 0.1,
     "threshold": 0.50,
-    "nTrials": 20,
+    "nTrials": 40,
     "limits": true,
     "nbStairs": 2,
     "warm_up": 2,
