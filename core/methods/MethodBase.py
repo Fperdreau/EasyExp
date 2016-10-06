@@ -84,22 +84,20 @@ class MethodBase(object):
         void
         """
         if response is None:
-            resp_list = np.zeros((1, self._options['nTrials']))
-            int_list = np.zeros((1, self._options['nTrials']))
-            cpt_stair = 0
+            resp_list = np.zeros((1, 1))
+            int_list = np.zeros((1, 1))
             for trial in self.data:
                 if trial['Replay'] == "False" and int(trial['staircaseID']) == self.cur_stair:
-                    resp_list[0, cpt_stair] = 1 if trial[self._options['response_field']] == 'True' else 0
-                    int_list[0, cpt_stair] = float(trial[self._options['intensity_field']])
-                    cpt_stair += 1
+                    resp_list = np.append(resp_list, [1 if trial[self._options['response_field']] == 'True' else 0])
+                    int_list = np.append(int_list, [float(trial[self._options['intensity_field']])])
 
-            self.cpt_stair = cpt_stair
             self.resp_list = resp_list
             self.int_list = int_list
         else:
             self.resp_list = np.append(self.resp_list, [1 if response == 'True' else 0])
             self.int_list = np.append(self.int_list, intensity)
-            self.cpt_stair = len(self.resp_list) - 1
+
+        self.cpt_stair = len(self.resp_list) - 1
 
     def _load_data(self):
         """
