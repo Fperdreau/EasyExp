@@ -182,6 +182,26 @@ class Devices(object):
                     self.__logger.critical(msg)
                     raise msg
 
+    def close_all(self):
+        """
+        Close all devices
+        :return:
+        """
+        for device in self.__devices:
+            self.close(device)
+
+    def close(self, device):
+        """
+        Close device
+        :param device: device name
+        :return:
+        """
+        lower = device.lower()
+        if lower in self.__devices:
+            if hasattr(self.__devices[lower], "close"):
+                self.__logger.info('[{}] Closing "{}"'.format(__name__, device))
+                self.__devices[lower].close()
+
     def delete(self, device_name):
         """
         Removed device
@@ -191,6 +211,8 @@ class Devices(object):
         """
         if device_name.lower() in self.__devices:
             del self.__devices[device_name.lower()]
+
+
 
     @staticmethod
     def get_class(method_name):
