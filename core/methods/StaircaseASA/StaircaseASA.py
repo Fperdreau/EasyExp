@@ -52,30 +52,30 @@ class StaircaseASA(MethodBase):
     Staircase trials list can be generated using StairCaseASA.make_design() method. It is typically called by
     ExpCore.Design class, which loads conditions from the conditions file located in the experiment folder.
 
-    >>># Example of design dictionary
-    >>>design = {{'trialID': 1, 'staircaseID': 1, 'staircaseDir': 0, 'condition1': 'left'},
-    >>>         {'trialID': 2, 'staircaseID': 2, 'staircaseDir': 1, 'condition1': 'right'},
-    >>>         ...
-    >>>         {'trialID': 180, 'staircaseID': 1, 'staircaseDir': 0, 'condition1': 'right'},}
+    # Example of design dictionary
+    design = ({'trialID': 1, 'staircaseID': 1, 'staircaseDir': 0, 'condition1': 'left'},
+             {'trialID': 2, 'staircaseID': 2, 'staircaseDir': 1, 'condition1': 'right'},
+             ...
+             {'trialID': 180, 'staircaseID': 1, 'staircaseDir': 0, 'condition1': 'right'})
 
-    >>>path_to_conditions_file = 'some/path/to/file/conditions.json'
-    >>>path_to_data_file = 'some/path/to/file/my_data.csv'
+    path_to_conditions_file = 'some/path/to/file/conditions.json'
+    path_to_data_file = 'some/path/to/file/my_data.csv'
 
-    >>># Instantiate staircase (if "options" dictionary is not passed as argument to the constructor, then options are
-    >>># loaded from conditions file)
-    >>>myStairCase = StaircaseASA(settings_file=path_to_conditions_file, data_file=path_to_data_file)
+    # Instantiate staircase (if "options" dictionary is not passed as argument to the constructor, then options are
+    # loaded from conditions file)
+    myStairCase = StaircaseASA(settings_file=path_to_conditions_file, data_file=path_to_data_file)
 
-    >>># Loop over trials
-    >>>for trial in design:
-    >>>     myStairCase.update(stair_id=trial['staircaseID'], direction=trial['staircaseDir'])
-    >>>     print(myStairCase.intensity)
+    # Loop over trials
+    for trial in design:
+         myStairCase.update(stair_id=trial['staircaseID'], direction=trial['staircaseDir'])
+         print(myStairCase.intensity)
 
     """
 
     # Default options
     _options = {
         'stimRange': [0, 1],            # Boundaries of stimulus range
-        'maxInitialStepSize': 0.4,      # Size of initial step
+        'maxInitialStepSize': 0.4,      # Size of initial step (for faster convergence, it should be half of the range)
         'stoppingStep': 0.1,            # Convergence criterion
         'threshold': 0.75,              # Desired threshold
         'nTrials': 40,                  # Number of trials per staircase
