@@ -132,7 +132,7 @@ class Core(object):
             Core.__logger = CustomLogger(Core.appname, file_name=log_file, level='debug')
         return Core.__logger
 
-    def init(self, rootfolder, custom=False, cli=False):
+    def init(self, rootfolder, custom=False, cli=False, conditions=None):
         """
         Initialize dependencies
         :param string rootfolder: full path to root folder
@@ -141,6 +141,8 @@ class Core(object):
         :type custom: bool
         :param cli: Run in command line (True)
         :type cli: bool
+        :param conditions: dictionary providing experiment conditions (to be used instead of conditions.json)
+        :type conditions: dict
         """
         print("\n##############################\n")
         print("# Welcome to {} (version {})\n".format(self.appname, v.__version__))
@@ -178,7 +180,7 @@ class Core(object):
         self.design = Design(expname=self.expname, conditionfile=self.files['conditions'],
                              userfile=self.files['design'], folder=self.folders['expFolder'], custom=custom,
                              demo=self.settings['setup']['demo'], practice=self.settings['setup']['practice'],
-                             max_trials=self.settings['setup']['max_trials'])
+                             max_trials=self.settings['setup']['max_trials'], conditions=conditions)
         self.design.make()
 
         # Screen
