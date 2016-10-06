@@ -281,10 +281,6 @@ class RunTrial(BaseTrial):
         Then on every loop, the state machine will automatically call self.stimuli['stimulus_name'].draw() if
         self.stimuliTrigger['stimulus_name'] is set to True.
         """
-        # Get new stimulus intensity estimated by staircase method
-        self.data['intensity'] = self.staircase.update(int(self.trial.params['staircaseID']),
-                                                       int(self.trial.params['staircaseDir']))
-
         # Probe size
         probeSizeM = deg2m(float(self.trial.parameters['probeSize']), self.screen.distance/1000.0)*1000.0
         probeSize = 0.5*mm2pix(probeSizeM, probeSizeM, self.screen.resolution, self.screen.size)  # Radius in pixels

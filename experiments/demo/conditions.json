@@ -22,7 +22,7 @@
       -2.8,
       2.8
     ],
-    "maxInitialStepSize": 1.5,
+    "maxInitialStepSize": 3.0,
     "stoppingStep": 0.1,
     "threshold": 0.50,
     "nTrials": 40,
