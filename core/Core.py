@@ -20,6 +20,8 @@
 
 from __future__ import print_function
 
+from core.Devices import Devices
+
 """
 EasyExp is a Python framework designed to ease the implementation of behavioral experiments.
 """
@@ -82,6 +84,7 @@ class Core(object):
         self.screen = None
         self.design = None
         self.logger = None
+        self.devices = None
 
         self.__cli = False
 
@@ -188,6 +191,9 @@ class Core(object):
                              resolution=self.settings['display']['resolution'], size=self.settings['display']['size'],
                              fullscreen=self.settings['display']['fullscreen'], freq=self.settings['display']['freq'],
                              distance=self.settings['display']['distance'], bgcolor=self.settings['display']['bgcolor'])
+
+        # Devices
+        self.devices = Devices(exp_folder=self.folders['expFolder'], base_name=self.user.base_file_name, cli=cli)
 
     def run(self):
         """
