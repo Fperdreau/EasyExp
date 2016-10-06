@@ -142,14 +142,27 @@ class RunTrial(BaseTrial):
             'quitRequested': False
         }
 
-        # Add your stimulus trigger to this dictionary. If self.stimuliTrigger['stimulus_name'] = True,
-        # then self.stimuli['stimulus_name'].draw() will be called. Stimuli are rendered in the same order as the
+        # Stimulus triggers
+        #
+        # Stimuli triggers can be added by calling:
+        # self.stimuliTrigger.add('stimulus_name', 'value')
+        # If value is not provided, then False will be set by default.
+        #
+        # IMPORTANT: if 'stimulus_name' is added to self.stimuliTrigger, then it should also be added to self.stimuli
+        # dictionary in RunTrial.init_stimuli() method
+        #
+        # stimuliTrigger acts like a dictionary. item's value can be accessed by calling:
+        # self.stimuliTrigger['stimulus_name']
+        #
+        # and new trigger value can be set by calling:
+        # self.stimuliTrigger['stimulus_name'] = True
+        #
+        # if self.stimuliTrigger['stimulus_name'] is True, then self.stimuli['stimulus_name'].draw() will be called.
+        # Stimuli are rendered in the same order as the
         # triggers defined in stimuliTrigger dictionary.
-        self.stimuliTrigger = {
-            'probe1': False,
-            'probe2': False,
-            'fixation': False
-        }
+        self.stimuliTrigger.add('probe1')
+        self.stimuliTrigger.add('probe2')
+        self.stimuliTrigger.add('fixation')
 
         # Timers
         # ======
