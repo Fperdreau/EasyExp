@@ -49,7 +49,7 @@ class Design(object):
     ignored_field = {"repetition", "method", "options"}
 
     def __init__(self, expname='', conditionfile='', userfile='', demo=False, custom=False, folder='', practice=False,
-                 max_trials=None):
+                 max_trials=None, conditions=None):
         """
         Class constructor
         :param bool demo: demo mode (boolean)
@@ -82,7 +82,11 @@ class Design(object):
 
         # Initialize design
         self.conditionFile = ConfigFiles(conditionfile)
-        self.load_conditions()
+        if conditions is None:
+            self.load_conditions()
+        else:
+            self.allconditions = conditions
+
         self.parseconditions()
 
     def parseconditions(self):
