@@ -246,7 +246,6 @@ class BaseTrial(StateMachine):
         # if set to False, then display will not be automatically cleared at the end of each trial. This allows
         # continuous rendering with no blank between trials.
         self.clearAll = True
-        self.clearAll = True
 
         # Events triggers
         # ===============
