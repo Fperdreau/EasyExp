@@ -14,6 +14,7 @@ sys.path.append("{}/libs".format(root_folder))
 from core.Core import Core
 from core.Trial import Trial
 from core.methods.StaircaseASA.StaircaseASA import StaircaseASA
+import logging
 
 
 def main():
@@ -28,29 +29,30 @@ def main():
     # Instantiate Trial and experiment
     trial = Trial(design=Exp.design, settings=Exp.config, userfile=Exp.user.datafilename)
 
-    staircase = StaircaseASA(settings_file=Exp.files['conditions'], data_file=Exp.user.datafilename)
+    staircase = trial.method
 
     stairs = {}
+    for t in Exp.design.design:
+        if t['staircaseID'] not in stairs:
+            stairs.update({str(t['staircaseID']): {'true': np.random.uniform(-2, 2)}})
+
     while trial.status is not False:
         trial.setup()
 
         if trial.status is not False:
             intensity = staircase.update(int(trial.params['staircaseID']), int(trial.params['staircaseDir']))
 
-            if trial.params['staircaseID'] not in stairs:
-                stairs.update({trial.params['staircaseID']: {'true': np.random.uniform(-2.0, 2.0)}})
-
-            mu = stairs[trial.params['staircaseID']]['true']
+            mu = stairs[(trial.params['staircaseID'])]['true']
             sd = 0.1  # std
 
             internal_rep = intensity + sd * np.random.normal()
             resp_curr = internal_rep > mu
 
-            print('ID: {} mu: {} intensity: {} internal: {} response: {}'.format(trial.params['staircaseID'], mu,
-                                                                                 intensity, internal_rep, resp_curr))
+            logging.getLogger('EasyExp').info('ID: {} mu: {} intensity: {} internal: {} response: {}'.format(
+                trial.params['staircaseID'], mu, intensity, internal_rep, resp_curr))
 
             # Simulate lapse
-            valid = np.random.uniform(0.0, 1.0) < 0.8
+            valid = np.random.uniform(0.0, 1.0) < 0.975
             trial.stop(valid)
 
             # Write data
