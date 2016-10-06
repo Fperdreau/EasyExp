@@ -331,15 +331,18 @@ class EyeTracker(object):
         :return self.trackedeye: id of tracked eye(s) ('left' or 'right')
         """
         eu = self.el.eyeAvailable()
-        print('{[]} Eye used: {}'.format(__name__, eu))
         if eu > 4:
             eu = 0
         self.trackedeye = self.eye_list[eu] if eu >= 0 else None
         return self.trackedeye
 
-    def start_trial(self, trial):
+    def start_trial(self, trial, param=None):
         """
-        Routine running at the beginning of a trial
+        Start trial routine
+        :param trial: trial number
+        :type trial: int
+        :param param: Trial parameters
+        :type param: dict
         :return:
         """
         self.trial = trial
@@ -351,6 +354,13 @@ class EyeTracker(object):
                                                            self.display.center[0] + 50,
                                                            self.display.center[1] + 50))
         self.el.sendMessage('TRIALID %d' % self.trial)
+        if param is not None:
+            data = ''
+            for prop, val in param.iteritems():
+                parsed_param = '{} {}'.format(prop, val)
+                data = ' '.join((data, parsed_param))
+            self.el.sendMessage('TRIAL_PARAM {}'.format(data))
+
         # Start recording the eye and collect some data
         self.start_recording()
 
