@@ -16,53 +16,18 @@ from core.Trial import Trial
 from core.methods.PsiMarginal.PsiMarginal import PsiMarginal
 import logging
 import matplotlib.pyplot as plt
-
-
-def run_simulation(options):
-    logging.basicConfig(level=logging.CRITICAL)
-
-    run = True
-    if run:
-        stairs = {}
-        nSim = 10
-        sd = 0.1  # std
-        trues = np.random.uniform(options['stimRange'][0], options['stimRange'][1], (1, nSim)).flatten()
-        estimates = []
-        for s in range(nSim):
-            staircase = PsiMarginal(options=options)
-
-            responses = []
-            intensities = []
-            resp_curr = None
-            intensity = None
-            for t in range(options['nTrials']):
-                intensity = staircase.update(s, 1, response=str(resp_curr), intensity=intensity)
-                stairs.update({str(s): {'true': trues[s]}})
-
-                mu = trues[s]
-                internal_rep = intensity + sd * np.random.normal()
-                resp_curr = internal_rep > mu
-
-                logging.info('ID: {} mu: {} intensity: {} internal: {} response: {}'.format(
-                    str(s), mu, intensity, internal_rep, resp_curr))
-
-                staircase.update(s, 1, response=str(resp_curr), intensity=intensity)
-
-                intensities.append(intensity)
-                responses.append(resp_curr)
-
-            responses = ['True' if i == True else 'False' for i in responses]
-
-            plot_staircase(intensities, responses, trues[s])
-
-            estimates.append(intensities[-1])
-
-            del staircase
-
-        plot_correlation(trues, estimates)
+from core.methods.MethodContainer import MethodContainer
 
 
 def plot_staircase(intensities, responses, mu):
+    """
+    Plot intensities and responses for every trial
+    :param intensities: list of intensities
+    :type intensities: array-like
+    :param responses: list of responses ('True', 'False')
+    :type responses: (str, str)
+    :param mu: list of true means
+    """
 
     # Plot intensities
     plt.plot(intensities)
@@ -83,25 +48,83 @@ def plot_staircase(intensities, responses, mu):
 
 
 def plot_correlation(trues, estimates):
+    """
+    Plot estimates as a function of true mean
+    :param trues:
+    :param estimates:
+    :return:
+    """
     plt.scatter(trues, estimates)
     plt.xlabel('True mean')
     plt.ylabel('Estimates')
     plt.show()
 
-from core.methods.MethodContainer import MethodContainer
+
+def run_simulation(options, method):
+    """
+    Run simulations without using EasyExp (faster)
+    :param options:
+    :param method:
+    :return:
+    """
+    logging.basicConfig(level=logging.DEBUG)
+
+    Method = MethodContainer(method=method, options=options)
+
+    run = True
+    if run:
+        stairs = {}
+        nSim = 10
+        sd = 0.1  # std
+        trues = np.random.uniform(options['stimRange'][0], options['stimRange'][1], (1, nSim)).flatten()
+        estimates = []
+        for s in range(nSim):
+
+            responses = []
+            intensities = []
+            resp_curr = None
+            intensity = None
+            for t in range(options['nTrials']):
+                intensity = Method.update(s, 1, load=False, response=str(resp_curr), intensity=intensity)
+                stairs.update({str(s): {'true': trues[s]}})
+
+                mu = trues[s]
+                internal_rep = intensity + sd * np.random.normal()
+                resp_curr = internal_rep > mu
+
+                logging.info('ID: {} mu: {} intensity: {} internal: {} response: {}'.format(
+                    str(s), mu, intensity, internal_rep, resp_curr))
+
+                intensities.append(intensity)
+                responses.append(resp_curr)
+
+            responses = ['True' if i == True else 'False' for i in responses]
+
+            plot_staircase(intensities, responses, trues[s])
+
+            estimates.append(intensities[-1])
+
+        plot_correlation(trues, estimates)
 
 
-def run_easyexp_simulation(options):
+def run_easyexp_simulation(conditions=None):
+    """
+    Run simulation using the EasyExp framework
+    :param conditions: dictionary providing experiment conditions. If not provided, then conditions.json will be loaded
+    :type conditions: dict
+    :return:
+    """
     # New experiment
     Exp = Core()
 
-    Exp.init(root_folder, custom=False)
+    Exp.init(root_folder, custom=False, conditions=conditions)
 
     # Instantiate Trial and experiment
     trial = Trial(design=Exp.design, settings=Exp.config, userfile=Exp.user.datafilename)
 
-    staircase = trial.method
-    staircase.options = options
+    options = Exp.design.allconditions['options']
+    Method = trial.method
+    Method.options = options
 
     stairs = {}
     for t in Exp.design.design:
@@ -113,7 +136,7 @@ def run_easyexp_simulation(options):
         trial.setup()
 
         if trial.status is not False:
-            intensity = staircase.update(int(trial.params['staircaseID']), int(trial.params['staircaseDir']))
+            intensity = Method.update(int(trial.params['staircaseID']), int(trial.params['staircaseDir']))
 
             mu = stairs[(trial.params['staircaseID'])]['true']
             sd = 0.1  # std
@@ -196,24 +219,65 @@ def run_easyexp_simulation(options):
 
 
 if __name__ == '__main__':
-    options = {
-        'stimRange': (-3.0, 3.5, 0.5),  # Boundaries of stimulus range
-        'Pfunction': 'cGauss',  # Underlying Psychometric function
-        'nTrials': 40,  # Number of trials per staircase
-        'threshold': (-3.0, 3.0, 0.01),  # Threshold estimate
-        'thresholdPrior': ('uniform',),  # Prior on threshold
-        'slope': (0.005, 10, 0.1),  # Slope estimate and prior
-        'slopePrior': ('uniform',),  # Prior on slope
-        'guessRate': (0.0, 0.11, 0.01),  # Guess-rate estimate and prior
-        'guessPrior': ('uniform',),  # Prior on guess rate
-        'lapseRate': (0.0, 0.11, 0.01),  # Lapse-rate estimate and prior
-        'lapsePrior': ('uniform',),  # Prior on lapse rate
-        'marginalize': True,  # Marginalize out the nuisance parameters guess rate and lapse rate?
-        'nbStairs': 1,  # Number of staircase per condition
-        'warm_up': 2,  # Number of warm-up trials per staircase (only extreme intensities)
-        'response_field': 'correct',  # Name of response field in data file
-        'intensity_field': 'intensity'  # Name of intensity field in data file
+    conditions_ASA = {
+        "timing": [
+            1,
+            2,
+            3,
+            4,
+            5
+        ],
+        "repetition": 1,
+        "method": "StaircaseASA",
+        "options": {
+            "stimRange": [
+                -2.8,
+                2.8
+            ],
+            "maxInitialStepSize": 3.0,
+            "stoppingStep": 0.1,
+            "threshold": 0.50,
+            "nTrials": 40,
+            "limits": True,
+            "nbStairs": 1,
+            "warm_up": 2,
+            "response_field": "correct",
+            "intensity_field": "intensity"
+        }
     }
 
-    # run_simulation(options)
-    run_easyexp_simulation(options)
+    conditions_psi = {
+          "conditions": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "repetition": 1,
+          "method": "PsiMarginal",
+          "options": {
+              "stimRange": [-5.0, 5.0, 1],
+              "Pfunction": "cGauss",
+              "nTrials": 40,
+              "threshold": [-10, 10, 0.1],
+              "thresholdPrior": ["uniform", None],
+              "slope": [0.005, 20, 0.1],
+              "slopePrior": ["uniform", None],
+              "guessRate": [0.0, 0.11, 0.05],
+              "guessPrior": ["uniform", None],
+              "lapseRate": [0.0, 0.11, 0.05],
+              "lapsePrior": ["uniform", None],
+              "marginalize": True,
+              "nbStairs": 2,
+              "warm_up": 5,
+              "response_field": "correct",
+              "intensity_field": "intensity"
+            }
+        }
+
+    conditions = conditions_psi
+
+    run_simulation(method=conditions['method'], options=conditions['options'])
+
+    run_easyexp_simulation(conditions=conditions)
