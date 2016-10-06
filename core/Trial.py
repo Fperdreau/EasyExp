@@ -96,6 +96,11 @@ class Trial(object):
         self.paramsfile = paramsfile
         self.parameters = Trial.getParams(paramsfile)
 
+        from core.methods.MethodContainer import MethodContainer
+        self.method = MethodContainer(method=self.conditions['method'],
+                                      settings_file=self.design.conditionFile.pathtofile, data_file=self.userfile,
+                                      options=self.conditions['options'])
+
     def __str__(self):
         """
         Print method of Trial
