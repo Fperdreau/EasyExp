@@ -184,7 +184,8 @@ class RunTrial(BaseTrial):
         # Reset timer
         # timers['timer_name'].reset()
         self.timers.update({
-            'responseDuration': Timer()
+            'responseDuration': Timer(),
+            'sled_start': Timer()
         })
 
         # Data
@@ -245,20 +246,10 @@ class RunTrial(BaseTrial):
             int trial_id: trial number (or unique id)
             bool valid_trial: is it a valid trial or not (e.g.: should it be excluded from analysis).
         """
-        # Create Sled instance
-        self.devices['sled'] = Sled(dummy_mode=not self.trial.settings['devices']['sled'], server='sled')
+        self.devices.init(ptw=self.screen.ptw)
 
         # Create eye-tracker instance
-        if self.trial.settings['devices']['eyetracker']:
-            user_file = "{}_{}_{}".format(self.user.dftName, 'eyetracker', time.strftime('%d-%m-%Y_%H%M%S'))
-            self.devices['eyetracker'] = EyeTracker(link='10.0.0.20', dummy_mode=False, sprate=500, thresvel=35,
-                                                    thresacc=9500, illumi=2, caltype='HV5', dodrift=False,
-                                                    trackedeye='right', display_type='psychopy', user_file=user_file,
-                                                    ptw=self.ptw, bgcol=(-1, -1, -1), distance=self.screen.distance,
-                                                    resolution=self.screen.resolution,
-                                                    winsize=self.screen.size, inner_tgcol=(127, 127, 127),
-                                                    outer_tgcol=(255, 255, 255), targetsize_out=1.0, targetsize_in=0.25)
-            self.devices['eyetracker'].run()
+        if self.devices['eyetracker'] is not None and not self.devices['eyetracker'].dummy_mode:
             self.state = 'calibration'
 
     def init_audio(self):

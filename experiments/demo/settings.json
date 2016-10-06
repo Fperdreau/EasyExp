@@ -5,14 +5,14 @@
             "value": 300, 
             "label": "Break interval"
         }, 
-        "demo": {
+        "movie": {
             "type": "checkbox", 
             "options": [
                 true, 
                 false
             ], 
-            "value": true, 
-            "label": "Demo"
+            "value": false, 
+            "label": "Movie"
         }, 
         "practice": {
             "type": "checkbox", 
@@ -33,14 +33,14 @@
             "value": 1, 
             "label": "Session ID"
         }, 
-        "movie": {
+        "demo": {
             "type": "checkbox", 
             "options": [
                 true, 
                 false
             ], 
-            "value": false, 
-            "label": "Movie"
+            "value": true, 
+            "label": "Demo"
         }
     }, 
     "display": {
@@ -97,35 +97,6 @@
                 679.0
             ], 
             "label": "Screen size"
-        }
-    }, 
-    "devices": {
-        "optotrack": {
-            "type": "checkbox", 
-            "options": [
-                true, 
-                false
-            ], 
-            "value": false, 
-            "label": "Optotrak"
-        }, 
-        "eyetracker": {
-            "type": "checkbox", 
-            "options": [
-                true, 
-                false
-            ], 
-            "value": false, 
-            "label": "EyeTracker"
-        }, 
-        "sled": {
-            "type": "checkbox", 
-            "options": [
-                true, 
-                false
-            ], 
-            "value": false, 
-            "label": "Sled"
         }
     }
 }

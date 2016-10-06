@@ -1,0 +1,71 @@
+{
+    "devices": {
+        "EyeTracker": {
+            "options": {
+                "outer_tgcol": [
+                    255, 
+                    255, 
+                    255
+                ], 
+                "distance": 550, 
+                "bgcol": [
+                    127, 
+                    127, 
+                    127
+                ], 
+                "thresvel": 35, 
+                "inner_tgcol": [
+                    127, 
+                    127, 
+                    127
+                ], 
+                "targetsize_out": 1.5, 
+                "sprate": 1000, 
+                "winsize": [
+                    800, 
+                    600
+                ], 
+                "dodrift": false, 
+                "link": "10.0.0.20", 
+                "display_type": "pygame", 
+                "targetsize_in": 0.5, 
+                "dummy_mode": false, 
+                "illumi": 2, 
+                "caltype": "H3", 
+                "resolution": [
+                    800, 
+                    600
+                ], 
+                "thresacc": 9500, 
+                "trackedeye": "right"
+            }
+        }, 
+        "Sled": {
+            "options": {
+                "server": "sled"
+            }
+        }
+    }, 
+    "settings": {
+        "EyeTracker": {
+            "type": "select", 
+            "options": [
+                "on", 
+                "off", 
+                "dummy"
+            ], 
+            "value": "dummy", 
+            "label": "Eyetracker"
+        }, 
+        "Sled": {
+            "type": "select", 
+            "options": [
+                "on", 
+                "off", 
+                "dummy"
+            ], 
+            "value": "dummy", 
+            "label": "Sled"
+        }
+    }
+}
