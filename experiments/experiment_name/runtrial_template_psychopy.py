@@ -224,40 +224,54 @@ class RunTrial(BaseTrial):
     def init_devices(self):
         """
         Setup devices
-        For better readability of the code, devices should be added to self.devices dictionary.
+        Devices must be defined in experiment_folder/devices.json
+        Structure of devices.json:
+            "devices": {
+                "class_name": {
+                    "options": {
+                        "argument1": value,
+                        "argument2": value
+                    }
+                ]
+            }
+
+        "class_name" must match the actual class name of the device (case-sensitive)
+        Arguments defined in "options" are those passed to the device class constructor. See the documentation of each
+        device (in core/apparatus/device_name/device_name.py) to get the full list of arguments. Note that it is not
+        necessary to define all the arguments. Missing arguments will be automatically replaced by class's default
+         values.
+
+        For example:
+            "devices": {
+                "OptoTrak":
+                    "options": {
+                        "freq": 60.0,
+                        "velocity_threshold": 0.01
+                    },
+                "Sled": {
+                    "options": {
+                        "server": "sled"
+                    }
+                }
+            }
+
+
         RunTrial calls some devices methods automatically if the device's class has such methods:
         - Device::close(): this method should implement the closing method of the device. If does not take arguments.
-        - Devices::start_trial(trial_id, trial_parameters): routine called at the begining of a trial. Parameters are:
+        - Devices::start_trial(trial_id, trial_parameters): routine called at the beginning of a trial. Parameters are:
             int trial_id: trial number (or unique id)
             dict trial_parameters: Trial.params
         - Devices::stop_trial(trial_id, valid_trial): routine called at the end of a trial. Parameters should be:
             int trial_id: trial number (or unique id)
             bool valid_trial: is it a valid trial or not (e.g.: should it be excluded from analysis).
+
+        Devices are stored in the container self.devices, which acts like a dictionary. To access a device's method:
+                self.devices['device_name'].method_name(*args)
         """
-        # Example 1: Create Sled instance
-        self.devices['sled'] = Sled(dummy_mode=not self.trial.settings['devices']['sled'], server='sled')
+        # Do not modify this line
+        super(RunTrial, self).init_devices()
 
-        # Example 2: Create eye-tracker instance
-        if self.trial.settings['devices']['eyetracker']:
-            user_file = "{}_{}_{}".format(self.user.dftName, 'eyetracker', time.strftime('%d-%m-%Y_%H%M%S'))
-            self.devices['eyetracker'] = EyeTracker(link='10.0.0.20', dummy_mode=False, sprate=500, thresvel=35,
-                                                    thresacc=9500, illumi=2, caltype='HV5', dodrift=False,
-                                                    trackedeye='right', display_type='psychopy', user_file=user_file,
-                                                    ptw=self.ptw, bgcol=(-1, -1, -1), distance=self.screen.distance,
-                                                    resolution=self.screen.resolution,
-                                                    winsize=self.screen.size, inner_tgcol=(127, 127, 127),
-                                                    outer_tgcol=(255, 255, 255), targetsize_out=1.0, targetsize_in=0.25)
-            self.devices['eyetracker'].run()
-            self.state = 'calibration'
-
-        # Example 3: Create OptoTrak instance
-        user_file = '{}_{}_{}.txt'.format(self.user.dftName, 'optotrak', time.strftime('%d-%m-%Y_%H%M%S'))
-        self.devices['optotrak'] = OptoTrak(user_file=user_file, freq=200.0, velocity_threshold=0.1,
-                                            time_threshold=100, origin='origin',
-                                            labels=('Xas', 'Marker2', 'Yas', 'origin', 'hand1', 'hand2'),
-                                            dummy_mode=not self.trial.settings['devices']['optotrak'],
-                                            tracked=('Xas', 'Marker2', 'Yas', 'origin', 'hand1', 'hand2'))
-        self.devices['optotrak'].init()
+        # Customization goes below
 
     def init_audio(self):
         """

@@ -535,17 +535,52 @@ class BaseTrial(StateMachine):
     def init_devices(self):
         """
         Setup devices
-        For better readability of the code, devices should be added to self.devices dictionary.
+        Devices must be defined in experiment_folder/devices.json
+        Structure of devices.json:
+            "devices": {
+                "class_name": {
+                    "options": {
+                        "argument1": value,
+                        "argument2": value
+                    }
+                ]
+            }
+
+        "class_name" must match the actual class name of the device (case-sensitive)
+        Arguments defined in "options" are those passed to the device class constructor. See the documentation of each
+        device (in core/apparatus/device_name/device_name.py) to get the full list of arguments. Note that it is not
+        necessary to define all the arguments. Missing arguments will be automatically replaced by class's default
+         values.
+
+        For example:
+            "devices": {
+                "OptoTrak":
+                    "options": {
+                        "freq": 60.0,
+                        "velocity_threshold": 0.01
+                    },
+                "Sled": {
+                    "options": {
+                        "server": "sled"
+                    }
+                }
+            }
+
+
         RunTrial calls some devices methods automatically if the device's class has such methods:
         - Device::close(): this method should implement the closing method of the device. If does not take arguments.
-        - Devices::start_trial(trial_id, trial_parameters): routine called at the begining of a trial. Parameters are:
+        - Devices::start_trial(trial_id, trial_parameters): routine called at the beginning of a trial. Parameters are:
             int trial_id: trial number (or unique id)
             dict trial_parameters: Trial.params
         - Devices::stop_trial(trial_id, valid_trial): routine called at the end of a trial. Parameters should be:
             int trial_id: trial number (or unique id)
             bool valid_trial: is it a valid trial or not (e.g.: should it be excluded from analysis).
+
+        Devices are stored in the container self.devices, which acts like a dictionary. To access a device's method:
+                self.devices['device_name'].method_name(*args)
         """
-        raise NotImplementedError('Should implement this')
+        # Initialize all devices
+        self.devices.init(ptw=self.screen.ptw)
 
     def init_audio(self):
         """

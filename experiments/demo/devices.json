@@ -25,11 +25,11 @@
                     800, 
                     600
                 ], 
+                "dodrift": false, 
                 "link": "10.0.0.20", 
                 "display_type": "pygame", 
                 "targetsize_in": 0.5, 
                 "dummy_mode": false, 
-                "trackedeye": "right", 
                 "illumi": 2, 
                 "caltype": "H3", 
                 "resolution": [
@@ -37,7 +37,7 @@
                     600
                 ], 
                 "thresacc": 9500, 
-                "dodrift": false
+                "trackedeye": "right"
             }
         }, 
         "Sled": {
