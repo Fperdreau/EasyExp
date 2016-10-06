@@ -360,10 +360,7 @@ class BaseTrial(StateMachine):
         self.textToDraw = "Experiment is over!"
 
         # Shutdown devices
-        for device in self.devices:
-            if hasattr(self.devices[device], "close"):
-                self.logger.logger.info('[{}] Closing "{}"'.format(__name__, device))
-                self.devices[device].close()
+        self.devices.close_all()
 
         self.status = False
 
