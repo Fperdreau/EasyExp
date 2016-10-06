@@ -258,8 +258,7 @@ class PsiMarginal(MethodBase):
         # prior: prior probability over all parameters p_0(alpha,beta,gamma,lambda)
         if self.gammaEQlambda:
             self.dimensions = (len(self.threshold), len(self.slope), len(self.lapseRate), len(self.stimRange))
-            print(self.threshold, self.slope, self.lapseRate, self.stimRange)
-            self.parameters = cartesian((self.threshold, self.slope, self.lapseRate, self.stimRange))   
+            self.parameters = cartesian((self.threshold, self.slope, self.lapseRate, self.stimRange))
             self.likelihood = PF(self.parameters, psyfun=self._options['Pfunction'])
             self.likelihood = np.reshape(self.likelihood, self.dimensions) # dims: (alpha, beta, lambda, x)
             self.pr = cartesian((self.priorAlpha, self.priorBeta, self.priorLambda))
@@ -365,44 +364,13 @@ class PsiMarginal(MethodBase):
             self.stop = 1
         logging.getLogger('EasyExp').info('computed intensity: {}'.format(self.intensity))
 
-    def update(self, stair_id, direction, load=True, intensity=None, response=None):
+    def compute(self):
         """
-        Updates stimulus intensity based on previous response.
-
-        Parameters
-        ----------
-        :param stair_id: ID of current stair
-        :type stair_id: int
-        :param direction: direction of current staircase (0: up, 1:down)
-        :type direction: int
-        :param intensity: list of previously displayed intensities
-        :type intensity: str
-        :param response: list of previous responses
-        :type response: str
-
-        Returns
-        -------
-        :return intensity: new stimulus intensity
-        :rtype intensity: float
+        Compute new intensity
+        :return:
         """
-        self.cur_stair = stair_id
-
-        # First, we make response and intensity lists from data
-        if intensity is None:
-            self._load_data()
-
-        self._get_lists(intensity=intensity, response=response)
-
-        if self.cpt_stair <= self._options['warm_up']:
-            # If warm-up phase, then present extremes values
-            self.intensity = self._options['stimRange'][self.cpt_stair % 2]
-            return self.intensity
-        elif self.cpt_stair == self._options['warm_up'] + 1:
-            # If this is the first trial for the current staircase, then returns initial intensity
-            self.intensity = self._options['stimRange'][direction]
-            return self.intensity
-
-        self.addData(self.resp_list[self.cpt_stair])
+        response = self.resp_list[self.cpt_stair]
+        self.addData(response=response)
         return self.intensity
 
     def addData(self, response):
