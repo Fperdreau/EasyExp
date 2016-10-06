@@ -291,8 +291,8 @@ class PsiMarginal(MethodBase):
         self.stop = 0
         self.response = []
 
-        self.resp_list = np.zeros(())
-        self.int_list = np.zeros(())
+        self.resp_list = np.zeros((1, 1))
+        self.int_list = np.zeros((1, 1))
         self.intensity = None
 
         # Settings (expFrame)
@@ -369,7 +369,7 @@ class PsiMarginal(MethodBase):
             self.stop = 1
         logging.getLogger('EasyExp').info('computed intensity: {}'.format(self.intensity))
 
-    def update(self, stair_id, direction, intensities=None, responses=None):
+    def update(self, stair_id, direction, intensity=None, response=None):
         """
         Updates stimulus intensity based on previous response.
 
@@ -379,10 +379,10 @@ class PsiMarginal(MethodBase):
         :type stair_id: int
         :param direction: direction of current staircase (0: up, 1:down)
         :type direction: int
-        :param intensities: list of previously displayed intensities
-        :type intensities: array-like
-        :param responses: list of previous responses
-        :type responses: array-like
+        :param intensity: list of previously displayed intensities
+        :type intensity: str
+        :param response: list of previous responses
+        :type response: str
 
         Returns
         -------
@@ -392,10 +392,10 @@ class PsiMarginal(MethodBase):
         self.cur_stair = stair_id
 
         # First, we make response and intensity lists from data
-        if intensities is None:
+        if intensity is None:
             self._load_data()
 
-        self._get_lists(intensity=intensities, response=responses)
+        self._get_lists(intensity=intensity, response=response)
 
         if self.cpt_stair <= self._options['warm_up']:
             # If warm-up phase, then present extremes values
@@ -406,9 +406,7 @@ class PsiMarginal(MethodBase):
             self.intensity = self._options['stimRange'][direction]
             return self.intensity
 
-        init_time = time.time()
-        self.addData(self.resp_list[0, self.cpt_stair-1])
-        logging.getLogger('EasyExp').info('it took {} s'.format(time.time() - init_time))
+        self.addData(self.resp_list[self.cpt_stair])
         return self.intensity
 
     def addData(self, response):
