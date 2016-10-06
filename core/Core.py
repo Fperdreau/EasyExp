@@ -234,14 +234,16 @@ class Core(object):
             runtrial.quit()
             self.stop()
             raise
-        except:
+        except Exception as e:
             msg = '[{0}] An unexpected error has occurred: {1}'.format(__name__, e)
             self.logger.exception(msg)
             runtrial.quit()
             self.stop()
             raise Exception(msg)
+        finally:
+            # Stop experiment
+            self.stop()
 
-        # Stop experiment
         self.stop()
 
     def stop(self):
