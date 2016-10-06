@@ -467,6 +467,12 @@ class BaseTrial(StateMachine):
             for label, value in self.triggers.iteritems():
                 self.triggers[label] = False
 
+            # Update experiment method
+            if hasattr(self.trial, 'method') and self.trial.method is not None and hasattr(self.trial.method, 'update'):
+                intensity = self.trial.method.update(int(self.trial.params['staircaseID']),
+                                                     int(self.trial.params['staircaseDir']))
+                self.data['intensity'] = intensity
+
             # Send START_TRIAL to devices
             for device in self.devices:
                 if hasattr(self.devices[device], 'start_trial'):
