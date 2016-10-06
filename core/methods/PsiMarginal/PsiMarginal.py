@@ -186,7 +186,7 @@ class PsiMarginal(MethodBase):
 
     # Default options
     _options = {
-        'stimRange': (-5, 5, 0.1),  # Boundaries of stimulus range
+        'stimRange': (-5, 5, 1),  # Boundaries of stimulus range
         'Pfunction': 'cGauss',  # Underlying Psychometric function
         'nTrials': 50,  # Number of trials per staircase
         'threshold': (-10, 10, 0.1),  # Threshold estimate
@@ -244,11 +244,6 @@ class PsiMarginal(MethodBase):
         self.guessRate = np.squeeze(self.guessRate)
         self.lapseRate = np.squeeze(self.lapseRate)
 
-        logging.getLogger('EasyExp').info('threshold: {}'.format(self.threshold))
-        logging.getLogger('EasyExp').info('slope: {}'.format(self.slope))
-        logging.getLogger('EasyExp').info('guessRate: {}'.format(self.guessRate))
-        logging.getLogger('EasyExp').info('lapse: {}'.format(self.lapseRate))
-
         # Priors
         self.priorAlpha = self.__genprior(self.threshold, *self._options['thresholdPrior'])
         self.priorBeta = self.__genprior(self.slope, *self._options['slopePrior'])
@@ -263,6 +258,7 @@ class PsiMarginal(MethodBase):
         # prior: prior probability over all parameters p_0(alpha,beta,gamma,lambda)
         if self.gammaEQlambda:
             self.dimensions = (len(self.threshold), len(self.slope), len(self.lapseRate), len(self.stimRange))
+            print(self.threshold, self.slope, self.lapseRate, self.stimRange)
             self.parameters = cartesian((self.threshold, self.slope, self.lapseRate, self.stimRange))   
             self.likelihood = PF(self.parameters, psyfun=self._options['Pfunction'])
             self.likelihood = np.reshape(self.likelihood, self.dimensions) # dims: (alpha, beta, lambda, x)
@@ -369,7 +365,7 @@ class PsiMarginal(MethodBase):
             self.stop = 1
         logging.getLogger('EasyExp').info('computed intensity: {}'.format(self.intensity))
 
-    def update(self, stair_id, direction, intensity=None, response=None):
+    def update(self, stair_id, direction, load=True, intensity=None, response=None):
         """
         Updates stimulus intensity based on previous response.
 
