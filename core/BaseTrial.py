@@ -285,7 +285,8 @@ class BaseTrial(StateMachine):
         # Devices
         # Devices should be implemented in RunTrial::init_devices() method.
         # =======
-        self.devices = dict()
+        import copy
+        self.devices = exp_core.devices
 
         # Audio/Video
         # ===========
