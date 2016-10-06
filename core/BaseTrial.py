@@ -48,63 +48,7 @@ from buttons.buttons import UserInput
 from display.fpscounter import FpsCounter
 from events.timer import Timer
 from StateMachine import StateMachine
-
-
-class ThreadManager(object):
-    """
-    ThreadManager
-    Singleton class that handles threading
-    """
-
-    __instances = {}
-
-    def add(self, label, target):
-        """
-        Add thread to watched list
-        :param label: thread label
-        :type label: str
-        :param target: target function/method
-        :type target: object
-        :return:
-        """
-        if label not in self.__instances:
-            self.__instances[label] = threading.Thread(target=target)
-            logging.debug('[{}] Thread "{}" added successfully'.format(__name__, label))
-
-    def get_instance(self, label):
-        """
-        Return thread
-        :param label: thread label
-        :type label: str
-        :return: threading.Thread
-        """
-        if label in self.__instances:
-            return self.__instances[label]
-
-    def remove(self, label):
-        """
-        Join and delete thread
-        :param label:
-        :raise: RuntimeError
-        """
-        if label in self.__instances and self.__instances[label].isAlive():
-            try:
-                self.get_instance(label).join()
-                logging.debug('[{}] Thread "{}" closed successfully'.format(__name__, label))
-            except RuntimeError as e:
-                msg = '[{}] Could not join thread "{}": {}'.format(__name__, label, e)
-                logging.critical(msg)
-                raise RuntimeError(msg)
-
-            del self.__instances[label]
-
-    def quit(self):
-        """
-        Close all threads
-        :return:
-        """
-        for label in self.__instances:
-            self.remove(label)
+from core.stimuli.trigger import Trigger
 
 
 class Loading(object):
@@ -223,10 +167,6 @@ class BaseTrial(StateMachine):
         # FPScounter: measures flip duration or simply flips the screen
         self.fpsCounter = FpsCounter(self.screen.ptw)
 
-        # Stimuli
-        # =======
-        self.stimuli = dict()
-
         # State Machine
         # =============
         # Default states duration
@@ -259,10 +199,29 @@ class BaseTrial(StateMachine):
             'quitRequested': False
         }
 
-        # Add your stimulus trigger to this dictionary. If self.stimuliTrigger['stimulus_name'] = True,
-        # then self.stimuli['stimulus_name'].draw() will be called. Stimuli are rendered in the same order as the
+        # Stimuli
+        # =======
+        self.stimuli = dict()
+
+        # Stimulus triggers
+        #
+        # Stimuli triggers can be added by calling:
+        # self.stimuliTrigger.add('stimulus_name', 'value')
+        # If value is not provided, then False will be set by default.
+        #
+        # IMPORTANT: if 'stimulus_name' is added to self.stimuliTrigger, then it should also be added to self.stimuli
+        # dictionary in RunTrial.init_stimuli() method
+        #
+        # stimuliTrigger acts like a dictionary. item's value can be accessed by calling:
+        # self.stimuliTrigger['stimulus_name']
+        #
+        # and new trigger value can be set by calling:
+        # self.stimuliTrigger['stimulus_name'] = True
+        #
+        # if self.stimuliTrigger['stimulus_name'] is True, then self.stimuli['stimulus_name'].draw() will be called.
+        # Stimuli are rendered in the same order as the
         # triggers defined in stimuliTrigger dictionary.
-        self.stimuliTrigger = dict()
+        self.stimuliTrigger = Trigger()
 
         # Timers
         # ======
@@ -491,12 +450,13 @@ class BaseTrial(StateMachine):
             # Initialize stimuli
             self.init_stimuli()
 
-            # Reset stimuli triggers
+            # Reset stimuli triggers and make sure that there is a stimulus trigger for every stimulus defined in
+            # self.stimuli dictionary.
             for label, obj in self.stimuli.iteritems():
                 if label in self.stimuliTrigger:
                     self.stimuliTrigger[label] = False
                 else:
-                    self.stimuliTrigger.update({label: False})
+                    self.stimuliTrigger.add(label, False)
 
             return True
 
@@ -542,7 +502,7 @@ class BaseTrial(StateMachine):
         """
         # Draw stimuli
         if self.triggers['startTrigger']:
-            for stim, status in sorted(self.stimuliTrigger.iteritems()):
+            for stim, status in self.stimuliTrigger.iteritems():
                 if stim in self.stimuli:
                     if status:
                         self.stimuli[stim].draw()
