@@ -56,12 +56,14 @@ class MethodContainer(object):
             self._options = dict()
         self._options.update(options)
 
-    def update(self, stair_id, direction, intensity=None, response=None):
+    def update(self, stair_id, direction, load=True, intensity=None, response=None):
         """
         Updates stimulus intensity based on previous response.
 
         Parameters
         ----------
+        :param load: Update responses and intensities list from file (recommended when running actual experiment)
+        :type load: bool
         :param stair_id: ID of current stair
         :type stair_id: int
         :param direction: direction of current staircase (0: up, 1:down)
@@ -76,20 +78,22 @@ class MethodContainer(object):
         :return intensity: new stimulus intensity
         :rtype intensity: float
         """
-        self.__add(stair_id)
-        return self._instances[stair_id].update(stair_id=stair_id, direction=direction, intensity=intensity,
-                                                response=response)
+        str_id = str(stair_id)
+        self.__add(str_id)
+        return self._instances[str_id].update(stair_id=stair_id, direction=direction, load=load, intensity=intensity,
+                                              response=response)
 
-    def __add(self, id):
+    def __add(self, stair_id):
         """
         Add method instance
-        :param id:
+        :param stair_id: id of instance
+        :type stair_id: str
         :return:
         """
-        if id not in self._instances:
+        if stair_id not in self._instances:
             method = self.get_method(self._method)
-            self._instances[id] = method(settings_file=self._settings_file, data_file=self._data_file,
-                                         options=self._options)
+            self._instances[stair_id] = method(settings_file=self._settings_file, data_file=self._data_file,
+                                               options=self._options)
 
     def __remove(self, id):
         """
