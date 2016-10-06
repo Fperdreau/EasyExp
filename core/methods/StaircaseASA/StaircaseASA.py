@@ -166,7 +166,7 @@ class StaircaseASA(MethodBase):
 
         return design, conditions_name
 
-    def update(self, stair_id, direction, intensities=None, responses=None):
+    def update(self, stair_id, direction, intensity=None, response=None):
         """
         Updates stimulus intensity based on previous response.
 
@@ -176,10 +176,10 @@ class StaircaseASA(MethodBase):
         :type stair_id: int
         :param direction: direction of current staircase (0: up, 1:down)
         :type direction: int
-        :param intensities: list of previously displayed intensities
-        :type intensities: array-like
-        :param responses: list of previous responses
-        :type responses: array-like
+        :param intensity: list of previously displayed intensities
+        :type intensity: float
+        :param response: list of previous responses
+        :type response: str
 
         Returns
         -------
@@ -189,19 +189,16 @@ class StaircaseASA(MethodBase):
         self.cur_stair = stair_id
 
         # First, we make response and intensity lists from data
-        if intensities is None:
+        if intensity is None:
             self._load_data()
-            self._get_lists()
-        else:
-            self.int_list = intensities
-            self.resp_list = responses
-            self.cpt_stair = len(intensities)
 
-        if self.cpt_stair < self._options['warm_up']:
+        self._get_lists(intensity=intensity, response=response)
+
+        if self.cpt_stair <= self._options['warm_up']:
             # If warm-up phase, then present extremes values
             self.intensity = self._options['stimRange'][self.cpt_stair % 2]
             return self.intensity
-        elif self.cpt_stair == self._options['warm_up']:
+        elif self.cpt_stair == (self._options['warm_up'] + 1):
             # If this is the first trial for the current staircase, then returns initial intensity
             self.intensity = self._options['stimRange'][direction]
             return self.intensity
@@ -209,18 +206,17 @@ class StaircaseASA(MethodBase):
         # Compute new intensity
         # number of intensities displayed so far (including current, excluding warm-up)
         nn = self.cpt_stair - self._options['warm_up']
-        int_curr = self.int_list[0, nn-1]  # current intensity being displayed
-        cc = self._options['maxInitialStepSize'] / max(self._options['threshold'],
-                                                       1 - self._options['threshold'])
+        int_curr = self.int_list[-1]  # current intensity being displayed
+        cc = self._options['maxInitialStepSize'] / max(self._options['threshold'], 1 - self._options['threshold'])
         mm = 0  # number of shifts in response categories
-        resp_prev = self.resp_list[0, 0]
-        for ii in range(1, nn-1):
-            resp_curr = self.resp_list[0, ii]
+        resp_prev = self.resp_list[self._options['warm_up']]
+        for ii in range(self._options['warm_up'], nn):
+            resp_curr = self.resp_list[ii]
             if resp_curr != resp_prev:
                 mm += 1
             resp_prev = resp_curr
 
-        resp_curr = self.resp_list[0, nn-1]
+        resp_curr = self.resp_list[-1]
 
         if nn <= 2:
             step = (cc / nn) * (resp_curr - self._options['threshold'])
@@ -246,90 +242,3 @@ class StaircaseASA(MethodBase):
 
         self.intensity = int_next
         return self.intensity
-
-    def _get_lists(self):
-        """
-        Makes responses and intensities lists from data array (excluding warm-up trials)
-
-        Returns
-        -------
-        void
-        """
-        resp_list = np.zeros((1, self._options['nTrials'] - self._options['warm_up']))
-        int_list = np.zeros((1, self._options['nTrials'] - self._options['warm_up']))
-
-        cpt_stair = 0
-        t = 0
-        for trial in self.data:
-            if trial['Replay'] == "False" and int(trial['staircaseID']) == self.cur_stair:
-                # Only store previous responses and intensities if warm-up is over
-                if cpt_stair >= self._options['warm_up']:
-                    resp_list[0, t] = 1 if trial[self._options['response_field']] == 'True' else 0
-                    int_list[0, t] = float(trial[self._options['intensity_field']])
-                    t += 1
-
-                cpt_stair += 1
-        self.cpt_stair = cpt_stair
-        self.resp_list = resp_list
-        self.int_list = int_list
-
-    def _load_data(self):
-        """
-        Loads data from file
-
-        Returns
-        -------
-        :return data
-        :rtype: 2d-array
-        """
-        data = []
-        try:
-            with open(self._data_file) as csvfile:
-                reader = csv.DictReader(csvfile)
-                for row in reader:
-                    data.append(row)
-            self.data = data
-        except (IOError, TypeError):
-            print('[StairCaseASA] User Data filename does not exist yet!')
-
-    def _set_options(self, options):
-        """
-
-        Parameters
-        ----------
-        :param options: dictionary providing staircase settings
-        :type options: dict
-
-        Returns
-        -------
-        void
-        """
-        for prop, value in options.iteritems():
-            self._options[prop] = value
-
-    def _load_options(self, options=None):
-        """
-        Loads staircase settings from json file
-
-        Parameters
-        ----------
-        :param options: dictionary providing staircase settings
-        :type options: dict
-
-        Returns
-        -------
-        :return _options: dictionary providing staircase's settings
-        :rtype _options: dict
-        """
-        if options is not None:
-            self._set_options(options)
-        else:
-            # Read from file
-            if isfile(self._settings_file):
-                json_info = open(self._settings_file, 'r')
-                data = json.load(json_info)
-                self._set_options(data['options'])
-                json_info.close()
-            else:
-                print("[StairCaseASA] The settings file '{}' cannot be found!".format(self._settings_file))
-        return self._options
