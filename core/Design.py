@@ -105,18 +105,9 @@ class Design(object):
         if 'method' not in self.allconditions:
             self.allconditions['method'] = "Constant"
 
-        # Import method implementation
-        method_name = "core.methods.{}.{}".format(self.allconditions['method'], self.allconditions['method'])
-        try:
-            mod = __import__(method_name, fromlist=self.allconditions['method'])
-            self.method = getattr(mod, self.allconditions['method'])
-
-            self.design, self.conditions = self.method.make_design(self.factors, self.allconditions['options'],
-                                                                   self.conditions)
-        except ImportError as e:
-            msg = ImportError('[{}] Could not import "{}": {}'.format(__name__, method_name, e))
-            logging.getLogger('EasyExp').critical(msg)
-            raise msg
+        from core.methods.MethodContainer import MethodContainer
+        self.design, self.conditions = MethodContainer.make_design(self.allconditions['method'], self.factors,
+                                                                   self.allconditions['options'], self.conditions)
 
         # Number of trials
         self.ntrials, nfactors = self.design.shape
