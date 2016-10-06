@@ -242,6 +242,12 @@ class BaseTrial(StateMachine):
         self.state = 'loading'
         self.next_state = 'idle'
 
+        # Display options
+        # if set to False, then display will not be automatically cleared at the end of each trial. This allows
+        # continuous rendering with no blank between trials.
+        self.clearAll = True
+        self.clearAll = True
+
         # Events triggers
         # ===============
         # Default triggers are moveOnRequested, pauseRequested, startTrigger and quitRequested.
@@ -471,6 +477,7 @@ class BaseTrial(StateMachine):
             if hasattr(self.trial, 'method') and self.trial.method is not None and hasattr(self.trial.method, 'update'):
                 intensity = self.trial.method.update(int(self.trial.params['staircaseID']),
                                                      int(self.trial.params['staircaseDir']))
+                self.logger.info('New stimulus intensity: {}'.format(intensity))
                 self.data['intensity'] = intensity
 
             # Send START_TRIAL to devices
@@ -546,7 +553,7 @@ class BaseTrial(StateMachine):
                             stim))
                     self.logger.logger.critical(msg)
                     raise msg
-        else:
+        elif self.clearAll:
             # Clear screen
             self.clear_screen()
 
