@@ -693,12 +693,13 @@ class BaseTrial(StateMachine):
         2. idle: display welcome message and wait for user input
         3. iti: inter-trial interval
         4. init: load trial parameters
+        5. start: from here start the custom part. This state must be implemented in RunTrial.fast_state_machine()
         ...
         last. end: end trial and save data
 
-        'loading', 'idle', and 'end' states are already implemented in BaseTrial.__default_fast_states() method, but
-        these implementations can be overwritten in RunTrial.fast_state_machines(). To do so, simply define these states
-        as usual. For instance:
+        'loading', 'idle', 'init' and 'end' states are already implemented in BaseTrial.__default_fast_states() method,
+        but these implementations can be overwritten in RunTrial.fast_state_machines(). To do so, simply define these
+        states as usual. For instance:
         if self.state == "idle":
             # do something
         """
@@ -715,6 +716,7 @@ class BaseTrial(StateMachine):
         2. idle: display welcome message and wait for user input
         3. iti: inter-trial interval
         4. init: load trial parameters
+        5. start: from here start the custom part. This state must be implemented in RunTrial.fast_state_machine()
         ...
         last. end: end trial and save data
 

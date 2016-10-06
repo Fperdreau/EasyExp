@@ -183,12 +183,9 @@ class RunTrial(BaseTrial):
         #
         # Reset timer
         # timers['timer_name'].reset()
-
-        self.timers = {
-            'runtime': Timer(),  # DO NOT MODIFY
-            'sled_start': Timer(),
+        self.timers.update({
             'responseDuration': Timer()
-        }
+        })
 
         # Data
         # ====
@@ -389,6 +386,20 @@ class RunTrial(BaseTrial):
         This state machine runs at close to real-time speed. Event handlers (key press, etc.) and position trackers
         (optotrak, eye-tracker or sled) should be called within this state machine.
         Rendering of stimuli should be implemented in the graphics_state_machine()
+        Default state order is:
+        1. loading: preparing experiment (loading devices, ...)
+        2. idle: display welcome message and wait for user input
+        3. iti: inter-trial interval
+        4. init: load trial parameters
+        5. start: from here start the custom part. This state must be implemented in RunTrial.fast_state_machine()
+        ...
+        last. end: end trial and save data
+
+        'loading', 'idle', 'init' and 'end' states are already implemented in BaseTrial.__default_fast_states() method,
+        but these implementations can be overwritten in RunTrial.fast_state_machines(). To do so, simply define these
+        states as usual. For instance:
+        if self.state == "idle":
+            # do something
         """
 
         # Get sled (viewer) position
@@ -490,10 +501,20 @@ class RunTrial(BaseTrial):
         instance, this state machine will be updated every 17 ms with a 60Hz screen. For this reason, only slow events
         (display of stimuli) should be described here. Everything that requires faster (close to real-time) processing
         should be specified in the RunTrial::fast_state_machine() method.
+        Default state order is:
+        1. loading: preparing experiment (loading devices, ...)
+        2. idle: display welcome message and wait for user input
+        3. iti: inter-trial interval
+        4. init: load trial parameters
+        5. start: from here start the custom part. This state must be implemented in RunTrial.fast_state_machine()
+        ...
+        last. end: end trial and save data
 
-        Returns
-        -------
-
+         'loading', 'idle', and 'pause' states are already implemented in BaseTrial.__default_fast_states() method, but
+        these implementations can be overwritten in RunTrial.fast_state_machines(). To do so, simply define these states
+        as usual. For instance:
+        if self.state == "idle":
+            # do something
         """
         if self.state == 'calibration':
             if self.singleshot('el_calibration'):

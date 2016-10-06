@@ -109,6 +109,10 @@ class RunTrial(BaseTrial):
         ################################
         # LINES BELOW CAN BE MODIFIED #
         ################################
+        # Display options
+        # if set to False, then display will not be automatically cleared at the end of each trial. This allows
+        # continuous rendering with no blank between trials.
+        self.clearAll = True
 
         # Experiment settings
         # ===================
@@ -139,11 +143,25 @@ class RunTrial(BaseTrial):
             'quitRequested': False
         }
 
-        # Add your stimulus trigger to this dictionary. If self.stimuliTrigger['stimulus_name'] = True,
-        # then self.stimuli['stimulus_name'].draw() will be called.
-        self.stimuliTrigger = {
-            'stimulus_name': False,
-        }
+        # Stimulus triggers
+        #
+        # Stimuli triggers can be added by calling:
+        # self.stimuliTrigger.add('stimulus_name', 'value')
+        # If value is not provided, then False will be set by default.
+        #
+        # IMPORTANT: if 'stimulus_name' is added to self.stimuliTrigger, then it should also be added to self.stimuli
+        # dictionary in RunTrial.init_stimuli() method
+        #
+        # stimuliTrigger acts like a dictionary. item's value can be accessed by calling:
+        # self.stimuliTrigger['stimulus_name']
+        #
+        # and new trigger value can be set by calling:
+        # self.stimuliTrigger['stimulus_name'] = True
+        #
+        # if self.stimuliTrigger['stimulus_name'] is True, then self.stimuli['stimulus_name'].draw() will be called.
+        #
+        # IMPORTANT: stimuli are rendered in the same order as the triggers defined in stimuliTrigger dictionary.
+        self.stimuliTrigger.add('my_circle')
 
         # Timers
         # ======
@@ -164,11 +182,9 @@ class RunTrial(BaseTrial):
         #
         # Reset timer
         # timers['timer_name'].reset()
-
-        self.timers = {
-            'runtime': Timer(),  # DO NOT MODIFY
+        self.timers.update({
             'timer_name': Timer()
-        }
+        })
 
         # Data
         # ====
@@ -194,21 +210,12 @@ class RunTrial(BaseTrial):
         # Inputs.update()
 
         # Access watched key's status
-        # Inputs.get_status('a')  # returns True or False
+        # Inputs.get_status('_name_of_key')  # returns True or False
         # ================
-        self.buttons = UserInput()
-        # Input devices used in the experiment
-        self.buttons.add_device('keyboard')
-        self.buttons.add_device('mouse', visible=False, newPos=None, win=self.ptw)
-
-        # GUI related keys
-        # quit, pause and move on keys must be specified
-        self.buttons.add_listener('keyboard', 'pause', pygame.K_SPACE)
-        self.buttons.add_listener('keyboard', 'quit', pygame.K_q)
-        self.buttons.add_listener('mouse', 'move_on', 0)
-
         # Response keys
         # Add your response keys below
+        self.buttons.add_listener('mouse', 'left', 0)  # Left mouse click
+        self.buttons.add_listener('mouse', 'right', 2)  # Right mouse click
 
     ################################
     # CUSTOMIZATION STARTS HERE    #
@@ -317,91 +324,84 @@ class RunTrial(BaseTrial):
         This state machine runs at close to real-time speed. Event handlers (key press, etc.) and position trackers
         (optotrak, eye-tracker or sled) should be called within this state machine.
         Rendering of stimuli should be implemented in the graphics_state_machine()
+        Default state order is:
+        1. loading: preparing experiment (loading devices, ...)
+        2. idle: display welcome message and wait for user input
+        3. iti: inter-trial interval
+        4. init: load trial parameters
+        5. start: from here start the custom part. This state must be implemented in RunTrial.fast_state_machine()
+        ...
+        last. end: end trial and save data
+
+        'loading', 'idle', 'init' and 'end' states are already implemented in BaseTrial.__default_fast_states() method,
+        but these implementations can be overwritten in RunTrial.fast_state_machines(). To do so, simply define these
+        states as usual. For instance:
+        if self.state == "idle":
+            # do something
         """
 
-        if self.state == 'idle':
-            # IDLE state
-            # DO NOT MODIFY
-            self.nextState = 'iti'
+        # Get sled (viewer) position
+        if self._running:
+            # Here you can call devices methods. Devices' methods can't be called before self._running is True.
+            pass
 
-        elif self.state == 'quit':
-            # QUIT experiment
-            # DO NOT MODIFY
+        if self.state == 'start':
+            # The START state is dedicated to initialization of parameters/variables used in the current trial.
+            # Trial parameters can be accessed by calling: self.trial.params['parameter_name']
+            # It custom variables needs to be accessed outside this state, then it is recommended to bind them to the
+            # current RunTrial instance. For example:
+            # self.my_new_variable = something
+            # IMPORTANT: in this case, self.my_new_variable should initialized in RunTrial's constructor. For example:
+            # self.my_new_variable = None
 
-            if self.state_machine['singleshot']:
-                self.state_machine['singleshot'] = False
-                self.quit()
+            self.next_state = 'draw_circle'
 
-        elif self.state == 'pause':
-            # PAUSE experiment
-            # DO NOT MODIFY
-            self.nextState = 'iti'
-            if self.state_machine['singleshot']:
-                self.state_machine['singleshot'] = False
-                self.triggers['pauseRequested'] = False
-
-                # Move the sled back to its default position
-                if 'sled' in self.devices and self.devices['sled'] is not None:
-                    self.devices['sled'].move(self.sledHome, self.mvtBackDuration)
-                    time.sleep(self.mvtBackDuration)
-                    self.devices['sled'].lights(True)  # Turn the lights off
-
-        elif self.state == 'calibration':
-            # Eye-tracker calibration
-            self.nextState = 'iti'
-
-        elif self.state == 'iti':
-            # Inter-trial interval
-            self.nextState = 'start'
-            if self.state_machine['singleshot']:
-                self.state_machine['singleshot'] = False
-                if self.devices['sled'] is not None:
-                    self.devices['sled'].lights(False)  # Turn the lights off
-
-        elif self.state == 'start':
-            # Start trial: get trial information and update trial's parameters accordingly
-            self.nextState = 'response'
-
-            if self.state_machine['singleshot'] is True:
-                # DO NOT MODIFY THE LINES BELOW
-                self.state_machine['singleshot'] = False
-                status = self.init_trial()  # Get trial parameters
-                if not status:
-                    self.nextState = 'quit'
-                    self.triggers['moveOnRequested'] = True
-                if status is 'pause':
-                    self.nextState = 'pause'
-                    self.triggers['moveOnRequested'] = True
+            if self.singleshot('start_trial'):
+                # This is a singleshot event: instructions within this block will be executed only once.
+                # You can define as many singleshot events as you need during a state as long as you provide a different
+                # label every time.
+                # For example:
+                #   self.singleshot('event_1') => will be triggered only once
+                #   self.singleshot('event_2') => will be triggered only once
+                #   self.singleshot('event_2') => will NOT be triggered because this label has been already used.
+                #
+                # You can also bind a function to a singleshot event:
+                #   self.singleshot.run('event', target=function_name, **function_arguments)
+                #
+                #  For example:
+                #   # A simple function that print some text
+                #   def show_text(text):
+                #       print(text)
+                #
+                #   # This will call show_text() function only once
+                #   self.singleshot.run('name_of_event', target=show_text, text='Hello, world!')
 
                 # ADD YOUR CODE HERE
                 # Stimuli Triggers
-                self.triggers['startTrigger'] = True  # Draw stimuli
+                self.triggers['startTrigger'] = True  # If not set to True, then stimuli will not be rendered
+
+                # Modifying states duration dynamically if needed
+                # 1) Add new durations
+                timings = {
+                    'name_of_state': 0.5
+                }
+                # 2) Update states durations
+                self.durations = timings
+
+        elif self.state == 'draw_circle':
+            self.next_state = 'response'
+            # Set trigger to True (from here, the corresponding stimulus will be drawn until told otherwise)
+            self.stimuliTrigger['my_circle'] = True
 
         elif self.state == 'response':
-            self.nextState = 'end'
+            self.next_state = 'end'
 
             # Get participant's response
             self.get_response()
-
-            # If we got a response, then move to next state
             if self.triggers['response_given']:
-                self.triggers['moveOnRequested'] = True
-
-        elif self.state == 'end':
-            # End of trial. Call ending routine.
-            if self.triggers['pauseRequested']:
-                self.nextState = "pause"
-            elif self.triggers['quitRequested']:
-                self.nextState = "quit"
-            else:
-                self.nextState = 'iti'
-
-            if self.state_machine['singleshot'] is True:
-                self.state_machine['singleshot'] = False
-                self.triggers['startTrigger'] = False
-
-                # End trial routine
-                self.end_trial()
+                # If response is given, then we move directly to the next state ('end') without waiting for the end of
+                #  the response phase
+                self.change_state(force_move_on=True)
 
     def graphics_state_machine(self):
         """
@@ -409,30 +409,25 @@ class RunTrial(BaseTrial):
         instance, this state machine will be updated every 17 ms with a 60Hz screen. For this reason, only slow events
         (display of stimuli) should be described here. Everything that requires faster (close to real-time) processing
         should be specified in the RunTrial::fast_state_machine() method.
+        Default state order is:
+        1. loading: preparing experiment (loading devices, ...)
+        2. idle: display welcome message and wait for user input
+        3. iti: inter-trial interval
+        4. init: load trial parameters
+        5. start: from here start the custom part. This state must be implemented in RunTrial.fast_state_machine()
+        ...
+        last. end: end trial and save data
 
-        Returns
-        -------
-
+         'loading', 'idle', and 'pause' states are already implemented in BaseTrial.__default_fast_states() method, but
+        these implementations can be overwritten in RunTrial.fast_state_machines(). To do so, simply define these states
+        as usual. For instance:
+        if self.state == "idle":
+            # do something
         """
-        if self.state == 'idle':
-            text = visual.TextStim(self.ptw, pos=(0.0, 0.0), text=self.textToDraw, units="pix")
-            text.draw()
+        if self.state == 'draw_cicle':
+            # Example: make the circle jumping to a next random location
+            current_position = self.stimuli['my_circle'].pos
+            max_amplitude = 50  # jump size
+            new_position = current_position + np.random.uniform(-1, 1) * max_amplitude
+            self.stimuli['my_circle'].setPos(new_position)  # Update fixation position
 
-        elif self.state == 'pause':
-            text = 'PAUSE {0}/{1} [Replayed: {2}]'.format(self.trial.nplayed, self.trial.ntrials,
-                                                          self.trial.nreplay)
-            text = visual.TextStim(self.ptw, pos=(0, 0), text=text, units="pix")
-            text.draw()
-
-        elif self.state == 'calibration':
-            self.nextState = 'iti'
-            if self.state_machine['singleshot']:
-                self.state_machine['singleshot'] = False
-                # Create calibration points (polar grid, with points spaced by 45 degrees)
-                x, y = pol2cart(0.25 * (self.screen.resolution[0] / 2), np.linspace(0, 2 * np.pi, 9))
-                x += 0.5 * self.screen.resolution[0]  # Center coordinates on screen center
-                y += 0.5 * self.screen.resolution[1]
-
-                # Start calibration
-                self.devices['eyetracker'].calibration.custom_calibration(x=x, y=y, ctype='HV9')
-                self.devices['eyetracker'].calibration.calibrate()
