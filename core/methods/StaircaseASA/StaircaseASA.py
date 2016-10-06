@@ -166,43 +166,11 @@ class StaircaseASA(MethodBase):
 
         return design, conditions_name
 
-    def update(self, stair_id, direction, intensity=None, response=None):
+    def compute(self):
         """
-        Updates stimulus intensity based on previous response.
-
-        Parameters
-        ----------
-        :param stair_id: ID of current stair
-        :type stair_id: int
-        :param direction: direction of current staircase (0: up, 1:down)
-        :type direction: int
-        :param intensity: list of previously displayed intensities
-        :type intensity: float
-        :param response: list of previous responses
-        :type response: str
-
-        Returns
-        -------
-        :return intensity: new stimulus intensity
-        :rtype intensity: float
+        Compute new intensity
+        :return:
         """
-        self.cur_stair = stair_id
-
-        # First, we make response and intensity lists from data
-        if intensity is None:
-            self._load_data()
-
-        self._get_lists(intensity=intensity, response=response)
-
-        if self.cpt_stair <= self._options['warm_up']:
-            # If warm-up phase, then present extremes values
-            self.intensity = self._options['stimRange'][self.cpt_stair % 2]
-            return self.intensity
-        elif self.cpt_stair == (self._options['warm_up'] + 1):
-            # If this is the first trial for the current staircase, then returns initial intensity
-            self.intensity = self._options['stimRange'][direction]
-            return self.intensity
-
         # Compute new intensity
         # number of intensities displayed so far (including current, excluding warm-up)
         nn = self.cpt_stair - self._options['warm_up']
@@ -224,7 +192,6 @@ class StaircaseASA(MethodBase):
             step = (cc / (2 + mm)) * (resp_curr - self._options['threshold'])
 
         int_next = int_curr - step
-
         lim = False
         if self._options['limits']:
             if int_next <= self._options['stimRange'][0]:
