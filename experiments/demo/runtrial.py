@@ -108,6 +108,10 @@ class RunTrial(BaseTrial):
         ################################
         # LINES BELOW CAN BE MODIFIED #
         ################################
+        # Display options
+        # if set to False, then display will not be automatically cleared at the end of each trial. This allows
+        # continuous rendering with no blank between trials.
+        self.clearAll = True
 
         # Experiment settings
         # ===================
@@ -213,12 +217,6 @@ class RunTrial(BaseTrial):
         self.buttons.add_listener('mouse', 'left', 0)
         self.buttons.add_listener('mouse', 'right', 2)
         self.buttons.add_listener('keyboard', 'calibration', pygame.K_c)
-
-        # Staircase
-        # =========
-        from core.methods.StaircaseASA.StaircaseASA import StaircaseASA
-        self.staircase = StaircaseASA(settings_file=self.trial.design.conditionFile.pathtofile,
-                                      data_file=self.user.datafilename)
 
     ################################
     # CUSTOMIZATION STARTS HERE    #
