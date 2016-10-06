@@ -219,8 +219,8 @@ class BaseTrial(StateMachine):
         # self.stimuliTrigger['stimulus_name'] = True
         #
         # if self.stimuliTrigger['stimulus_name'] is True, then self.stimuli['stimulus_name'].draw() will be called.
-        # Stimuli are rendered in the same order as the
-        # triggers defined in stimuliTrigger dictionary.
+        #
+        # IMPORTANT: stimuli are rendered in the same order as the triggers defined in stimuliTrigger dictionary.
         self.stimuliTrigger = Trigger()
 
         # Timers
