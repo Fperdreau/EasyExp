@@ -50,6 +50,7 @@ class MethodBase(object):
     cpt_stair = 0
     resp_list = None
     int_list = None
+    intensity = None
 
     @staticmethod
     def make_design(factors, options, conditions_name):
@@ -161,4 +162,52 @@ class MethodBase(object):
                 import logging
                 logging.getLogger('EasyExp').fatal("[{}] The settings file '{}' cannot be found!".format(__name__, self._settings_file))
         return self._options
+
+    def update(self, stair_id, direction, load=True, intensity=None, response=None):
+        """
+        Updates stimulus intensity based on previous response.
+
+        Parameters
+        ----------
+        :param load:
+        :param stair_id: ID of current stair
+        :type stair_id: int
+        :param direction: direction of current staircase (0: up, 1:down)
+        :type direction: int
+        :param intensity: list of previously displayed intensities
+        :type intensity: float
+        :param response: list of previous responses
+        :type response: str
+
+        Returns
+        -------
+        :return intensity: new stimulus intensity
+        :rtype intensity: float
+        """
+        self.cur_stair = stair_id
+
+        # First, we make response and intensity lists from data
+        if load:
+            self._load_data()
+
+        if intensity is not None or load:
+            self._get_lists(intensity=intensity, response=response)
+
+        if self.cpt_stair <= self._options['warm_up']:
+            # If warm-up phase, then present extremes values
+            self.intensity = self._options['stimRange'][self.cpt_stair % 2]
+            return self.intensity
+        elif self.cpt_stair == (self._options['warm_up'] + 1):
+            # If this is the first trial for the current staircase, then returns initial intensity
+            self.intensity = self._options['stimRange'][direction]
+            return self.intensity
+        return self.compute()
+
+    def compute(self):
+        """
+        Compute new intensity
+        :return:
+        """
+        raise NotImplementedError("Should have implemented this")
+
 
