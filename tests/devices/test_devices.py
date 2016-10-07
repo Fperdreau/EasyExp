@@ -12,6 +12,6 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 if __name__ == "__main__":
-    folder = "{}/experiments/demo/".format(root_folder)
+    folder = "{}/devices/".format(root_folder)
     device = Devices(exp_folder=folder, base_name='test')
     device.init()
