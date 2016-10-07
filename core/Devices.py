@@ -25,6 +25,7 @@ This file is for Devices class - dependencies container
 from __future__ import print_function
 import types
 import time
+from os.path import isfile
 
 from Config import ConfigFiles
 import logging
@@ -49,6 +50,7 @@ class Devices(object):
         :type base_name: str
         """
         self.__devices_file = ConfigFiles('{}/devices.json'.format(exp_folder))
+        self.__loadable = isfile('{}/devices.json'.format(exp_folder))
         self.__base_name = base_name
         self.__logger = logging.getLogger('EasyExp')
         self.__cli = cli
@@ -57,12 +59,20 @@ class Devices(object):
         self.__ptw = None
 
         # Get settings
-        self.__get_settings()
+        if self.__loadable:
+            self.__get_settings()
+        else:
+            self.__logger.warning('[{}] We could not find "{}" file in the experiment folder. '
+                                  'This means that you will not be able to use devices in your '
+                                  'experiment.'.format(__name__, self.__devices_file.pathtofile))
 
     def init(self, ptw=None):
         """
         Instantiate and initialize devices
         """
+        if not self.__loadable:
+            return None
+
         # Load settings
         self.__devices_file.load()
 
@@ -79,6 +89,12 @@ class Devices(object):
         Get devices settings
         :return:
         """
+        if not self.__loadable:
+            self.__logger.warning('[{}] We could not find "{}" file in the experiment folder. '
+                                  'This means that you will not be able to use devices in your '
+                                  'experiment.'.format(__name__, self.__devices_file.pathtofile))
+            return None
+
         self.__devices_file.load()
 
         if "settings" not in self.__devices_file.data:
@@ -147,6 +163,12 @@ class Devices(object):
         :param params: parameters passed to device's constructor
         :return:
         """
+        if not self.__loadable:
+            msg = '[{}] Devices cannot be added if there are not defined in devices.json. We could not find this ' \
+                  'file'.format(__name__)
+            self.__logger.exception(msg)
+            raise Exception(msg)
+
         device = Devices.get_class(device_name)
 
         if device_name.lower() not in self.__devices \
