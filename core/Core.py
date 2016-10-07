@@ -172,9 +172,7 @@ class Core(object):
 
         # Create user
         self.user = User(datafolder=self.folders['data'], expname=self.expname,
-                         session=self.settings['setup']['session'],
-                         demo=self.settings['setup']['demo'],
-                         practice=self.settings['setup']['practice'])
+                         **self.__filter_args(User, self.settings['setup']))
         self.user.setup(cli=cli)
 
         self.files['design'] = self.user.designfile
@@ -182,18 +180,25 @@ class Core(object):
         # Make factorial design
         self.design = Design(expname=self.expname, conditionfile=self.files['conditions'],
                              userfile=self.files['design'], folder=self.folders['expFolder'], custom=custom,
-                             demo=self.settings['setup']['demo'], practice=self.settings['setup']['practice'],
-                             max_trials=self.settings['setup']['max_trials'], conditions=conditions)
+                             conditions=conditions, **self.__filter_args(Design, self.settings['setup']))
         self.design.make()
-
-        # Screen
-        self.screen = Screen(expfolder=self.folders['expFolder'], expname=self.expname, display_type=self.settings['display']['display_type'],
-                             resolution=self.settings['display']['resolution'], size=self.settings['display']['size'],
-                             fullscreen=self.settings['display']['fullscreen'], freq=self.settings['display']['freq'],
-                             distance=self.settings['display']['distance'], bgcolor=self.settings['display']['bgcolor'])
 
         # Devices
         self.devices = Devices(exp_folder=self.folders['expFolder'], base_name=self.user.base_file_name, cli=cli)
+
+        # Screen
+        self.screen = Screen(expfolder=self.folders['expFolder'], expname=self.expname,
+                             **self.__filter_args(Screen, self.settings['display']))
+
+    @staticmethod
+    def __filter_args(class_obj, args):
+        import inspect
+        this_args = inspect.getargspec(class_obj.__init__)
+        new_dict = dict()
+        for a in this_args[0]:
+            if a is not "self" and a in args:
+                new_dict.update({a: args[a]})
+        return new_dict
 
     def run(self):
         """
@@ -243,8 +248,6 @@ class Core(object):
         finally:
             # Stop experiment
             self.stop()
-
-        self.stop()
 
     def stop(self):
         """
