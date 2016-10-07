@@ -1,16 +1,13 @@
 {
-  "sled": {
+  "Sled": {
     "options": {
       "server": "sled"
-    },
-    "path": false
+    }
   },
-  "eyetracker":  {
-    "options": {},
-    "path": false
+  "EyeTracker":  {
+    "options": {}
   },
-  "optotrak":  {
-    "options": {},
-    "path": false
+  "OptoTrak":  {
+    "options": {}
   }
 }
