@@ -119,7 +119,7 @@ class RunTrial(BaseTrial):
         # Because parameters are loaded from a JSON file, they are imported as string. Therefore, it might be necessary
         # to convert the parameter's type: e.g. as a float number.
         # Example:
-        # my_parameter = float(self.trial.parameters['my_parameter']
+        # self.my_parameter = float(self.trial.parameters['my_parameter']
 
         # Sled settings
         self.pViewer = [0.0, 0.0]
@@ -134,6 +134,9 @@ class RunTrial(BaseTrial):
         # ===============
         # Default triggers are moveOnRequested, pauseRequested, startTrigger and quitRequested.
         # They should not be modified. However, you can add new triggers: 'trigger_name': False
+        # self.triggers.update({
+        #   'trigger_name': False
+        # })
         self.triggers = {
             'moveOnRequested': False,
             'pauseRequested': False,
@@ -166,8 +169,7 @@ class RunTrial(BaseTrial):
 
         # Timers
         # ======
-        # Add your timers to this dictionary.
-        # Default timer is timers['runtime'] and it should not be removed
+        # Timers act like a watch.
         #
         # Example:
         # timers = {'timer_name': Timer()}
@@ -183,6 +185,11 @@ class RunTrial(BaseTrial):
         #
         # Reset timer
         # timers['timer_name'].reset()
+        #
+        # Add your timers to this dictionary.
+        # self.timers.update({
+        #    'timer_name': Timer()
+        # })
         self.timers.update({
             'responseDuration': Timer(),
             'sled_start': Timer()
@@ -205,26 +212,15 @@ class RunTrial(BaseTrial):
         }
 
         # Keyboard/Mouse Inputs
-        # Calls UserInput observer
-        # Usage:
-        # # Create instance
-        # Inputs = UserInput()
-        # Inputs.add_device('keyboard')  # arguments are (device type, device arguments: optional)
-        # Inputs.add_device('mouse', visible=False, newPos=None, win=win)
+        # =====================
+        # self.buttons.add_listener('device_type', 'key_label', key_code)
+        # Arguments are: device_type, key label, key code (Pygame constant)
         #
-        # # Add listeners
-        # Inputs.add_listener('keyboard', 'a', K_a)  # arguments are: device_type, key label, key code (Pygame constant)
-        # Inputs.add_listener('keyboard', 'quit', K_ESCAPE)
-        # Inputs.add_listener('mouse', 'left', 0)
+        # For example:
         #
-        # Update status
-        # Inputs.update()
-
-        # Access watched key's status
-        # Inputs.get_status('_name_of_key')  # returns True or False
-        # ================
-        # Response keys
-        # Add your response keys below
+        # self.buttons.add_listener('keyboard', 'a', pygame.K_a)  # key "A"
+        # self.buttons.add_listener('mouse', 'left', 0)  # Left mouse click
+        # self.buttons.add_listener('mouse', 'right', 2)  # Right mouse click
         self.buttons.add_listener('mouse', 'left', 0)
         self.buttons.add_listener('mouse', 'right', 2)
         self.buttons.add_listener('keyboard', 'calibration', pygame.K_c)

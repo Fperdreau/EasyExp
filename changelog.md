@@ -1,5 +1,9 @@
 # EasyExp - Changelog
 
+## Version 1.0.1 - Beta
+### Devices
+- Improved handling of devices used in the experiment. Devices must now be defined in devices.json. They will be automatically loaded and initialized.
+
 ## Version 1.0.0 - Beta
 ### Methods
 - Improved handling of experiment methods (staircases).
@@ -16,4 +20,3 @@ in RunTrial.fast_state_machine() and RunTrial.graphics_state_machine()
 ### Apparatus
 - SLED: added is_moving property. It allows checking if the sled is not moving before sending a new command.
 - SLED: added get_velocity() method to retrieve sled's instantaneous velocity.
-
