@@ -76,20 +76,20 @@ class Config(object):
         self.settings = {}
 
         # Create necessary folders
-        self.createfolders()
+        self.__create_folders()
 
     def setup(self):
         """
         This function loads settings from the experiment's 'settings.json' file, renders a GUI form to invite the user
         modifying the settings and update the settings file accordingly.
         """
-        self.loadSetting()  # Load existing settings
-        self.getexpsetting()  # Display settings and allow user to modify them
+        self.__load_setting()  # Load existing settings
+        self.__get_setting()  # Display settings and allow user to modify them
         if len(self.settings) > 0:
-            self.saveSettings()  # Save settings
-        self.dispatch()
+            self.save_settings()  # Save settings
+        self.__dispatch()
 
-    def createfolders(self):
+    def __create_folders(self):
         """
         Creates necessary folders and get list of useful folders (data, functions, config)
         :rtype : bool
@@ -108,43 +108,40 @@ class Config(object):
                     raise e
         return True
 
-    def loadSetting(self):
+    def __load_setting(self):
         """
         load settings from config file
         :return:
         """
         self.settingsFile.load()
 
-    def dispatch(self):
-        for section, setting in self.settingsFile.data.iteritems():
-            self.settings[section] = Section(setting)
+    def __dispatch(self):
+        """
+        Dispatch settings
+        :return:
+        """
+        self.settings = dict()
+        for section, items in self.settingsFile.data.iteritems():
+            if section not in self.settings:
+                self.settings[section] = dict()
 
-    def saveSettings(self):
+            for item, info in items.iteritems():
+                if item not in self.settings[section]:
+                    self.settings[section].update({item: info['value']})
+
+    def save_settings(self):
         """
         Save settings
         :return:
         """
         self.settingsFile.save()
 
-    def getexpsetting(self):
+    def __get_setting(self):
         """
         Get experiment's settings
         """
         self.settingsFile.display(cli=self.__cli)
         self.settings = self.settingsFile.data
-
-
-class Section(dict):
-
-    def __init__(self, data):
-        super(Section, self).__init__()
-        self._data = data
-
-    def __getitem__(self, item):
-        if item in self._data and 'value' in self._data[item]:
-            return self._data[item]['value']
-        else:
-            raise KeyError('Setting {} does not exist'.format(item))
 
 
 class ConfigFiles(object):
@@ -160,7 +157,7 @@ class ConfigFiles(object):
         :return: void
         """
         self.pathtofile = pathtofile
-        self.data = {}
+        self.__data = dict()
 
     def load(self):
         """
@@ -170,7 +167,7 @@ class ConfigFiles(object):
         if isfile(self.pathtofile):
             try:
                 json_info = open(self.pathtofile, 'r')
-                self.data = json.load(json_info)
+                self.__data = json.load(json_info)
                 json_info.close()
             except IOError as e:
                 msg = IOError('[{}] Could not open "{}": {}'.format(__name__, self.pathtofile, e))
@@ -180,7 +177,7 @@ class ConfigFiles(object):
             msg = IOError("[{}] The settings file '{}' cannot be found!".format(__name__, self.pathtofile))
             logging.getLogger('EasyExp').critical(msg)
             raise msg
-        return self.data
+        return self.__data
 
     def save(self):
         """
@@ -190,7 +187,7 @@ class ConfigFiles(object):
         if isfile(self.pathtofile):
             try:
                 with open(self.pathtofile, 'w', 0) as fid:
-                    json.dump(self.data, fid, indent=4)
+                    json.dump(self.__data, fid, indent=4)
             except IOError as e:
                 msg = IOError('[{}] Could not write into "{}": {}'.format(__name__, self.pathtofile, e))
                 logging.getLogger('EasyExp').critical(msg)
@@ -199,10 +196,57 @@ class ConfigFiles(object):
     def display(self, cli=False):
         """
         Get experiment's settings
+        :param cli: use CLI or dialog window
+        :type cli: bool
         """
-        if cli:
-            expinfo = GuiWrapper.factory(cli, 'nested', self.data, title="Experiment setup", mandatory=False)
+        if cli is True:
+            info = GuiWrapper.factory(cli, 'nested', self.data, title="Experiment setup", mandatory=False)
         else:
-            expinfo = GuiWrapper.factory(cli, 'nested', self.data, title="Experiment setup")
+            info = GuiWrapper.factory(cli, 'nested', self.data, title="Experiment setup")
+        self.__data = info.out
 
-        self.data = expinfo.out
+    @property
+    def data(self):
+        return self.__data
+
+    @data.setter
+    def data(self, value):
+        self.__data = value
+
+
+if __name__ == "__main__":
+    settings = {
+        "setup": {
+            "pauseInt": {
+                "type": "text",
+                "value": 300,
+                "label": "Break interval"
+            },
+            "movie": {
+                "type": "checkbox",
+                "options": [
+                    True,
+                    False
+                ],
+                "value": False,
+                "label": "Movie"
+            },
+        },
+        "display": {
+            "distance": {
+                "type": "text",
+                "value": 1470.0,
+                "label": "Distance"
+            },
+            "fullscreen": {
+                "type": "checkbox",
+                "options": [
+                    True,
+                    False
+                ],
+                "value": False,
+                "label": "Full screen"
+            }
+        }
+    }
+    section = Section()
