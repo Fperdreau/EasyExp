@@ -7,11 +7,17 @@
 Florian Perdreau - [www.florianperdreau.fr](http://www.florianperdreau.fr)
 
 ## Description:
-EasyExp is a framework designed to ease the programming of experiments using Python. It implements and handles 
-experiment's routine (creation of participant, generation of experimental design, resume function, breaks) that are fully 
+_EasyExp_ is a Python framework for coding **multi-threaded** experiments with [PsychoPy](http://www.psychopy.org/) or [PyQt](https://riverbankcomputing.com/software/pyqt/intro). 
+
+Experiments do not always only consist in presenting visual or audio stimuli but may also call external devices (eye-tracker, 
+body-tracker, etc...) that need to run at close to real-time speed. In conventional programming of visual experiments, this is not possible 
+because the main thread's running speed is limited by the screen's refresh rate. EasyExp overcomes this issue by relying on a multi-threaded state machine. 
+Sounds complicated? Not at all! **EasyExp provides a simple, but complete framework making coding experiments easy!**
+
+_EasyExp_ implements and handles experiment's routine (creation of participant, generation of experimental design, resume function, breaks) that are fully 
 customizable without necessarily changing the code of your experiment. EasyExp also comes with a collection of modules handling interfaces,
 experimental methods or devices that could be used in an experiment. All of this modules are designed to be autonomous and
-independent from EasyExp. This means that everyone is free to use these modules in their experiment without using the 
+independent from _EasyExp_. This means that everyone is free to use these modules in their experiment without using the 
 whole framework.
 
 ## License:
