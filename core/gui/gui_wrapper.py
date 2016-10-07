@@ -22,7 +22,7 @@ class GuiWrapper(object):
         :rtype: BaseCli
         """
         try:
-            if cli:
+            if cli is True:
                 if data_type == 'simple':
                     return SimpleCli(inputs_data, **kwargs)
                 elif data_type == 'nested':
@@ -32,6 +32,9 @@ class GuiWrapper(object):
                     return SimpleGui(inputs_data, **kwargs)
                 elif data_type == 'nested':
                     return NestedGui(inputs_data, **kwargs)
+        except AttributeError as e:
+            raise AttributeError('Make sure to provide arguments compatible with the type of GUI (CLI={}) '
+                                 'and data format({}): {}'.format(cli, data_type, e))
         except TypeError as e:
             raise TypeError('Make sure to provide arguments compatible with the type of GUI (CLI={}) '
                             'and data format({}): {}'.format(cli, data_type, e))
@@ -45,4 +48,4 @@ if __name__ == '__main__':
             "select_input_int": [0, 1, 2]
         }
 
-    GuiWrapper.factory(True, 'simple', inputs)
+    GuiWrapper.factory(False, 'nested', inputs)
