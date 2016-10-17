@@ -1,8 +1,13 @@
 # EasyExp - Changelog
 
+## Version 1.0.2 - Beta
+- Fixed bug preventing the continuous display of stimuli
+
 ## Version 1.0.1 - Beta
 ### Devices
 - Improved handling of devices used in the experiment. Devices must now be defined in devices.json. They will be automatically loaded and initialized.
+- Feature: Added possibility to continuously update stimuli without break or screen blank between trials. Continuous update can be enable by setting RunTrial.clearAll 
+to False in RunTrial's constructor
 
 ## Version 1.0.0 - Beta
 ### Methods
