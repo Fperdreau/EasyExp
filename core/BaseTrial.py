@@ -158,6 +158,7 @@ class BaseTrial(StateMachine):
 
         self.status = True
         self._running = False
+        self._initialized = False
         self.validTrial = False
         self.threads = dict()
         self.lock = threading.RLock()
@@ -499,7 +500,7 @@ class BaseTrial(StateMachine):
         :return:
         """
         # Draw stimuli
-        if self.triggers['startTrigger']:
+        if self._initialized and (self.triggers['startTrigger'] or self.clearAll):
             for stim, status in self.stimuliTrigger.iteritems():
                 if stim in self.stimuli:
                     if status:
@@ -655,6 +656,8 @@ class BaseTrial(StateMachine):
                 if status is 'pause':
                     self.next_state = 'pause'
                     self.change_state(force_move_on=True)
+
+            self._initialized = True
 
         elif self.state == 'quit':
             # QUIT experiment
