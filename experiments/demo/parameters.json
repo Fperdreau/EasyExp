@@ -12,6 +12,7 @@
   "fixationSize": 0.30,
   "durations": {
     "calibration": 0.0,
+    "pause": 20.0,
     "start": false,
     "iti": 0.500,
     "first": 0.100,

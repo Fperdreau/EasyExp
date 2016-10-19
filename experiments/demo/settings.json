@@ -4,12 +4,7 @@
             "type": "text", 
             "value": 30, 
             "label": "Break interval"
-        },
-        "pauseDur": {
-            "type": "text",
-            "value": 0,
-            "label": "Break duration"
-        },
+        }, 
         "movie": {
             "type": "checkbox", 
             "options": [
