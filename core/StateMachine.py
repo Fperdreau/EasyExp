@@ -29,8 +29,16 @@ import version
 
 class StateMachine(object):
     """
-    State class
-    Implement state of state machine
+    StateMachine class
+    Handles transition between states
+
+    API:
+    - StateMachine.next_state = "next_state": set next state
+    - StateMachine.state = "state_name": set current state
+    - StateMachine.start(): start current state
+    - StateMachine.stop(): stop current state
+    - StateMachine.change_state(force_move_on=False): move to next state if conditions are reached.
+    - StateMachine.move_on(): force transition to next state
     """
 
     def __init__(self, timings=None, logger=None):
@@ -58,40 +66,77 @@ class StateMachine(object):
 
     @property
     def logger(self):
+        """
+        Get logger
+        :return:
+        """
         return self.__logger if self.__logger is not None else logging.getLogger(version.__app_name__)
 
     @logger.setter
     def logger(self, logger):
+        """
+        Set logger
+        :param logger: logger
+        :return:
+        """
         self.__logger = logger
 
     @property
     def current(self):
+        """
+        Get current state
+        :return:
+        """
         return self._current
 
     @property
     def state(self):
+        """
+        Get current state
+        :return:
+        """
         return self._state
 
     @state.setter
     def state(self, new_state):
+        """
+        Set current state
+        :param new_state: new state
+        :type new_state: str
+        :return:
+        """
         self._state = new_state
 
     @property
     def next_state(self):
+        """
+        Get next state
+        :return:
+        """
         return self._next_state
 
     @next_state.setter
     def next_state(self, next_state):
+        """
+        Set next state
+        :param next_state: next state
+        :type next_state: str
+        :return:
+        """
         self._next_state = next_state
 
     @property
     def durations(self):
+        """
+        Get states durations
+        :return:
+        """
         return self.__durations
 
     @durations.setter
     def durations(self, timings):
         """
-        Update timings or set new timings
+        Update durations or set new durations
         :param timings:
         :type timings: dict
         :return:
@@ -147,14 +192,34 @@ class StateMachine(object):
             return True
 
         # If we transition to the next state
-        if force_move_on or (self._current.status and self._current.running):
+        if (self.durations[self.state] is False and self._current.running and force_move_on)\
+                or (self.durations[self.state] is not False and self._current.status and self._current.running):
             self.stop()
             self.start()
             return True
         else:
             return False
 
+    def move_on(self):
+        """
+        Move directly to next state
+        :return:
+        """
+        if self.current is None:
+            # If we enter a new state
+            self.start()
+            return True
+        # If we transition to the next state
+        else:
+            self.stop()
+            self.start()
+            return True
+
     def __str__(self):
+        """
+        Print State information
+        :return:
+        """
         return '[{0}]: {1}=>{2} [START: {3:.3f}s | DUR: {4:.3f}s]'.format(__name__, self.state, self.next_state,
                                                                           self._current.start_time
                                                                           - self._runtime.get_time('start'),
@@ -336,7 +401,7 @@ def go_next():
     certain key has been pressed.
     :rtype: bool
     """
-    prob = 0.05  # Probability of moving to next state
+    prob = 0.000005  # Probability of moving to next state
     value = np.random.random()
     return value <= prob
 
