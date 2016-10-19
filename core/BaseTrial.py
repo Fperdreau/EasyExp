@@ -89,6 +89,26 @@ class Loading(object):
         return self.__msg
 
 
+class TimeUp(object):
+    """
+    A simple Timeup animation
+    """
+
+    def __init__(self, max_duration):
+        self.__max_duration = max_duration
+        self.__timer = Timer(max_duration=max_duration)
+
+    @property
+    def text(self):
+        """
+        :rtype: str
+        :return:
+        """
+        if self.__timer.get_time('start') is None:
+            self.__timer.start()
+        return "Experiment will continue in {0:1.2f} s".format(self.__timer.get_time('elapsed'))
+
+
 class BaseTrial(StateMachine):
     """
     BaseTrial class
@@ -132,6 +152,7 @@ class BaseTrial(StateMachine):
 
     __homeMsg = 'Welcome!'  # Message prompted at the beginning of the experiment
     __loading = Loading()
+    __countdown = None
 
     def __init__(self, exp_core=Core):
         """
@@ -721,12 +742,21 @@ class BaseTrial(StateMachine):
 
         elif self.state == 'pause':
             if self.singleshot('pause_graphics'):
+                if self.durations['pause'] is not False:
+                    self.__countdown = TimeUp(self.durations['pause'])
                 self.clear_screen()
 
-            text = 'PAUSE {0}/{1} [Replayed: {2}]'.format(self.trial.nplayed, self.trial.ntrials,
-                                                          self.trial.nreplay)
-            text = visual.TextStim(self.ptw, pos=(0, 0), text=text, units="pix", height=30.0)
-            text.draw()
+            # Render information displayed during break
+            break_info_txt = 'PAUSE {0}/{1} [Replayed: {2}]'.format(self.trial.nplayed, self.trial.ntrials,
+                                                                    self.trial.nreplay)
+            break_msg = visual.TextStim(self.ptw, pos=(0, 0), text=break_info_txt, units="pix", height=30.0)
+            break_msg.draw()
+
+            # Show countdown if experiment starts automatically after some delay
+            if self.__countdown is not None:
+                timeup_msg = visual.TextStim(self.ptw, pos=(0, -50), text=self.__countdown.text, units="pix",
+                                             height=30.0)
+                timeup_msg.draw()
 
     def fast_state_machine(self):
         """
