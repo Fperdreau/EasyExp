@@ -45,8 +45,6 @@ from core.events.timer import Timer
 # ADD YOUR CUSTOM IMPORTS BELOW #
 #################################
 from core.misc.conversion import pol2cart, mm2pix, deg2m
-from core.apparatus.sled.sled import Sled
-from core.apparatus.eyetracker.eyetracker import EyeTracker
 
 
 class RunTrial(BaseTrial):
@@ -72,23 +70,19 @@ class RunTrial(BaseTrial):
     - RunTrial.__init__(): Class's constructor. Triggers and data field can be initialized here. In general,
     any variables used by several class' methods should be initialized in the constructor as self._attribute_name
     - RunTrial.init_devices(): devices used by the experiment should be instantiated here.
-    - RunTrial.init_trial(): Initialization of trial (get trial's information, reset triggers and data). This method
-    should not be modified
     - RunTrial.init_stimuli(): Initialization/Preparation of stimuli. Creation of stimuli objects should be implemented
     here.
     - RunTrial.init_audio(): Initialization/Preparation of auditory stimuli and beeps. Creation of auditory objects
     should be implemented here.
-    - RunTrial.quit(): Quit experiment. This method is called when the experiment is over (no more trials to be played)
-    or when the user press the "quit" key.
-    - RunTrial.go_next(): Check if transition to next state is requested (by key press or timer)
     - RunTrial.get_response(): Participant's response should be handled here. This method is typically called during the
     "response" state.
-    - RunTrial.end_trial(): End trial routine. Write data into file and check if the trial is valid or invalid.
-    - RunTrial.getviewerposition(): Get sled (viewer) position. This method is called by the fast state machine.
-    - RunTrial.run(): Application's main loop.
-    - RunTrial.change_state(): handles transition between states.
     - RunTrial.fast_state_machine(): Real-time state machine.
     - RunTrial.graphics_state_machine(): Slow state machine.
+
+    State transition:
+    State transition is handled by BaseTrial abstract class. State transition is usually triggered by timers' timeout
+     or by key presses as defined in parameters.json file (see documentation for more details). However, transition to
+      next state can be forced without waiting by calling self.move_on().
     """
 
     homeMsg = 'Welcome!'  # Message prompted at the beginning of the experiment
@@ -438,7 +432,7 @@ class RunTrial(BaseTrial):
                     time.sleep(self.mvtBackDuration)
                     self.devices['sled'].lights(True)  # Turn the lights off
 
-        elif self.state == 'calibration':
+        if self.state == 'calibration':
             # Eye-tracker calibration
             self.next_state = 'iti'
 
@@ -476,7 +470,7 @@ class RunTrial(BaseTrial):
 
             # Move sled to starting position if it is not there already
             if self.wait_sled(self.sledStart):
-                self.change_state(force_move_on=True)
+                self.move_on()
 
         elif self.state == 'first':
             self.next_state = 'probe1'
