@@ -91,8 +91,8 @@ class Loading(object):
 
 class BaseTrial(StateMachine):
     """
-    RunTrial class
-    This class handles experiment's trials procedure
+    BaseTrial class
+    Abstract class handling trial's procedure
 
     This class calls on two state machines, one fast (close to real-time), one slow (limited by screen's refresh rate)
     A same state can be present in both state machines, but it should only call rendering operation within the slow
@@ -109,26 +109,25 @@ class BaseTrial(StateMachine):
     Therefore, if objects have to be modified within a thread, this should be done in the fastest one.
 
     API
-    - RunTrial.__init__(): Class's constructor. Triggers and data field can be initialized here. In general,
-    any variables used by several class' methods should be initialized in the constructor as self._attribute_name
-    - RunTrial.init_devices(): devices used by the experiment should be instantiated here.
-    - RunTrial.init_trial(): Initialization of trial (get trial's information, reset triggers and data). This method
+    - BaseTrial.__init__(): Class's constructor. Initialize triggers, inputs, devices, etc.
+    - BaseTrial.init_devices(): devices used in the experiment and defined in devices.json are initialized here.
+    - BaseTrial.init_trial(): Initialization of trial (get trial's information, reset triggers and data). This method
     should not be modified
-    - RunTrial.init_stimuli(): Initialization/Preparation of stimuli. Creation of stimuli objects should be implemented
-    here.
-    - RunTrial.init_audio(): Initialization/Preparation of auditory stimuli and beeps. Creation of auditory objects
-    should be implemented here.
-    - RunTrial.quit(): Quit experiment. This method is called when the experiment is over (no more trials to be played)
+    - BaseTrial.init_stimuli(): Must be implemented by RunTrial.
+    - BaseTrial.init_audio(): Must be implemented by RunTrial.
+    - BaseTrial.quit(): Quit experiment. This method is called when the experiment is over (no more trials to be played)
     or when the user press the "quit" key.
-    - RunTrial.go_next(): Check if transition to next state is requested (by key press or timer)
-    - RunTrial.get_response(): Participant's response should be handled here. This method is typically called during the
-    "response" state.
-    - RunTrial.end_trial(): End trial routine. Write data into file and check if the trial is valid or invalid.
-    - RunTrial.getviewerposition(): Get sled (viewer) position. This method is called by the fast state machine.
-    - RunTrial.run(): Application's main loop.
-    - RunTrial.change_state(): handles transition between states.
-    - RunTrial.fast_state_machine(): Real-time state machine.
-    - RunTrial.graphics_state_machine(): Slow state machine.
+    - BaseTrial.go_next(): Check if transition to next state is requested (by key press or timer)
+    - BaseTrial.get_response(): Must be implemented by RunTrial.
+    - BaseTrial.end_trial(): End trial routine. Write data into file and check if the trial is valid or invalid.
+    - BaseTrial.run(): Application's main loop.
+    - BaseTrial.change_state(): handles transition between states.
+    - BaseTrial.fast_state_machine(): Real-time state machine.
+    - BaseTrial.graphics_state_machine(): Slow state machine.
+    - BaseTrial.__default_fast_states(): Definition of default state for fast_state_machine
+    - BaseTrial.__default_graphic_states(): Definition of default state for graphics_state_machine
+    - BaseTrial.update_graphics(): Render stimuli. More specifically, it check status of stimuli triggers and it a trigger is True, then it renders the corresponding
+    stimulus stored in self.stimuli dictionary.
     """
 
     __homeMsg = 'Welcome!'  # Message prompted at the beginning of the experiment
@@ -176,7 +175,8 @@ class BaseTrial(StateMachine):
             "quit": 0.0,
             "idle": False,
             "pause": False,
-            "init": 0.0
+            "init": 0.0,
+            "end": 0.0
         }
         # Custom states duration specified in parameters.json
         self.durations = self.trial.parameters['durations']
@@ -382,14 +382,17 @@ class BaseTrial(StateMachine):
 
         # Does the user want to quit the experiment?
         if self.buttons.get_status('quit'):
-            self.triggers['quitRequested'] = True
             self.next_state = 'quit'
+            self.triggers['quitRequested'] = True
             return True
 
         # Does the user want a break?
         if self.buttons.get_status('pause'):
-            self.triggers['pauseRequested'] = True
             self.next_state = 'pause'
+            self.triggers['pauseRequested'] = True
+            return True
+
+        if self.buttons.get_status('move_on'):
             return True
 
         return False
@@ -530,6 +533,9 @@ class BaseTrial(StateMachine):
         for key, stim in self.stimuli.iteritems():
             stim.setAutoDraw(False)
 
+        # Reset all triggers
+        self.stimuliTrigger.reset()
+
     ################################
     # CUSTOMIZATION STARTS HERE    #
     ################################
@@ -637,8 +643,6 @@ class BaseTrial(StateMachine):
             # IDLE state
             # DO NOT MODIFY
             self.next_state = 'iti'
-            if self.buttons.get_status('move_on'):
-                self.change_state(True)
 
         elif self.state == 'iti':
             # Inter-trial interval
@@ -652,10 +656,10 @@ class BaseTrial(StateMachine):
                 status = self.init_trial()  # Get trial parameters
                 if not status:
                     self.next_state = 'quit'
-                    self.change_state(force_move_on=True)
+                    self.move_on()
                 if status is 'pause':
                     self.next_state = 'pause'
-                    self.change_state(force_move_on=True)
+                    self.move_on()
 
             self._initialized = True
 
@@ -709,10 +713,16 @@ class BaseTrial(StateMachine):
             text.draw()
 
         elif self.state == 'quit':
+            if self.singleshot('quit_graphics'):
+                self.clear_screen()
+
             text = visual.TextStim(self.ptw, pos=(0.0, 0.0), text="Experiment is over", units="pix", height=30.0)
             text.draw()
 
         elif self.state == 'pause':
+            if self.singleshot('pause_graphics'):
+                self.clear_screen()
+
             text = 'PAUSE {0}/{1} [Replayed: {2}]'.format(self.trial.nplayed, self.trial.ntrials,
                                                           self.trial.nreplay)
             text = visual.TextStim(self.ptw, pos=(0, 0), text=text, units="pix", height=30.0)
