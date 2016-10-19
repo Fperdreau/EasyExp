@@ -224,6 +224,15 @@ class PsiMarginal(MethodBase):
         # Load staircase settings from file
         self._load_options(options)
 
+        self.pThreshold = False
+        self.pSlope = False
+        self.pLapse = False
+        self.pGuess = False
+        self.eThreshold = False
+        self.eSlope = False
+        self.eLapse = False
+        self.eGuess = False
+
         # Psychometric function parameters
         list_ranges = ('threshold', 'slope', 'guessRate', 'lapseRate')
         self.ranges = dict()
@@ -472,5 +481,3 @@ class PsiMarginal(MethodBase):
         conditions_name.append('staircaseID')
 
         return design, conditions_name
-
-
