@@ -1,7 +1,8 @@
 # EasyExp - Changelog
 
 ## Version 1.0.3 - Beta
-- Minor bug fixes
+- Fixed issues related to state transition (e.g. pauses). self.move_on() must now be used instead of self.change_state(force_move_on=True) in order to force transition 
+to next state.
 - Method instance and its attributes/methods can now be accessed from RunTrial by calling self.trial.method.get('instance_id'). 
 
 ## Version 1.0.2 - Beta
