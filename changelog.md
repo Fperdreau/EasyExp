@@ -1,5 +1,9 @@
 # EasyExp - Changelog
 
+## Version 1.0.3 - Beta
+- Minor bug fixes
+- Method instance and its attributes/methods can now be accessed from RunTrial by calling self.trial.method.get('instance_id'). 
+
 ## Version 1.0.2 - Beta
 - Fixed bug preventing the continuous display of stimuli
 
