@@ -383,7 +383,7 @@ class RunTrial(BaseTrial):
             if self.triggers['response_given']:
                 # If response is given, then we move directly to the next state ('end') without waiting for the end of
                 #  the response phase
-                self.change_state(force_move_on=True)
+                self.move_on()
 
     def graphics_state_machine(self):
         """
