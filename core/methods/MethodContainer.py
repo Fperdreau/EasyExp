@@ -83,26 +83,39 @@ class MethodContainer(object):
         return self._instances[str_id].update(stair_id=stair_id, direction=direction, load=load, intensity=intensity,
                                               response=response)
 
-    def __add(self, stair_id):
+    def get(self, instance_id):
+        """
+        Get method instance
+        :param instance_id: instance id
+        :type instance_id: str
+        :return:
+        """
+        if instance_id in self._instances:
+            return self._instances[instance_id]
+        else:
+            raise AttributeError('Instance "{}" has not been initialized yet'.format(instance_id))
+
+    def __add(self, instance_id):
         """
         Add method instance
-        :param stair_id: id of instance
-        :type stair_id: str
+        :param instance_id: id of instance
+        :type instance_id: str
         :return:
         """
-        if stair_id not in self._instances:
+        if instance_id not in self._instances:
             method = self.get_method(self._method)
-            self._instances[stair_id] = method(settings_file=self._settings_file, data_file=self._data_file,
-                                               options=self._options)
+            self._instances[instance_id] = method(settings_file=self._settings_file, data_file=self._data_file,
+                                                  options=self._options)
 
-    def __remove(self, id):
+    def __remove(self, instance_id):
         """
         Remove method instance
-        :param id:
+        :param instance_id: instance id
+        :type instance_id: str
         :return:
         """
-        if id in self._instances:
-            del self._instances[id]
+        if instance_id in self._instances:
+            del self._instances[instance_id]
 
     @staticmethod
     def get_method(method_name):
