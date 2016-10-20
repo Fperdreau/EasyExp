@@ -106,7 +106,7 @@ class TimeUp(object):
         """
         if self.__timer.get_time('start') is None:
             self.__timer.start()
-        return "Experiment will continue in {0:1.2f} s".format(self.__timer.get_time('elapsed'))
+        return "Experiment will continue in {0:1.1f} s".format(self.__timer.countdown)
 
 
 class BaseTrial(StateMachine):
@@ -191,11 +191,13 @@ class BaseTrial(StateMachine):
         # State Machine
         # =============
         # Default states duration
+        pause_duration = False if self.trial.settings['setup']['pauseDur'] == 0 \
+            else float(self.trial.settings['setup']['pauseDur'])
         self.durations = {
             'loading': 0.0,
             "quit": 0.0,
             "idle": False,
-            "pause": False,
+            "pause": pause_duration,
             "init": 0.0,
             "end": 0.0
         }
@@ -411,6 +413,7 @@ class BaseTrial(StateMachine):
         if self.buttons.get_status('pause'):
             self.next_state = 'pause'
             self.triggers['pauseRequested'] = True
+            self.trial.run_pause(force=True)
             return True
 
         if self.buttons.get_status('move_on'):
@@ -509,7 +512,7 @@ class BaseTrial(StateMachine):
             self.sounds['valid'].play()
 
         self.trial.stop(self.validTrial)  # Stop routine
-        self.trial.writedata(self.data)  # Write data
+        self.trial.write_data(self.data)  # Write data
 
         # Call closing trial routine
         for device in self.devices:
@@ -697,8 +700,6 @@ class BaseTrial(StateMachine):
             # DO NOT MODIFY
             self.next_state = 'iti'
             self.triggers['pauseRequested'] = False
-            if self.singleshot('fast_pause'):
-                self.clear_screen()
 
         elif self.state == 'end':
             # End of trial. Call ending routine.
@@ -742,7 +743,7 @@ class BaseTrial(StateMachine):
 
         elif self.state == 'pause':
             if self.singleshot('pause_graphics'):
-                if self.durations['pause'] is not False:
+                if self.trial.settings['setup']['pauseDur'] > 0:
                     self.__countdown = TimeUp(self.durations['pause'])
                 self.clear_screen()
 
