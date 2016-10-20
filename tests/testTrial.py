@@ -13,7 +13,6 @@ root_folder = dirname(dirname(abspath('__dir__')))
 sys.path.append("{}/libs".format(root_folder))
 from core.Core import Core
 from core.Trial import Trial
-from core.methods.StaircaseASA.StaircaseASA import StaircaseASA
 from core.methods.PsiMarginal.PsiMarginal import PsiMarginal
 
 
@@ -70,9 +69,9 @@ def main():
                   internal_rep, resp_curr, np.random.normal()*sd))
             valid = np.random.uniform(0.0, 1.0) < 0.8
             trial.stop(valid)
-            trial.writedata({'intensity': intensity, 'correct': resp_curr})
+            trial.write_data({'intensity': intensity, 'correct': resp_curr})
 
-    data = trial.loadData()
+    data = trial.load_data()
 
     res = {}
     for trial in data:
@@ -103,12 +102,12 @@ def main():
 
     # Check that all the conditions have been played
     levels = Exp.design.allconditions['timing']
-    nProbe = np.zeros((1, len(levels)))
+    trials_per_condition = np.zeros((1, len(levels)))
     for row in data:
         if row['Replay'] == 'False':
             ind = [i for i, j in enumerate(levels) if j == float(row['timing'])]
-            nProbe[0, ind[0]] += 1
-    print(nProbe)
+            trials_per_condition[0, ind[0]] += 1
+    print(trials_per_condition)
 
 if __name__ == '__main__':
     main()
