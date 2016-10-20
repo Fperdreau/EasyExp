@@ -25,6 +25,8 @@ from __future__ import print_function
 # Core
 from Design import Design
 from Config import ConfigFiles
+from core.events.pause import Pause
+from core.methods.MethodContainer import MethodContainer
 
 # Import useful libraries
 import time
@@ -48,11 +50,13 @@ class Trial(object):
         - showFeedback(): Display a feedback according to the user's response.
     """
 
-    def __init__(self, design=Design, settings='', userfile='', paramsfile=None, pause_interval=0):
+    def __init__(self, design=Design, settings=None, userfile='', paramsfile=None, pause_interval=0):
         """
         Constructor of Trial class
         :param string paramsfile: path to parameter file
         :param Design design: instance of Design class
+        :param settings: Experiment's settings
+        :type settings: dict
         :param userfile: user data file's name
         :param pause_interval: time interval between pauses (in seconds. 0: no pause)
         """
@@ -71,32 +75,34 @@ class Trial(object):
         self.status = True  # Experiment's status (False if over)
 
         # Lists
-        self.playlist = []  # List of trials to play
-        self.replaylist = []  # List of trials to replay
         self.played = []  # List of played trials
         self.params = {}  # Trial's parameters.json
+        self.__playlist = []  # List of trials to play
+        self.__replay_list = []  # List of trials to replay
+        self.__default_fields = {}
 
         # Timers
-        self.inittime = 0
-        self.endtime = 0
+        self.init_time = 0
+        self.end_time = 0
 
         # Pause
         self.pauseInt = pause_interval  # Pause interval
         self.pause_time = None
         self.nbPause = 0
+        self.pause = Pause(mode=settings['setup']['pauseMode'], interval=settings['setup']['pauseInt'])
 
         # Load Trials list
-        self.random_design = None
+        self.__random_design = None
 
         # Load conditions
         self.conditions = design.allconditions
         self.ntrials = design.ntrials  # Total number of trials to play
 
         # Load experiment's parameters
-        self.paramsfile = paramsfile
-        self.parameters = Trial.getParams(paramsfile)
+        self.__paramsfile = paramsfile
+        self.parameters = Trial.get_params(paramsfile)
 
-        from core.methods.MethodContainer import MethodContainer
+        # Experiment method
         self.method = MethodContainer(method=self.conditions['method'],
                                       settings_file=self.design.conditionFile.pathtofile, data_file=self.userfile,
                                       options=self.conditions['options'])
@@ -112,28 +118,22 @@ class Trial(object):
                "\tReplayed: {3}\n" \
                "\tParams: {4}\n".format(self.id, self.nplayed, self.ntrials, self.nreplay, self.params)
 
-    def doPause(self):
+    def run_pause(self, force=False):
         """
         Is it time to do a break?
-        :return:
+        :param force: manually trigger pause
+        :type force: bool
+        :return: Is a pause required?
+        :rtype: bool
         """
-        if self.pauseInt > 0:
-            if self.pause_time is None:
-                self.pause_time = time.time()
-                return False
-            elif (time.time() - self.pause_time) >= self.pauseInt:
-                self.__logger.info('[{0}] Pause Requested - {1:1.2f} min have elapsed since last break [{2}]'.format(
-                    __name__, (time.time() - self.pause_time) / 60, self.nbPause))
-                self.pause_time = None
-                self.nbPause += 1
-                return True
-            else:
-                return False
+        if self.pause.run(force=force):
+            self.__logger.info('[{0}] {1}'.format(__name__, self.pause.text))
+            return True
         else:
             return False
 
     @staticmethod
-    def getParams(paramsfile):
+    def get_params(paramsfile):
         """
         Get experiment's parameters
         :param string paramsfile: full path to parameters.json file
@@ -146,12 +146,12 @@ class Trial(object):
             parameters = {}
         return parameters
 
-    def load_design(self):
+    def __load_design(self):
         """
         Loads and randomizes trials list
         :return void:
         """
-        self.random_design = None
+        self.__random_design = None
         self.design.load()
 
         design = []
@@ -159,7 +159,7 @@ class Trial(object):
             design.append(t)
 
         # Remove played trials from trials list
-        self.random_design = Trial.filter_design(self.design.design)
+        self.__random_design = Trial.filter_design(self.design.design)
 
     def setup(self):
         """
@@ -167,14 +167,14 @@ class Trial(object):
         :return self.status: Trial's status (True, False or 'pause')
         """
         self.replayed = True
-        self.parameters = Trial.getParams(self.paramsfile)
+        self.parameters = Trial.get_params(self.__paramsfile)
 
         # Get trial to play
-        self.load_design()
-        self.id = self.getTrial()
+        self.__load_design()
+        self.id = self.get_trial_id()
         self.status = self.id is not False
 
-        if self.doPause():
+        if self.run_pause():
             self.status = 'pause'
         else:
             if self.id is not False:
@@ -186,16 +186,16 @@ class Trial(object):
                 self.status = False
         return self.status
 
-    def getTrial(self):
+    def get_trial_id(self):
         """
         Get next trial ID
         :return: int or boolean
         """
-        self.getplaylist()
-        self.loadData()
+        self.get_playlist()
+        self.load_data()
 
-        if len(self.playlist) > 0:
-            self.id = self.playlist[0]
+        if len(self.__playlist) > 0:
+            self.id = self.__playlist[0]
         else:
             self.id = False
         return self.id
@@ -205,28 +205,29 @@ class Trial(object):
         """
         This function removes successfully played trials from the trials list
         :param list design: trials list
+        :type design: list(dict)
         :return:
         """
         filtered_design = [design[ii] for ii in range(len(design)) if design[ii]['Replay'] != 'False']
         return filtered_design
 
-    def getplaylist(self):
+    def get_playlist(self):
         """
         Get list of trials to replay
         :return:
         """
         self.played = []
-        self.playlist = []
-        self.replaylist = []
-        for trial in self.random_design:
+        self.__playlist = []
+        self.__replay_list = []
+        for trial in self.__random_design:
             if trial['Replay'] == 'True':
-                self.playlist.append(int(trial['TrialID']))
+                self.__playlist.append(int(trial['TrialID']))
             elif trial['Replay'] == 'replay':
-                self.replaylist.append(int(trial['TrialID']))
+                self.__replay_list.append(int(trial['TrialID']))
 
-        self.nplayed = self.design.ntrials - len(self.random_design)
-        if len(self.playlist) == 0 and len(self.replaylist) > 0:
-            self.playlist = self.replaylist
+        self.nplayed = self.design.ntrials - len(self.__random_design)
+        if len(self.__playlist) == 0 and len(self.__replay_list) > 0:
+            self.__playlist = self.__replay_list
 
     def parse(self, params):
         """
@@ -245,10 +246,10 @@ class Trial(object):
         Start the trial and the timer
         :return:
         """
-        self.inittime = time.time()
+        self.init_time = time.time()
         self.__logger.info(self)
 
-    def valid(self):
+    def __valid(self):
         """
         Valid trial
         :return:
@@ -263,13 +264,13 @@ class Trial(object):
         :return:
         """
         if not status:
-            self.replay()
+            self.__replay()
         else:
-            self.valid()
-        self.endtime = time.time() - self.inittime
-        self.__logger.info("[{0}] Trial {1}: END (duration: {2:.2f})".format(__name__, self.id, self.endtime))
+            self.__valid()
+        self.end_time = time.time() - self.init_time
+        self.__logger.info("[{0}] Trial {1}: END (duration: {2:.2f})".format(__name__, self.id, self.end_time))
 
-    def replay(self):
+    def __replay(self):
         """
         Replay this trial: Indicate in the data file that this trial has been replayed and append the trial to the end
         of the file
@@ -290,7 +291,7 @@ class Trial(object):
         if not isfile(self.userfile):
             try:
                 with open(self.userfile, 'w', 0) as csvfile:
-                    writer = csv.DictWriter(csvfile, fieldnames=self.defaultfieldsname)
+                    writer = csv.DictWriter(csvfile, fieldnames=self.__default_fields)
                     writer.writeheader()
             except (IOError, TypeError) as e:
                 msg = IOError("[{}] Could not write into the user's datafile '{}': {}".format(
@@ -298,7 +299,7 @@ class Trial(object):
                 self.__logger.critical(msg)
                 raise msg
 
-    def writedata(self, datatowrite=None):
+    def write_data(self, datatowrite=None):
         """
         Write user's data to the data file (may be call at the end of each trial)
         :param datatowrite: list of data to write.
@@ -308,21 +309,21 @@ class Trial(object):
         data.update(self.params)
         if datatowrite is not None:
             data.update(datatowrite)
-        self.defaultfieldsname = data.keys()
+        self.__default_fields = data.keys()
 
         if not isfile(self.userfile):
             self.__logger.warning('[{}] User Data filename does not exist yet. We start from scratch!'.format(__name__))
             self.openfile()
         try:
             with open(self.userfile, 'a') as csvfile:
-                writer = csv.DictWriter(csvfile, fieldnames=self.defaultfieldsname)
+                writer = csv.DictWriter(csvfile, fieldnames=self.__default_fields)
                 writer.writerow(data)
         except (IOError, TypeError) as e:
             msg = IOError('[{}] User Data filename could not be read: {}'.format(__name__, e))
             self.__logger.critical(msg)
             raise msg
 
-    def loadData(self):
+    def load_data(self):
         """
         Load data from file
         :return:
