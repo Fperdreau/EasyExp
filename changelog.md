@@ -4,6 +4,7 @@
 - Fixed issues related to state transition (e.g. pauses). self.move_on() must now be used instead of self.change_state(force_move_on=True) in order to force transition 
 to next state.
 - Method instance and its attributes/methods can now be accessed from RunTrial by calling self.trial.method.get('instance_id'). 
+- Pause duration, mode and interval can now be specified in settings.json. Breaks are now triggered either after a specified delay is mode is set to "time", or after a specified number of completed trials if mode is set to "count".
 
 ## Version 1.0.2 - Beta
 - Fixed bug preventing the continuous display of stimuli
