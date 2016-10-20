@@ -19,7 +19,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import time
-import logging
 
 
 class Pause(object):
@@ -32,12 +31,12 @@ class Pause(object):
 
     __allowed_mode = ('time', 'count')
 
-    def __init__(self, mode='time', interval=0.0, logger=None):
+    def __init__(self, mode='time', interval=0.0):
         """
         Class constructor
-        :param pause_mode: pause mode ('time' or 'count')
+        :param mode: pause mode ('time' or 'count')
+        :type mode: str
         :param interval:
-        :param logger:
         """
         if mode.lower() not in self.__allowed_mode:
             raise AttributeError('Invalid pause mode')
@@ -50,23 +49,19 @@ class Pause(object):
 
         self.__elapsed = 0.0
         self.__nb_pause = 0
-        self.__logger = logger if logger is not None else logging.getLogger('EasyExp')
+        self.text = None
 
     def run(self, force=False):
         """
         Is it time to do a break?
         :return:
         """
+        self.text = self.__handler.text
         if force or self.__handler.status:
-            self.__logger.info("[{0}] {1}".format(__name__, self.__handler.text))
-            # self.__handler.reset()
+            self.__handler.reset()
             return True
         else:
             return False
-
-    @property
-    def text(self):
-        return self.__handler.text
 
 
 class BasePauseHandler(object):
