@@ -48,6 +48,124 @@ class Config(object):
     :required: settings.json
     """
 
+    # Default settings
+    __defaults = {
+            "setup": {
+                "pauseInt": {
+                    "type": "text",
+                    "value": 30,
+                    "label": "Break interval"
+                },
+                "pauseDur": {
+                    "type": "text",
+                    "value": 0,
+                    "label": "Break duration"
+                },
+                "pauseMode": {
+                    "type": "select",
+                    "value": "time",
+                    "label": "Break mode",
+                    "options": [
+                        "time",
+                        "count"
+                    ]
+                },
+                "movie": {
+                    "type": "checkbox",
+                    "options": [
+                        True,
+                        False
+                    ],
+                    "value": False,
+                    "label": "Movie"
+                },
+                "practice": {
+                    "type": "checkbox",
+                    "options": [
+                        True,
+                        False
+                    ],
+                    "value": False,
+                    "label": "Practice"
+                },
+                "max_trials": {
+                    "type": "text",
+                    "value": 30,
+                    "label": "# practice trials"
+                },
+                "session": {
+                    "type": "text",
+                    "value": 1,
+                    "label": "Session ID"
+                },
+                "demo": {
+                    "type": "checkbox",
+                    "options": [
+                        True,
+                        False
+                    ],
+                    "value": True,
+                    "label": "Demo"
+                }
+            },
+            "display": {
+                "distance": {
+                    "type": "text",
+                    "value": 1470.0,
+                    "label": "Distance"
+                },
+                "fullscreen": {
+                    "type": "checkbox",
+                    "options": [
+                        True,
+                        False
+                    ],
+                    "value": False,
+                    "label": "Full screen"
+                },
+                "bgcolor": {
+                    "type": "text",
+                    "value": [
+                        -1.0,
+                        -1.0,
+                        -1.0
+                    ],
+                    "label": "Background color"
+                },
+                "display_type": {
+                    "type": "select",
+                    "options": [
+                        "psychopy",
+                        "qt",
+                        "pygame"
+                    ],
+                    "value": "psychopy",
+                    "label": "Display type"
+                },
+                "freq": {
+                    "type": "text",
+                    "value": 60,
+                    "label": "frequency"
+                },
+                "resolution": {
+                    "type": "text",
+                    "value": [
+                        1920.0,
+                        1080.0
+                    ],
+                    "label": "Resolution"
+                },
+                "size": {
+                    "type": "text",
+                    "value": [
+                        1206.0,
+                        679.0
+                    ],
+                    "label": "Screen size"
+                }
+            }
+        }
+
     def __init__(self, rootfolder='/', expname='', cli=False):
         """
         Constructor of Config Class
@@ -114,6 +232,9 @@ class Config(object):
         :return:
         """
         self.settingsFile.load()
+        self.__defaults.update(self.settingsFile.data)
+        from copy import deepcopy
+        self.settingsFile.data = deepcopy(self.__defaults)
 
     def __dispatch(self):
         """
@@ -212,41 +333,3 @@ class ConfigFiles(object):
     @data.setter
     def data(self, value):
         self.__data = value
-
-
-if __name__ == "__main__":
-    settings = {
-        "setup": {
-            "pauseInt": {
-                "type": "text",
-                "value": 300,
-                "label": "Break interval"
-            },
-            "movie": {
-                "type": "checkbox",
-                "options": [
-                    True,
-                    False
-                ],
-                "value": False,
-                "label": "Movie"
-            },
-        },
-        "display": {
-            "distance": {
-                "type": "text",
-                "value": 1470.0,
-                "label": "Distance"
-            },
-            "fullscreen": {
-                "type": "checkbox",
-                "options": [
-                    True,
-                    False
-                ],
-                "value": False,
-                "label": "Full screen"
-            }
-        }
-    }
-    section = Section()
