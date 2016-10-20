@@ -2,17 +2,17 @@
     "setup": {
         "pauseInt": {
             "type": "text", 
-            "value": 30, 
+            "value": 3, 
             "label": "Break interval"
         }, 
-        "movie": {
+        "demo": {
             "type": "checkbox", 
             "options": [
                 true, 
                 false
             ], 
-            "value": false, 
-            "label": "Movie"
+            "value": true, 
+            "label": "Demo"
         }, 
         "practice": {
             "type": "checkbox", 
@@ -20,7 +20,7 @@
                 true, 
                 false
             ], 
-            "value": false, 
+            "value": true, 
             "label": "Practice"
         }, 
         "max_trials": {
@@ -33,14 +33,28 @@
             "value": 1, 
             "label": "Session ID"
         }, 
-        "demo": {
+        "movie": {
             "type": "checkbox", 
             "options": [
                 true, 
                 false
             ], 
-            "value": true, 
-            "label": "Demo"
+            "value": false, 
+            "label": "Movie"
+        }, 
+        "pauseMode": {
+            "type": "select", 
+            "options": [
+                "time", 
+                "count"
+            ], 
+            "value": "count", 
+            "label": "Break mode"
+        }, 
+        "pauseDur": {
+            "type": "text", 
+            "value": 10, 
+            "label": "Break duration"
         }
     }, 
     "display": {
