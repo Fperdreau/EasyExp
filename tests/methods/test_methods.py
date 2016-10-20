@@ -152,10 +152,10 @@ def run_easyexp_simulation(conditions=None):
             trial.stop(valid)
 
             # Write data
-            trial.writedata({'intensity': intensity, 'correct': resp_curr})
+            trial.write_data({'intensity': intensity, 'correct': resp_curr})
 
     # Load data from datafile
-    data = trial.loadData()
+    data = trial.load_data()
 
     # Analysis
     # Plot staircase results
