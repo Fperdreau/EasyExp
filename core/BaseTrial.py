@@ -478,11 +478,12 @@ class BaseTrial(StateMachine):
 
             # Reset stimuli triggers and make sure that there is a stimulus trigger for every stimulus defined in
             # self.stimuli dictionary.
-            for label, obj in self.stimuli.iteritems():
-                if label in self.stimuliTrigger:
-                    self.stimuliTrigger[label] = False
-                else:
-                    self.stimuliTrigger.add(label, False)
+            if not self._initialized or self.clearAll:
+                for label, obj in self.stimuli.iteritems():
+                    if label in self.stimuliTrigger:
+                        self.stimuliTrigger[label] = False
+                    else:
+                        self.stimuliTrigger.add(label, False)
 
             return True
 
@@ -527,7 +528,7 @@ class BaseTrial(StateMachine):
         :return:
         """
         # Draw stimuli
-        if self._initialized and (self.triggers['startTrigger'] or self.clearAll):
+        if self._initialized and (self.triggers['startTrigger'] or not self.clearAll):
             for stim, status in self.stimuliTrigger.iteritems():
                 if stim in self.stimuli:
                     if status:
