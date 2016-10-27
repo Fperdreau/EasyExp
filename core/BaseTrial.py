@@ -338,7 +338,10 @@ class BaseTrial(StateMachine):
         Graphic state machine loop
         :return:
         """
+        lapses = []
         while self.status:
+            init_time = time.time()
+
             # Default states for this state machine
             self.__default_graphic_states()
 
@@ -348,12 +351,21 @@ class BaseTrial(StateMachine):
             # Update display
             self.update_graphics()
 
+            stop_time = time.time() - init_time
+            lapses.append(stop_time)
+
+        mean_lapse = np.mean(lapses)
+        self.logger.debug('Average lapse for GRAPHICS: {} ms'.format(mean_lapse * 1000))
+
     def fast_loop(self):
         """
         Fast state machine loop
         :return:
         """
+        lapses = []
         while self.status:
+            init_time = time.time()
+
             if self._running:
                 # Update input devices state
                 self.buttons.update()
@@ -373,6 +385,12 @@ class BaseTrial(StateMachine):
 
             # Custom Fast states
             self.fast_state_machine()
+
+            stop_time = time.time() - init_time
+            lapses.append(stop_time)
+
+        mean_lapse = np.mean(lapses)
+        self.logger.debug('Average lapse for FAST: {} ms'.format(mean_lapse * 1000))
 
     def quit(self):
         """
