@@ -386,13 +386,7 @@ class RunTrial(BaseTrial):
         :param position: expected position of sled
         :return: Sled at position and not moving
         """
-        at_position = np.abs(self.pViewer[0] - position) <= 0.01
-        if not self.devices['sled'].is_moving and not at_position:
-            # Move sled to position if it is not there already
-            self.logger.warning('Sled is not at expected position: {} instead of {}'.format(self.pViewer[0], position))
-            self.devices['sled'].move(position, self.mvtBackDuration)
-
-        return at_position and not self.devices['sled'].is_moving
+        return self.devices['sled'].wait_ready(position, duration=self.mvtBackDuration)
 
     # =========================================
     # State machines
