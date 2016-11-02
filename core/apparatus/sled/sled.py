@@ -29,6 +29,7 @@ import logging
 __author__ = 'Florian Perdreau'
 __copyright__ = '2016'
 __license__ = 'GPL'
+__version__ = '1.1.0'
 
 
 class Sled(object):
@@ -72,10 +73,11 @@ class Sled(object):
         self.port = port
         self.server = server
         self.__position_tracker = PositionTracker()
+        self.__validator = None
         self.__logger = logger if logger is not None else logging.getLogger('EasyExp')
         self.client = None
         self.positionClient = None
-        self.position = 0.0
+        self.position = [0.0, 0.0]
         self.timer = None
         self.lightStatus = True  # The Sled lights should be off before initialization
         self.moveType = 'Sinusoid'  # Default profile
@@ -99,7 +101,11 @@ class Sled(object):
                 raise Exception('[{0}] Could not connect to the Sled client: {1}'.format(__name__, e))
         self.client.startStream()
         time.sleep(2)
-        self.client.goto(self.home)  # homing sled at -reference
+
+        # homing sled at -reference
+        if not self.at_position(self.home):
+            self.client.goto(self.home, self.mvt_back_duration)
+            time.sleep(self.mvt_back_duration)
 
     def connectPositionServer(self, server=None):
         """
@@ -137,6 +143,13 @@ class Sled(object):
     @property
     def is_moving(self):
         return self.__position_tracker.is_moving
+
+    def at_position(self, position, tolerance=0.01):
+        distance = np.abs(self.getposition()[0] - position)
+        result = distance <= tolerance and not self.is_moving
+        print(self)
+        print(distance, self.is_moving, result)
+        return result
 
     def stop(self):
         """
@@ -213,6 +226,69 @@ class Sled(object):
         else:
             self.client.sendCommand("Lights Off")
 
+    def validate(self, threshold_time):
+        """
+        Validate position
+        :param threshold_time:
+        :return:
+        """
+        if self.__validator is None:
+            self.__validator = Validator(self, threshold_time=threshold_time)
+        return self.__validator.validate()
+
+    def reset_validator(self):
+        """
+        Reset position validator
+        :return:
+        """
+        self.__validator = None
+
+    def __str__(self):
+        return 'Position: {0: 1.3f} m | Velocity: {1: 1.3f} m/s: Moving: {2}'.format(self.position[0],
+                                                                                     self.getvelocity(),
+                                                                                     self.is_moving)
+
+
+class Validator(object):
+    """
+    Validator Class
+    Validate position over a given period of time
+    """
+
+    def __init__(self, tracker, threshold_time=0.100):
+        """
+
+        :param tracker:
+        :type tracker: Sled
+        :param threshold_time:
+        """
+        self.__tracker = tracker
+        self.valid_time = None
+        self.validated = False
+        self.threshold_time = threshold_time
+        self.validated_position = None
+
+    def validate(self):
+        """
+        validate position
+        :rtype: bool
+        """
+        if not self.validated and not self.__tracker.is_moving:
+            if self.valid_time is None:
+                print('EVENT_START_VALIDATION')
+                self.valid_time = time.time()
+
+            elif (time.time() - self.valid_time) >= self.threshold_time:
+                self.validated_position = self.__tracker.position[0]
+                print('EVENT_END_VALIDATION {}'.format(self.validated_position))
+                self.valid_time = None
+                self.validated = True
+        else:
+            # Restart the timer
+            self.valid_time = None
+
+        return self.validated
+
 
 class PositionTracker(object):
     """
@@ -221,12 +297,13 @@ class PositionTracker(object):
     """
     __max_positions = 3
     __time_interval = 0.01
-    __velocity_threshold = 0.01
+    __velocity_threshold = 0.001
 
     def __init__(self):
         self.__history = []
         self.__previous = []
         self.__position = []
+        self.__intervals = []
         self.__dt = 0.0
         self.__tOld = None
         self.__nb_positions = 0
@@ -235,7 +312,6 @@ class PositionTracker(object):
     def dt(self):
         if self.__tOld is None:
             self.__tOld = time.time()
-
         if self.__tOld is not None:
             self.__dt = time.time() - self.__tOld
 
@@ -255,15 +331,23 @@ class PositionTracker(object):
         :return:
         """
         if self.dt >= self.__time_interval:
+
             if self.__nb_positions == 0:
                 self.__history = np.array(position)
+                self.__intervals = np.array(self.dt)
             else:
                 if self.__nb_positions < self.__max_positions:
                     old = self.__history
                     self.__history = np.vstack((old, position))
+
+                    old_dts = self.__intervals
+                    self.__intervals = np.vstack((old_dts, self.dt))
                 else:
                     old = self.__history[range(1, self.__max_positions)]
                     self.__history = np.vstack((old, position))
+
+                    old_dts = self.__intervals[range(1, self.__max_positions)]
+                    self.__intervals = np.vstack((old_dts, self.dt))
 
             self.__nb_positions += 1
 
@@ -281,7 +365,8 @@ class PositionTracker(object):
         if self.__nb_positions >= self.__max_positions:
             distances = [self.distance(self.__history[i], self.__history[j]) for i, j
                          in zip(range(0, self.__max_positions - 1), range(1, self.__max_positions))]
-            return float(np.mean(np.array(distances) / self.__time_interval))
+
+            return float(np.mean(np.array(distances) / np.array(self.__intervals)))
         else:
             return 0.0
 
@@ -363,7 +448,7 @@ class DummyClient(SledClientSimulator):
                 self._direction = -1
             else:
                 self._direction = 1
-            self._speed = self._distance/self._duration
+            self._speed = self._distance/self._durationposition
             self.tOld = time.time()
             self._endTime = self._duration + time.time()
         elif command[0] == 'Stop':
@@ -387,7 +472,7 @@ class DummyClient(SledClientSimulator):
     def warpto(self, x=None):
         """
         Warp to home position
-        :return:
+        :return:homePos
         """
         self._position = 0.0
         self.tOld = None
@@ -398,28 +483,50 @@ if __name__ == '__main__':
 
     def move(sled_obj, position, duration):
         # Move sled to a given position and print its current position and velocity
-        sled_obj.move(position, duration)
         init_time = time.time()
-        while (time.time() - init_time) <= duration:
-            sled_obj.getposition()
-            print('Position: {0: 1.2f} m | Velocity: {1: 1.2f} m/s: Moving: {2}'.format(sled_obj.position[0],
-                                                                                        sled_obj.getvelocity(),
-                                                                                        sled_obj.is_moving))
+        print('Moving from {} to {}'.format(sled_obj.getposition()[0], position))
+        sled_obj.move(position, duration)
 
-    homePos = -0.20  # Home Position
+        while not sled_obj.validate(threshold_time=0.100):
+            sled_obj.getposition()
+            print(sled_obj)
+        time.sleep(0.1)
+
+        sled_obj.getposition()
+        print('Sled at {}'.format(sled_obj.getposition()[0]))
+        print('Sled at position: {}'.format(sled_obj.at_position(position)))
+        sled_obj.reset_validator()
+
+    homePos = 0.0  # Home Position
+    startPos = -0.20  # Home Position
     EndPos = 0.20
     movDistance = 0.40
-    movDuration = 1.0
+    movDuration = 2.0
     movBackDuration = 3.0
 
-    sled = Sled(dummy_mode=True, server='sled')
+    sled = Sled(dummy_mode=False, server='sled')
     sled.lights(False)  # Turn the lights OFF
 
-    # Move sled to start position
-    move(sled, homePos, movBackDuration)
+    while not sled.at_position(homePos):
+        print('Sled not at home position')
 
-    # Move sled to final position
-    move(sled, EndPos, movDuration)
+    try:
+        if not sled.at_position(homePos):
+            print('Sled not at home position')
+            move(sled, homePos, movBackDuration)
 
-    sled.lights(True)  # Turn the lights ON
-    sled.close()
+        print('Initial sled position at {}'.format(sled.getposition()[0]))
+
+        # Move sled to start position
+        move(sled, startPos, movBackDuration)
+
+        # Move sled to final position
+        move(sled, EndPos, movDuration)
+
+    except (TypeError, Exception, KeyboardInterrupt):
+        print(TypeError)
+    finally:
+        sled.lights(True)  # Turn the lights ON
+        sled.close()
+        exit()
+
