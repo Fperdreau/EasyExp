@@ -7,8 +7,9 @@
 
 ### Devices
 - Sled: Added Sled.validate() method to validate state of sled (position and null velocity) over a given period of time. 
-- Sled: Added Sled.at_position() method to test whether the sled is not moving and at a specified position.
-- Sled: Improved estimation of velocity by measuring actual time interval between two stored samples.
+- Sled: Added Sled.at_position(position, tolerance) method to test whether the sled is at a specified position.
+- Sled: Added Sled.wait_ready(position, duration) method. Test if sled is at expected position. If not, then move to this location.
+- Sled: Improved estimation of velocity by measuring actual time interval between stored samples.
 
 ## Version 1.0.3 - Betas
 - Fixed issues related to state transition (e.g. pauses). self.move_on() must now be used instead of self.change_state(force_move_on=True) in order to force transition 
