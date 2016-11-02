@@ -450,16 +450,10 @@ class BaseTrial(StateMachine):
         # Check experiment status
         status = self.trial.setup()
         if status is False:
-            # If no more trials to run, then quit the experiment
-            self.next_state = 'quit'
-            self.change_state(force_move_on=True)
             return False
         else:
             self.status = status
             if self.status is "pause":
-                self.triggers['pauseRequested'] = True
-                self.next_state = 'pause'
-                self.change_state(force_move_on=True)
                 return 'pause'
 
             # Start a new trial
@@ -695,7 +689,7 @@ class BaseTrial(StateMachine):
             # Get trial information and update trial's parameters accordingly
             self.next_state = 'start'
 
-            if self.singleshot():
+            if self.singleshot('init_trial'):
                 status = self.init_trial()  # Get trial parameters
                 if not status:
                     self.next_state = 'quit'
