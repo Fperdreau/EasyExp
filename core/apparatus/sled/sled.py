@@ -26,7 +26,7 @@ from ...com.fpclient.fpclient import FpClient
 
 import logging
 
-__version__ = '1.1.0'
+__version__ = '1.1.1'
 
 
 class Sled(object):
@@ -142,11 +142,36 @@ class Sled(object):
         return self.__position_tracker.is_moving
 
     def at_position(self, position, tolerance=0.01):
+        """
+        Check if sled has been at the specified location during a given period of time
+        :param position: position to test
+        :type position: float (in m)
+        :param tolerance: tolerated deviance from expected position
+        :type tolerance: float (in m)
+        :return: Sled at position and not moving
+        :rtype: bool
+        """
         distance = np.abs(self.getposition()[0] - position)
-        result = distance <= tolerance and not self.is_moving
-        print(self)
-        print(distance, self.is_moving, result)
-        return result
+        return distance <= tolerance and not self.is_moving
+
+    def wait_ready(self, position, duration):
+        """
+        Check if sled is at expected position. If not, then command sled to move to this position.
+        :param position: expected position
+        :type position: float (in m)
+        :param duration: movement duration
+        :type duration: float (in s)
+        :return: Sled is at expected position
+        :rtype: bool
+        """
+        if self.validate():
+            if not self.at_position(position):
+                self.move(position, duration)
+                return False
+            else:
+                return True
+        else:
+            return False
 
     def stop(self):
         """
@@ -223,7 +248,7 @@ class Sled(object):
         else:
             self.client.sendCommand("Lights Off")
 
-    def validate(self, threshold_time):
+    def validate(self, threshold_time=0.200):
         """
         Validate position
         :param threshold_time:
@@ -254,15 +279,15 @@ class Validator(object):
 
     def __init__(self, tracker, threshold_time=0.100):
         """
-
-        :param tracker:
+        Class constructor
+        :param tracker: sled instance
         :type tracker: Sled
         :param threshold_time:
         """
         self.__tracker = tracker
+        self.threshold_time = threshold_time
         self.valid_time = None
         self.validated = False
-        self.threshold_time = threshold_time
         self.validated_position = None
 
     def validate(self):
@@ -270,21 +295,32 @@ class Validator(object):
         validate position
         :rtype: bool
         """
-        if not self.validated and not self.__tracker.is_moving:
+        if self.validated:
+            self.reset()
+
+        self.__tracker.getposition()
+
+        if not self.__tracker.is_moving:
             if self.valid_time is None:
-                print('EVENT_START_VALIDATION')
+                self.validated = False
                 self.valid_time = time.time()
 
             elif (time.time() - self.valid_time) >= self.threshold_time:
-                self.validated_position = self.__tracker.position[0]
-                print('EVENT_END_VALIDATION {}'.format(self.validated_position))
-                self.valid_time = None
+                self.validated_position = self.__tracker.getposition()[0]
                 self.validated = True
         else:
             # Restart the timer
-            self.valid_time = None
+            self.reset()
 
         return self.validated
+
+    def reset(self):
+        """
+        Reset validator
+        :return:
+        """
+        self.valid_time = None
+        self.validated = False
 
 
 class PositionTracker(object):
@@ -480,19 +516,14 @@ if __name__ == '__main__':
 
     def move(sled_obj, position, duration):
         # Move sled to a given position and print its current position and velocity
-        init_time = time.time()
         print('Moving from {} to {}'.format(sled_obj.getposition()[0], position))
         sled_obj.move(position, duration)
 
-        while not sled_obj.validate(threshold_time=0.100):
-            sled_obj.getposition()
+        while not sled_obj.validate():
             print(sled_obj)
-        time.sleep(0.1)
 
-        sled_obj.getposition()
         print('Sled at {}'.format(sled_obj.getposition()[0]))
         print('Sled at position: {}'.format(sled_obj.at_position(position)))
-        sled_obj.reset_validator()
 
     homePos = 0.0  # Home Position
     startPos = -0.20  # Home Position
@@ -525,5 +556,5 @@ if __name__ == '__main__':
     finally:
         sled.lights(True)  # Turn the lights ON
         sled.close()
-        exit()
+        exit(0)
 
