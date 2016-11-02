@@ -1,6 +1,16 @@
 # EasyExp - Changelog
 
-## Version 1.0.3 - Beta
+## Version 1.0.4
+- Corrected updating of settings dictionary with values specified in settings.json
+- BaseTrial: only call MethodContainer.update() if a staircaseID is specified in the design file. This prevent calling the Methods/Constant.update()
+- Added a specific version number to every EasyExp modules (apart from Core modules) to facilitate the tracking of changes.
+
+### Devices
+- Sled: Added Sled.validate() method to validate state of sled (position and null velocity) over a given period of time. 
+- Sled: Added Sled.at_position() method to test whether the sled is not moving and at a specified position.
+- Sled: Improved estimation of velocity by measuring actual time interval between two stored samples.
+
+## Version 1.0.3 - Betas
 - Fixed issues related to state transition (e.g. pauses). self.move_on() must now be used instead of self.change_state(force_move_on=True) in order to force transition 
 to next state.
 - Method instance and its attributes/methods can now be accessed from RunTrial by calling self.trial.method.get('instance_id'). 
