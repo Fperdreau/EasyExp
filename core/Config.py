@@ -232,9 +232,7 @@ class Config(object):
         :return:
         """
         self.settingsFile.load()
-        self.__defaults.update(self.settingsFile.data)
-        from copy import deepcopy
-        self.settingsFile.data = deepcopy(self.__defaults)
+        self.settingsFile.data.update(self.__defaults)
 
     def __dispatch(self):
         """
