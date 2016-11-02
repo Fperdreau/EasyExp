@@ -27,13 +27,7 @@ from ..MethodBase import MethodBase
 import json
 import csv
 
-__author__ = "Florian Perdreau"
-__copyright__ = "Copyright 2015, Florian Perdreau"
-__license__ = "GPL"
-__version__ = "1.0"
-__maintainer__ = "Florian Perdreau"
-__email__ = "f.perdreau@donders.ru.nl"
-__status__ = "Production"
+__version__ = "1.0.0"
 
 
 class Random(MethodBase):
@@ -195,27 +189,7 @@ class Random(MethodBase):
                 t += 1
         return intensity_list
 
-    def update(self, stair_id, intensities=None, responses=None):
-        """
-        Updates stimulus intensity based on previous response.
-
-        Parameters
-        ----------
-        :param stair_id: ID of current stair
-        :type stair_id: int
-        :param intensities: list of previously displayed intensities
-        :type intensities: array-like
-        :param responses: list of previous responses
-        :type responses: array-like
-
-        Returns
-        -------
-        :return intensity: new stimulus intensity
-        :rtype intensity: float
-        """
-        pass
-
-    def _get_lists(self):
+    def _get_lists(self, response=None, intensity=None):
         """
         Makes responses and intensities lists from data array
 
@@ -235,6 +209,13 @@ class Random(MethodBase):
         self.cpt_stair = cpt_stair
         self.resp_list = resp_list
         self.int_list = int_list
+
+    def compute(self):
+        """
+        Compute new intensity
+        :return:
+        """
+        pass
 
     def _load_data(self):
         """

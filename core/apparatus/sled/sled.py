@@ -26,9 +26,6 @@ from ...com.fpclient.fpclient import FpClient
 
 import logging
 
-__author__ = 'Florian Perdreau'
-__copyright__ = '2016'
-__license__ = 'GPL'
 __version__ = '1.1.0'
 
 

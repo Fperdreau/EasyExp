@@ -24,6 +24,8 @@ import time
 This file is for Timer class
 """
 
+__version__ = '1.0.0'
+
 
 class Timer(object):
     """

@@ -25,6 +25,8 @@ from OpenGL.GL.shaders import *
 import transforms, objects, shader
 import numpy as np
 
+__version__ = "1.0.0"
+
 
 class MyObject(object):
     """

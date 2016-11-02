@@ -40,6 +40,8 @@ except ImportError as e:
 # Logger
 import logging
 
+__version__ = '1.0.0'
+
 
 class OptoTrak(object):
     """

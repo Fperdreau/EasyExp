@@ -22,6 +22,8 @@
 import serial
 import struct
 
+__version__ = '1.0.0'
+
 
 class Leds(object):
     """

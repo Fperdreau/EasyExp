@@ -28,6 +28,8 @@ import csv
 # Math
 import numpy as np
 
+__version__ = "1.0.0"
+
 
 class MethodBase(object):
     """

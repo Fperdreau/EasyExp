@@ -21,6 +21,8 @@
 # Import
 from ...com.rusocsci import buttonbox
 
+__version__ = '1.0.0'
+
 
 class Shutter(object):
     """

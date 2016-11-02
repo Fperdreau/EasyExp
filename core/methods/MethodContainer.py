@@ -18,6 +18,8 @@
 
 import logging
 
+__version__ = "1.0.0"
+
 
 class MethodContainer(object):
     """

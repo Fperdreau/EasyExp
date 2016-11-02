@@ -22,6 +22,8 @@ import time
 import numpy as np
 from psychopy import core
 
+__version__ = '1.0.0'
+
 
 class FpsCounter(object):
     """

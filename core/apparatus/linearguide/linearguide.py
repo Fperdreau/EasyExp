@@ -28,6 +28,8 @@ import numpy as np
 import logging
 import time
 
+__version__ = '1.0.0'
+
 
 class LinearGuide(object):
     """

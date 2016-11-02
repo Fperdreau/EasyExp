@@ -21,6 +21,8 @@
 import math
 import numpy as np
 
+__version__ = "1.0.0"
+
 
 def deg2pix(angle=float, direction=1, distance=550, screen_res=(800, 600), screen_size=(400, 300)):
 

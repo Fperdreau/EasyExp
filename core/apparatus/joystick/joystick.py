@@ -28,6 +28,8 @@ from os.path import isfile
 import pymouse
 from psychopy import visual
 
+__version__ = '1.0.0'
+
 
 class Joystick(object):
     """

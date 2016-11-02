@@ -27,13 +27,7 @@ from ..MethodBase import MethodBase
 import json
 import csv
 
-__author__ = "Florian Perdreau"
-__copyright__ = "Copyright 2015, Florian Perdreau"
-__license__ = "GPL"
-__version__ = "1.0"
-__maintainer__ = "Florian Perdreau"
-__email__ = "f.perdreau@donders.ru.nl"
-__status__ = "Production"
+__version__ = "1.0.0"
 
 
 class StaircaseASA(MethodBase):

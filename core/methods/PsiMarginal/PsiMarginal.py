@@ -48,6 +48,8 @@ from scipy.stats import norm
 from scipy.special import erfc
 import logging
 
+__version__ = "1.0.0"
+
 
 def PF(parameters, psyfun='cGauss'):
     """Generate conditional probabilities from psychometric function.

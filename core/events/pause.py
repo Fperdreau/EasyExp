@@ -20,6 +20,8 @@
 
 import time
 
+__version__ = '1.0.0'
+
 
 class Pause(object):
     """

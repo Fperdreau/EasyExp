@@ -36,6 +36,8 @@ try:
 except AttributeError:
     _fromUtf8 = lambda s: s
 
+__version__ = '1.0.0'
+
 
 class QtWindow(QMainWindow):
     """
