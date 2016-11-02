@@ -200,7 +200,7 @@ class Devices(object):
                     self.__devices[device_name.lower()].run()
                     self.__logger.info('Device "{}" successfully started.'.format(device_name.upper()))
                 except RuntimeError as e:
-                    msg = AttributeError('Could not start {}'.format(device_name))
+                    msg = AttributeError('Could not start {}: {}'.format(device_name, e))
                     self.__logger.critical(msg)
                     raise msg
 
