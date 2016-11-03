@@ -26,7 +26,7 @@ from ...com.fpclient.fpclient import FpClient
 
 import logging
 
-__version__ = '1.1.1'
+__version__ = '1.1.2'
 
 
 class Sled(object):
@@ -166,9 +166,11 @@ class Sled(object):
         """
         if self.validate():
             if not self.at_position(position):
+                self.__logger.debug('Sled not at expected position: {} instead of {}'.format(self.position[0], position))
                 self.move(position, duration)
                 return False
             else:
+                self.__logger.debug('Sled ready and on expected position: {}'.format(self.position[0]))
                 return True
         else:
             return False
@@ -330,7 +332,7 @@ class PositionTracker(object):
     """
     __max_positions = 3
     __time_interval = 0.01
-    __velocity_threshold = 0.001
+    __velocity_threshold = 0.0
 
     def __init__(self):
         self.__history = []
