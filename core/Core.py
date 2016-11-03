@@ -147,12 +147,6 @@ class Core(object):
         :param conditions: dictionary providing experiment conditions (to be used instead of conditions.json)
         :type conditions: dict
         """
-        print("\n##############################\n")
-        print("# Welcome to {} (version {})\n".format(self.appname, v.__version__))
-        print("# {}\n".format(v.__copyright__))
-        print("# Date: {}".format(time.strftime("%d-%m-%y %H:%M:%S")))
-        print("\n##############################\n")
-
         # Get experiment
         self.experimentsFolder = "{}/experiments/".format(rootfolder)
         self.expname = self.get_experiment(self.experimentsFolder, cli=cli)
@@ -161,6 +155,12 @@ class Core(object):
         if not isdir('{}/logs'.format(rootfolder)):
             mkdir('{}/logs'.format(rootfolder))
         self.logger = self.get_logger(rootfolder, self.expname)
+
+        print("\n##############################\n")
+        self.logger.info("# Welcome to {} (version {})".format(self.appname, v.__version__))
+        self.logger.info("# {}".format(v.__copyright__))
+        self.logger.info("# Date: {}".format(time.strftime("%d-%m-%y %H:%M:%S")))
+        print("\n##############################\n")
 
         # Get and set configuration
         self.config = Config(rootfolder=rootfolder, expname=self.expname, cli=cli)
@@ -184,7 +184,7 @@ class Core(object):
         self.design.make()
 
         # Devices
-        self.devices = Devices(exp_folder=self.folders['expFolder'], base_name=self.user.base_file_name, cli=cli)
+        self.devices = Devices(exp_folder=self.folders['expFolder'], base_name=self.user.dftName, cli=cli)
 
         # Screen
         self.screen = Screen(expfolder=self.folders['expFolder'], expname=self.expname,
