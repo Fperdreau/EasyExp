@@ -84,6 +84,22 @@ class Devices(object):
         for device_name, params in self.__devices_file.data['devices'].iteritems():
             self.add(device_name, **params['options'])
 
+    @staticmethod
+    def __update_dict(obj, key, value):
+        """
+        Add/update key/value pair to dictionary
+        :param obj: dictionary to update
+        :param key: key to add/update
+        :param value: value associated to key
+        :return: updated dictionay
+        :rtype: dict
+        """
+        if key in obj:
+            obj[key] = value
+        else:
+            obj.update({key: value})
+        return obj
+
     def __get_settings(self):
         """
         Get devices settings
@@ -177,20 +193,14 @@ class Devices(object):
             if hasattr(device, "user_file"):
                 user_file = '{}_{}_{}.txt'.format(self.__base_name, device_name,
                                                   time.strftime('%d-%m-%Y_%H%M%S'))
-                if 'user_file' in params:
-                    params['user_file'] = user_file
-                else:
-                    params.update({"user_file": user_file})
+                params = self.__update_dict(params, "user_file", user_file)
 
             if hasattr(device, "dummy_mode"):
-                value = self.__devices_file.data['settings'][device_name]['value'] == 'dummy'
-                if "dummy_mode" in params:
-                    params["dummy_mode"] = value
-                else:
-                    params.update({"dummy_mode": value})
+                dummy_mode = self.__devices_file.data['settings'][device_name]['value'] == 'dummy'
+                params = self.__update_dict(params, "dummy_mode", dummy_mode)
 
             if hasattr(device, "ptw"):
-                params.update({"ptw": self.__ptw})
+                params = self.__update_dict(params, "ptw", self.__ptw)
 
             # Instantiate device
             try:
