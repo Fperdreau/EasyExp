@@ -47,6 +47,8 @@ class LinearGuide(object):
 
     sensors_label = ('Xas', 'Marker2', 'Yas', 'origin', 'hand1', 'hand2')  # Sensors label
     _step = 0.01
+    user_file = "sample.txt"
+    dummy_mode = False
 
     def __init__(self, dummy_mode=False, user_file='sample.txt', sensitivity=1.0, velocity_threshold=0.1,
                  time_threshold=0.100, center_from_edge=-0.50, bar_length=1.0, resolution=(1024, 768), axis_index=1):
