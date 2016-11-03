@@ -167,6 +167,7 @@ class Sled(object):
         if self.validate():
             if not self.at_position(position):
                 self.__logger.debug('Sled not at expected position: {} instead of {}'.format(self.position[0], position))
+                print(self)
                 self.move(position, duration)
                 return False
             else:
@@ -411,7 +412,7 @@ class PositionTracker(object):
         Check if sensor is moving
         :return: sensor is moving (True)
         """
-        return self.velocity >= self.__velocity_threshold
+        return self.velocity > self.__velocity_threshold
 
     @staticmethod
     def distance(init, end):
