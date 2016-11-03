@@ -30,21 +30,17 @@ from __future__ import division
 from psychopy import prefs
 prefs.general['audioLib'] = ['pygame']
 from psychopy import visual, sound
-import pygame
-import time
 import numpy as np
 
 # EasyExp modules
 from core.Core import Core
 from core.BaseTrial import BaseTrial
-from core.buttons.buttons import UserInput
 from core.events.timer import Timer
 
 # Custom imports
 #################################
 # ADD YOUR CUSTOM IMPORTS BELOW #
 #################################
-from core.misc.conversion import pol2cart, mm2pix, deg2m
 
 
 class RunTrial(BaseTrial):
