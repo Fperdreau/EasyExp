@@ -177,10 +177,17 @@ class Devices(object):
             if hasattr(device, "user_file"):
                 user_file = '{}_{}_{}.txt'.format(self.__base_name, device_name,
                                                   time.strftime('%d-%m-%Y_%H%M%S'))
-                params.update({"user_file": user_file})
+                if 'user_file' in params:
+                    params['user_file'] = user_file
+                else:
+                    params.update({"user_file": user_file})
 
             if hasattr(device, "dummy_mode"):
-                params.update({"dummy_mode": self.__devices_file.data['settings'][device_name]['value'] == 'dummy'})
+                value = self.__devices_file.data['settings'][device_name]['value'] == 'dummy'
+                if "dummy_mode" in params:
+                    params["dummy_mode"] = value
+                else:
+                    params.update({"dummy_mode": value})
 
             if hasattr(device, "ptw"):
                 params.update({"ptw": self.__ptw})
@@ -189,8 +196,8 @@ class Devices(object):
             try:
                 self.__devices[device_name.lower()] = device(**params)
                 self.__logger.info('Device "{}" successfully added.'.format(device_name.upper()))
-            except AttributeError:
-                msg = AttributeError('Could not instantiate {}'.format(device_name))
+            except AttributeError as e:
+                msg = AttributeError('Could not instantiate {}: {}'.format(device_name, e))
                 self.__logger.critical(msg)
                 raise msg
 
@@ -233,8 +240,6 @@ class Devices(object):
         """
         if device_name.lower() in self.__devices:
             del self.__devices[device_name.lower()]
-
-
 
     @staticmethod
     def get_class(method_name):
