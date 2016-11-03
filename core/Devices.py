@@ -188,7 +188,7 @@ class Devices(object):
         device = Devices.get_class(device_name)
 
         if device_name.lower() not in self.__devices \
-                and self.__devices_file.data['settings'][device_name]['value'] is not "off":
+                and self.__devices_file.data['settings'][device_name]['value'] != "off":
 
             if hasattr(device, "user_file"):
                 user_file = '{}_{}_{}.txt'.format(self.__base_name, device_name,
