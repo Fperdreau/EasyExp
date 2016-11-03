@@ -37,7 +37,6 @@ import numpy as np
 # EasyExp modules
 from core.Core import Core
 from core.BaseTrial import BaseTrial
-from core.buttons.buttons import UserInput
 from core.events.timer import Timer
 
 # Custom imports
