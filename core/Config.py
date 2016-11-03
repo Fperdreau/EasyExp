@@ -208,21 +208,21 @@ class Config(object):
         self.__dispatch()
 
     @staticmethod
-    def __merge(reference, to_update):
+    def __merge(source, destination):
         """
-        Update and override key/value pair of 1st dictionary with key/value pairs of 2nd dictionary
-        :param reference: referent dictionary
-        :type reference: dict
-        :param to_update: dictionary to update
-        :type to_update: dict
+        Update and override key/value pair of source dictionary with key/value pairs of destination dictionary
+        :param source: referent dictionary
+        :type source: dict
+        :param destination: dictionary to update
+        :type destination: dict
         :return:
         """
-        for key, value in reference.iteritems():
-            if key in to_update:
-                to_update[key] = value
+        for key, value in source.iteritems():
+            if key in destination:
+                destination[key] = value
             else:
-                to_update.update({key: value})
-        return to_update
+                destination.update({key: value})
+        return destination
 
     @staticmethod
     def __match(reference, to_update):
@@ -265,7 +265,7 @@ class Config(object):
         :return:
         """
         self.settingsFile.load()
-        self.settingsFile.data.update(self.__defaults)
+        self.settingsFile.data = self.__merge(self.settingsFile.data, self.__defaults)
 
     def __dispatch(self):
         """
