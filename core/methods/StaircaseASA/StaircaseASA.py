@@ -27,7 +27,7 @@ from ..MethodBase import MethodBase
 import json
 import csv
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 
 class StaircaseASA(MethodBase):
@@ -203,3 +203,41 @@ class StaircaseASA(MethodBase):
 
         self.intensity = int_next
         return self.intensity
+
+    def analyse(self):
+        """
+        Analyse staircase data
+        :return:
+        """
+        self._get_lists()
+        responses = ['True' if i == True else 'False' for i in self.resp_list]
+        self.plot_staircase(self.int_list, responses)
+
+    @staticmethod
+    def plot_staircase(intensities, responses):
+        """
+        Plot intensities and responses for every trial
+        :param intensities: list of intensities
+        :type intensities: array-like
+        :param responses: list of responses ('True', 'False')
+        :type responses: [str, str]
+        :param mu: list of true means
+        """
+        from matplotlib import pyplot as plt
+
+        # Plot intensities
+        plt.plot(intensities)
+
+        # Plot responses
+        for i in range(len(intensities)):
+            if responses[i] == 'True':
+                plt.plot(i, intensities[i], 'o')
+            else:
+                plt.plot(i, intensities[i], 'x')
+
+        # Plot hidden state
+        final_estimate = np.ones((1, len(intensities))) * float(intensities[-1])
+        plt.plot(final_estimate[0], '--')
+        plt.xlabel('Trial')
+        plt.ylabel('Stimulus intensity')
+        plt.show()
