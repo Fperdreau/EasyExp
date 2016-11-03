@@ -207,6 +207,39 @@ class Config(object):
             self.save_settings()  # Save settings
         self.__dispatch()
 
+    @staticmethod
+    def __merge(reference, to_update):
+        """
+        Update and override key/value pair of 1st dictionary with key/value pairs of 2nd dictionary
+        :param reference: referent dictionary
+        :type reference: dict
+        :param to_update: dictionary to update
+        :type to_update: dict
+        :return:
+        """
+        for key, value in reference.iteritems():
+            if key in to_update:
+                to_update[key] = value
+            else:
+                to_update.update({key: value})
+        return to_update
+
+    @staticmethod
+    def __match(reference, to_update):
+        """
+        Match key/value pair of 1st dictionary with key/value pairs of 2nd dictionary. Key/value pairs of first
+        dictionary not present in second dictionary will be deleted.
+        :param reference: referent dictionary
+        :type reference: dict
+        :param to_update: dictionary to update
+        :type to_update: dict
+        :return:
+        """
+        for key, value in to_update.iteritems():
+            if key not in reference:
+                del to_update[key]
+        return to_update
+
     def __create_folders(self):
         """
         Creates necessary folders and get list of useful folders (data, functions, config)
