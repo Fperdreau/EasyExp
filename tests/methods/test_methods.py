@@ -9,11 +9,10 @@ import sys
 import numpy as np
 
 # Environmental settings
-root_folder = dirname(dirname(abspath('__dir__')))
+root_folder = dirname((abspath('__dir__')))
 sys.path.append("{}/libs".format(root_folder))
 from core.Core import Core
 from core.Trial import Trial
-from core.methods.PsiMarginal.PsiMarginal import PsiMarginal
 import logging
 import matplotlib.pyplot as plt
 from core.methods.MethodContainer import MethodContainer
@@ -58,6 +57,34 @@ def plot_correlation(trues, estimates):
     plt.xlabel('True mean')
     plt.ylabel('Estimates')
     plt.show()
+
+
+def fit(xdata, ydata):
+    """
+    Fit data
+    :param xdata:
+    :param ydata:
+    :return:
+    """
+    import numpy as np
+    import pylab
+    from scipy.optimize import curve_fit
+
+    def sigmoid(x, x0, k):
+        y = 1 / (1 + np.exp(-k * (x - x0)))
+        return y
+
+    popt, pcov = curve_fit(sigmoid, xdata, ydata)
+    print(popt)
+
+    x = np.linspace(-1, 15, 50)
+    y = sigmoid(x, *popt)
+
+    pylab.plot(xdata, ydata, 'o', label='data')
+    pylab.plot(x, y, label='fit')
+    pylab.ylim(0, 1.05)
+    pylab.legend(loc='best')
+    pylab.show()
 
 
 def run_simulation(options, method):
@@ -120,7 +147,7 @@ def run_easyexp_simulation(conditions=None):
     Exp.init(root_folder, custom=False, conditions=conditions)
 
     # Instantiate Trial and experiment
-    trial = Trial(design=Exp.design, settings=Exp.config, userfile=Exp.user.datafilename)
+    trial = Trial(design=Exp.design, settings=Exp.config.settings, userfile=Exp.user.datafilename)
 
     options = Exp.design.allconditions['options']
     Method = trial.method
@@ -135,7 +162,7 @@ def run_easyexp_simulation(conditions=None):
     while trial.status is not False:
         trial.setup()
 
-        if trial.status is not False:
+        if trial.status is True:
             intensity = Method.update(int(trial.params['staircaseID']), int(trial.params['staircaseDir']))
 
             mu = stairs[(trial.params['staircaseID'])]['true']
@@ -170,6 +197,7 @@ def run_easyexp_simulation(conditions=None):
         'bin_responses': []
     }
 
+    ntrials = {}
     for trial in data:
         if trial['Replay'] == 'False':
             stair_id = trial['staircaseID']
@@ -177,9 +205,14 @@ def run_easyexp_simulation(conditions=None):
                 fields = copy.deepcopy(default_fields)
                 res.update({stair_id: fields})
                 res[stair_id]['id'] = stair_id
+                ntrials[stair_id] = 0
 
+            ntrials[stair_id] += 1
             res[stair_id]['intensities'].append(float(trial['intensity']))
             res[stair_id]['responses'].append(1 if trial['correct'] == "True" else 0)
+
+    print('Completed trials per staircase:')
+    print(ntrials)
 
     for ind in res.keys():
         stair = res[ind]
@@ -219,7 +252,7 @@ def run_easyexp_simulation(conditions=None):
 
 
 if __name__ == '__main__':
-    conditions_ASA = {
+    asa = {
         "timing": [
             1,
             2,
@@ -240,13 +273,13 @@ if __name__ == '__main__':
             "nTrials": 40,
             "limits": True,
             "nbStairs": 1,
-            "warm_up": 2,
+            "warm_up": 5,
             "response_field": "correct",
             "intensity_field": "intensity"
         }
     }
 
-    conditions_psi = {
+    psi = {
           "conditions": [
             1,
             2,
@@ -269,14 +302,21 @@ if __name__ == '__main__':
               "lapseRate": [0.0, 0.11, 0.05],
               "lapsePrior": ["uniform", None],
               "marginalize": True,
-              "nbStairs": 2,
-              "warm_up": 5,
+              "nbStairs": 1,
+              "warm_up": 0,
               "response_field": "correct",
               "intensity_field": "intensity"
             }
         }
 
-    conditions = conditions_psi
+    condition_name = sys.argv[1] if len(sys.argv) > 1 else 'asa'
+    print(condition_name)
+    if condition_name == 'asa':
+        conditions = asa
+    elif condition_name == 'psi':
+        conditions = psi
+    else:
+        raise Exception('Unknown method')
 
     run_simulation(method=conditions['method'], options=conditions['options'])
 
