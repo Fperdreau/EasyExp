@@ -27,6 +27,7 @@ import csv
 
 # Math
 import numpy as np
+import logging
 
 __version__ = "1.0.0"
 
@@ -120,7 +121,8 @@ class MethodBase(object):
             self.data = data
         except (IOError, TypeError):
             self.data = {}
-            print('[{}] User Data filename does not exist yet!'.format(__name__))
+            logging.getLogger('EasyExp').warning(
+                '[{}] User Data filename ({}) does not exist yet!'.format(__name__, self._data_file))
 
     def _set_options(self, options):
         """
@@ -161,7 +163,6 @@ class MethodBase(object):
                 self._set_options(data['options'])
                 json_info.close()
             else:
-                import logging
                 logging.getLogger('EasyExp').fatal("[{}] The settings file '{}' cannot be found!".format(__name__, self._settings_file))
         return self._options
 
@@ -196,6 +197,7 @@ class MethodBase(object):
             self._get_lists(intensity=intensity, response=response)
 
         if self.cpt_stair <= self._options['warm_up']:
+
             # If warm-up phase, then present extremes values
             self.intensity = self._options['stimRange'][self.cpt_stair % 2]
             return self.intensity
