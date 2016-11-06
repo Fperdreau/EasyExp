@@ -101,12 +101,12 @@ class StaircaseASA(MethodBase):
         self._load_options(options)
 
         self.Done = False
-        self.cur_stair = 1
+        self.cur_stair = None
         self.intensity = None
 
         # Initialize arrays
-        self.resp_list = np.zeros((1, self._options['nTrials']))
-        self.int_list = np.zeros((1, self._options['nTrials']))
+        self.resp_list = np.zeros((1, 1))
+        self.int_list = np.zeros((1, 1))
         self.StairProgress = 0
         self.cpt_stair = 0
         self.data = []
