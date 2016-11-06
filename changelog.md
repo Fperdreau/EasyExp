@@ -5,6 +5,10 @@
 - BaseTrial: only call MethodContainer.update() if a staircaseID is specified in the design file. This prevent calling the Methods/Constant.update()
 - Added a specific version number to every EasyExp modules (apart from Core modules) to facilitate the tracking of changes.
 
+### Methods
+- StaircaseASA: corrected error due to wrong computations of completed trials.
+- MethodeBase: added application logger
+
 ### Devices
 - Sled: Added Sled.validate() method to validate state of sled (position and null velocity) over a given period of time. 
 - Sled: Added Sled.at_position(position, tolerance) method to test whether the sled is at a specified position.
