@@ -26,7 +26,7 @@ from ...com.fpclient.fpclient import FpClient
 
 import logging
 
-__version__ = '1.1.2'
+__version__ = '1.1.3'
 
 
 class Sled(object):
@@ -333,7 +333,7 @@ class PositionTracker(object):
     """
     __max_positions = 3
     __time_interval = 0.01
-    __velocity_threshold = 0.0
+    __velocity_threshold = 0.001
 
     def __init__(self):
         self.__history = []
