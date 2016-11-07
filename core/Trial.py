@@ -336,4 +336,6 @@ class Trial(object):
                     data.append(row)
         except (IOError, TypeError):
             self.__logger.warning('[{}] User Data filename does not exist yet'.format(__name__))
+
+        self.data = data
         return data
