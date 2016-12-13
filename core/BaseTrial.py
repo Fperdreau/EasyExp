@@ -179,7 +179,7 @@ class BaseTrial(StateMachine):
         self.status = True
         self._running = False
         self._initialized = False
-        self.validTrial = False
+        self.validTrial = True
         self.threads = dict()
         self.lock = threading.RLock()
 
@@ -456,6 +456,9 @@ class BaseTrial(StateMachine):
             if self.status is "pause":
                 return 'pause'
 
+            # Assume trial is valid by default
+            self.validTrial = True
+
             # Start a new trial
             # Reset timers
             for timer, value in self.timers.iteritems():
@@ -505,7 +508,6 @@ class BaseTrial(StateMachine):
         :return:
         """
         # Did we get a response from the participant?
-        self.validTrial = self.triggers['response_given'] is not False
         self.timers['runtime'].reset()
 
         # Close movie file is necessary
@@ -567,8 +569,8 @@ class BaseTrial(StateMachine):
         Clear screen: set all stimuli triggers to False
         """
         # Clear screen
-        for key, stim in self.stimuli.iteritems():
-            stim.setAutoDraw(False)
+        for key in self.stimuli:
+            self.stimuli[key].setAutoDraw(False)
 
         # Reset all triggers
         self.stimuliTrigger.reset()
@@ -740,18 +742,18 @@ class BaseTrial(StateMachine):
             Display loading message while preparing the experiment
             """
             msg = self.__loading.text
-            text = visual.TextStim(self.ptw, pos=(0, 0), text=msg, units="pix", height=30.0)
+            text = visual.TextStim(self.ptw, pos=(0, 0), text=msg, units="pix", height=40.0)
             text.draw()
 
         elif self.state == 'idle':
-            text = visual.TextStim(self.ptw, pos=(0.0, 0.0), text=self.textToDraw, units="pix", height=30.0)
+            text = visual.TextStim(self.ptw, pos=(0.0, 0.0), text=self.textToDraw, units="pix", height=40.0)
             text.draw()
 
         elif self.state == 'quit':
             if self.singleshot('quit_graphics'):
                 self.clear_screen()
 
-            text = visual.TextStim(self.ptw, pos=(0.0, 0.0), text="Experiment is over", units="pix", height=30.0)
+            text = visual.TextStim(self.ptw, pos=(0.0, 0.0), text="Experiment is over", units="pix", height=40.0)
             text.draw()
 
         elif self.state == 'pause':
@@ -763,7 +765,7 @@ class BaseTrial(StateMachine):
             # Render information displayed during break
             break_info_txt = 'PAUSE {0}/{1} [Replayed: {2}]'.format(self.trial.nplayed, self.trial.ntrials,
                                                                     self.trial.nreplay)
-            break_msg = visual.TextStim(self.ptw, pos=(0, 0), text=break_info_txt, units="pix", height=30.0)
+            break_msg = visual.TextStim(self.ptw, pos=(0, 0), text=break_info_txt, units="pix", height=40.0)
             break_msg.draw()
 
             # Show countdown if experiment starts automatically after some delay
