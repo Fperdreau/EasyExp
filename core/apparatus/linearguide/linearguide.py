@@ -28,7 +28,7 @@ import numpy as np
 import logging
 import time
 
-__version__ = '1.0.0'
+__version__ = '1.0.1'
 
 
 class LinearGuide(object):
@@ -286,11 +286,11 @@ class LinearGuide(object):
         """
         return self.velocity >= self.__velocity_threshold
 
-    def valideposition(self):
+    def valideposition(self, threshold_time=None):
         """
         Validate end position of sensor: sensor must not move for a given duration to be considered as stable
         """
-        return self.tracker.sensors['hand2'].validposition()
+        return self.tracker.sensors['hand2'].validposition(threshold_time=threshold_time)
 
     def checkposition(self, (x, y, z), radius):
         """
