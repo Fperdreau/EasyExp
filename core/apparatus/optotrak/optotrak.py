@@ -40,7 +40,7 @@ except ImportError as e:
 # Logger
 import logging
 
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 
 
 class OptoTrak(object):
@@ -406,6 +406,9 @@ class Sensor(object):
     """
     Instantiate tracked sensor
     """
+    __max_positions = 3
+    __time_interval = 0.01
+    __velocity_threshold = 0.001
 
     def __init__(self, parent, name='marker', origin_id=0):
         """
@@ -427,16 +430,19 @@ class Sensor(object):
         self.timeWindow = self._tracker.timeWindow
         self.velocityThres = self._tracker.velocityThres
 
-        self.history = None
-        self.__nb_positions = 0
+        self.__history = []
+        self.__previous = []
+        self.__position = []
+        self.__intervals = []
+
         self.__max_positions = parent.max_positions
         self.final_hand_position = False
         self.valid_time = None
 
         # Timer
-        self.time_interval = 0.010
         self.__dt = 0.0
         self.__tOld = None
+        self.__nb_positions = 0
 
     def update(self):
         """
@@ -472,8 +478,11 @@ class Sensor(object):
         if self.__tOld is None:
             self.__tOld = time.time()
 
-        if self.__tOld is not None:
-            self.__dt = time.time() - self.__tOld
+        try:
+            if self.__tOld is not None:
+                self.__dt = time.time() - self.__tOld
+        except TypeError as e:
+            self._tracker.logger.warning(e)
 
         return self.__dt
 
@@ -490,23 +499,31 @@ class Sensor(object):
         Add new position to sensor's position history in order to compute statistics
         :return:
         """
-        if self.dt >= self.time_interval:
+        if self.dt >= self.__time_interval:
+
             if self.__nb_positions == 0:
-                self.history = np.array(position)
+                self.__history = np.array(position)
+                self.__intervals = np.array(self.dt)
             else:
                 if self.__nb_positions < self.__max_positions:
-                    old = self.history
-                    self.history = np.vstack((old, position))
+                    old = self.__history
+                    self.__history = np.vstack((old, position))
+
+                    old_dts = self.__intervals
+                    self.__intervals = np.vstack((old_dts, self.dt))
                 else:
-                    old = self.history[range(1, self.__max_positions)]
-                    self.history = np.vstack((old, position))
+                    old = self.__history[range(1, self.__max_positions)]
+                    self.__history = np.vstack((old, position))
+
+                    old_dts = self.__intervals[range(1, self.__max_positions)]
+                    self.__intervals = np.vstack((old_dts, self.dt))
 
             self.__nb_positions += 1
 
             # Reset timer
             self.__reset()
 
-        return self.history
+        return self.__history
 
     @property
     def velocity(self):
@@ -515,9 +532,10 @@ class Sensor(object):
         :rtype: float
         """
         if self.__nb_positions >= self.__max_positions:
-            distances = [OptoTrak.distance(self.history[i], self.history[j]) for i, j
-                         in zip(range(0, self.__max_positions-1), range(1, self.__max_positions))]
-            return float(np.mean(np.array(distances)/self.time_interval))
+            distances = [OptoTrak.distance(self.__history[i], self.__history[j]) for i, j
+                         in zip(range(0, self.__max_positions - 1), range(1, self.__max_positions))]
+
+            return float(np.mean(np.array(distances) / np.array(self.__intervals)))
         else:
             return 0.0
 
@@ -576,6 +594,11 @@ class Sensor(object):
         ref_position = np.array((x, y, z))
         distance = OptoTrak.distance(ref_position, self.position)
         return distance <= radius
+
+    def __str__(self):
+        return 'Position: {0: 1.3f} m | Velocity: {1: 1.3f} m/s: Moving: {2}'.format(self.position[0],
+                                                                                     self.get_velocity(),
+                                                                                     self.is_moving)
 
 
 class DummyOpto(object):
