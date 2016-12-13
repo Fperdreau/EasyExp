@@ -1,5 +1,14 @@
 # EasyExp - Changelog
 
+## Version 1.0.5
+- BaseTrial: Assume trial as valid by default. User can define validity of current trial by setting BaseTrial.validTrial
+ to True or False before entering into the "end" state.
+ 
+### Devices:
+- LinearGuide (v1.0.1): LinearGuide.valideposition() can take threshold_time as argument to set minimum duration for 
+detecting slider movement. 
+- OptoTrak (v1.1.0): Improved velocity computation
+
 ## Version 1.0.4
 - Corrected updating of settings dictionary with values specified in settings.json
 - BaseTrial: only call MethodContainer.update() if a staircaseID is specified in the design file. This prevent calling the Methods/Constant.update()
