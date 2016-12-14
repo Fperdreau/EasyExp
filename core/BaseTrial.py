@@ -425,13 +425,13 @@ class BaseTrial(StateMachine):
         if self.buttons.get_status('quit'):
             self.next_state = 'quit'
             self.triggers['quitRequested'] = True
+            self.move_on()
             return True
 
         # Does the user want a break?
         if self.buttons.get_status('pause'):
             self.next_state = 'pause'
             self.triggers['pauseRequested'] = True
-            self.trial.run_pause(force=True)
             return True
 
         if self.buttons.get_status('move_on'):
@@ -569,7 +569,7 @@ class BaseTrial(StateMachine):
         Clear screen: set all stimuli triggers to False
         """
         # Clear screen
-        for key in self.stimuli:
+        for key, value in self.stimuli.items():
             self.stimuli[key].setAutoDraw(False)
 
         # Reset all triggers
@@ -668,6 +668,8 @@ class BaseTrial(StateMachine):
         """
         if self.state == 'pause':
             self.next_state = 'iti'
+            if self.singleshot('run_pause'):
+                self.trial.run_pause(force=True)
 
         elif self.state == 'loading':
             self.next_state = 'idle'

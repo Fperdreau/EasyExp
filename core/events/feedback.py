@@ -122,7 +122,7 @@ class FeedBackContinuous(FeedBack):
 
         if len(data) > 0 and played > 0:
             correct_trials = [float(data[ii][self._field]) for ii in range(len(data))]
-            score = np.mean(correct_trials)
+            score = np.mean(np.abs(correct_trials))
         else:
             score = 0.0
 
@@ -149,42 +149,12 @@ if __name__ == '__main__':
             correct = 'False'
         data.append({'correct': correct})
 
-    all_data = [{'landmark_status': '1', 'mvt': 'True', 'side': 'left', 'Replay': 'False', 'landmark_side': '1', 'TrialID': '17',
-      'response': '96.591607869660436', 'landmark_distance': '100'},
-     {'landmark_status': '1', 'mvt': 'True', 'side': 'right', 'Replay': 'False', 'landmark_side': '-1', 'TrialID': '42',
-      'response': '-108.35165428884542', 'landmark_distance': '-1'},
-     {'landmark_status': '1', 'mvt': 'True', 'side': 'left', 'Replay': 'False', 'landmark_side': '1', 'TrialID': '57',
-      'response': '253.57736661891465', 'landmark_distance': '100'},
-     {'landmark_status': '1', 'mvt': 'True', 'side': 'right', 'Replay': 'False', 'landmark_side': '-1',
-      'TrialID': '226', 'response': '-44.954378875942616', 'landmark_distance': '50'},
-     {'landmark_status': '1', 'mvt': 'True', 'side': 'left', 'Replay': 'False', 'landmark_side': '1', 'TrialID': '291',
-      'response': '123.23584900561099', 'landmark_distance': '-1'},
-     {'landmark_status': '1', 'mvt': 'True', 'side': 'right', 'Replay': 'False', 'landmark_side': '1', 'TrialID': '380',
-      'response': '77.278286187005889', 'landmark_distance': '200'},
-     {'landmark_status': '1', 'mvt': 'True', 'side': 'left', 'Replay': 'False', 'landmark_side': '-1', 'TrialID': '163',
-      'response': '23.545132241295534', 'landmark_distance': '0'},
-     {'landmark_status': '1', 'mvt': 'True', 'side': 'right', 'Replay': 'False', 'landmark_side': '-1',
-      'TrialID': '242', 'response': '-56.710505329889614', 'landmark_distance': '-1'},
-     {'landmark_status': '1', 'mvt': 'True', 'side': 'left', 'Replay': 'False', 'landmark_side': '-1', 'TrialID': '221',
-      'response': '127.06889654653492', 'landmark_distance': '-1'},
-     {'landmark_status': '1', 'mvt': 'True', 'side': 'right', 'Replay': 'False', 'landmark_side': '1', 'TrialID': '100',
-      'response': '74.534348734929978', 'landmark_distance': '200'},
-     {'landmark_status': '1', 'mvt': 'True', 'side': 'left', 'Replay': 'False', 'landmark_side': '1', 'TrialID': '295',
-      'response': '25.993236024661659', 'landmark_distance': '50'},
-     {'landmark_status': '1', 'mvt': 'True', 'side': 'right', 'Replay': 'False', 'landmark_side': '1', 'TrialID': '134',
-      'response': '-37.124957569462985', 'landmark_distance': '0'},
-     {'landmark_status': '1', 'mvt': 'True', 'side': 'left', 'Replay': 'False', 'landmark_side': '1', 'TrialID': '275',
-      'response': '12.401668129059871', 'landmark_distance': '50'},
-     {'landmark_status': '1', 'mvt': 'True', 'side': 'right', 'Replay': 'False', 'landmark_side': '-1',
-      'TrialID': '144', 'response': '87.055586652654227', 'landmark_distance': '0'},
-     {'landmark_status': '1', 'mvt': 'True', 'side': 'left', 'Replay': 'False', 'landmark_side': '-1', 'TrialID': '205',
-      'response': '-107.02315708640468', 'landmark_distance': '50'},
-     {'landmark_status': '1', 'mvt': 'True', 'side': 'right', 'Replay': 'False', 'landmark_side': '1', 'TrialID': '200',
-      'response': '66.433153579148382', 'landmark_distance': '200'}]
+    data = []
 
     fb = FeedBackContinuous(5, field='response')
-    for t in range(len(all_data)):
+    for t in range(50):
         if fb.time_to_update:
-            data = [all_data[ii] for ii in range(0, t)]
             fb.update(data, t)
+
+            data.append({"response": np.random.standard_normal()})
             print(fb)

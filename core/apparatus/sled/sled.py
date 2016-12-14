@@ -167,7 +167,6 @@ class Sled(object):
         if self.validate():
             if not self.at_position(position):
                 self.__logger.debug('Sled not at expected position: {} instead of {}'.format(self.position[0], position))
-                print(self)
                 self.move(position, duration)
                 return False
             else:
@@ -195,8 +194,8 @@ class Sled(object):
         :return: void
         """
         # Return to home position
-        self.move(self.home, self.mvt_back_duration)
-        time.sleep(self.mvt_back_duration)
+        while not self.wait_ready(position=self.home, duration=self.mvt_back_duration):
+            pass
 
         # Switch lights on
         self.lights(True)
