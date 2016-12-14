@@ -1,5 +1,5 @@
 # EasyExp - A Simple way of coding behavioral experiments in Python
-**Version**: 1.0.5
+**Version**: 1.1.0
 
 **Status**: Production
 

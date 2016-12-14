@@ -1,30 +1,26 @@
 # EasyExp - Changelog
 
-## Version 1.0.5
+## Version 1.1.0
+- Corrected updating of settings dictionary with values specified in settings.json
 - BaseTrial: Assume trial as valid by default. User can define validity of current trial by setting BaseTrial.validTrial
  to True or False before entering into the "end" state.
- 
-### Devices:
-- LinearGuide (v1.0.1): LinearGuide.valideposition() can take threshold_time as argument to set minimum duration for 
-detecting slider movement. 
-- OptoTrak (v1.1.0): Improved velocity computation
-
-## Version 1.0.4
-- Corrected updating of settings dictionary with values specified in settings.json
 - BaseTrial: only call MethodContainer.update() if a staircaseID is specified in the design file. This prevent calling the Methods/Constant.update()
 - Added a specific version number to every EasyExp modules (apart from Core modules) to facilitate the tracking of changes.
 
 ### Methods
-- StaircaseASA: corrected error due to wrong computations of completed trials.
+- StaircaseASA (v1.1.0): corrected error due to wrong computations of completed trials.
 - MethodeBase: added application logger
 
 ### Devices
-- Sled: Added Sled.validate() method to validate state of sled (position and null velocity) over a given period of time. 
-- Sled: Added Sled.at_position(position, tolerance) method to test whether the sled is at a specified position.
-- Sled: Added Sled.wait_ready(position, duration) method. Test if sled is at expected position. If not, then move to this location.
-- Sled: Improved estimation of velocity by measuring actual time interval between stored samples.
+- LinearGuide (v1.0.1): LinearGuide.valideposition() can take threshold_time as argument to set minimum duration for 
+detecting slider movement. 
+- OptoTrak (v1.1.0): Improved velocity computation
+- Sled (v1.1.4): Added Sled.validate() method to validate state of sled (position and null velocity) over a given period of time. 
+- Sled (v1.1.4): Added Sled.at_position(position, tolerance) method to test whether the sled is at a specified position.
+- Sled (v1.1.4): Added Sled.wait_ready(position, duration) method. Test if sled is at expected position. If not, then move to this location.
+- Sled (v1.1.4): Improved estimation of velocity by measuring actual time interval between stored samples.
 
-## Version 1.0.3 - Betas
+## Version 1.0.3 - Beta
 - Fixed issues related to state transition (e.g. pauses). self.move_on() must now be used instead of self.change_state(force_move_on=True) in order to force transition 
 to next state.
 - Method instance and its attributes/methods can now be accessed from RunTrial by calling self.trial.method.get('instance_id'). 
