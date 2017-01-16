@@ -32,8 +32,7 @@ pylink.EyeLinkCustomDisplay)
  pylink.EyeLinkCustomDisplay)
 """
 
-from os.path import dirname, abspath
-import sys
+#  @todo : Improve and secure access to Eye instances (stored in EyeTracker.eyes dictionary)
 
 try:
     from pylink import *
@@ -45,10 +44,9 @@ import time
 import gc
 import math
 import random
-import os
 import logging
 
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 
 
 def deg2pix(angle, direction=1, distance=550, screen_res=(800, 600), screen_size=(400, 300)):
@@ -147,6 +145,7 @@ class EyeTracker(object):
         :param float targetsize_in: inner target size
         """
         self.el = None
+        self.__logger = logging.getLogger('EasyExp')
 
         # File information
         # ================
@@ -174,7 +173,9 @@ class EyeTracker(object):
         self.recording = False  # Recording status
         self.trial = None  # Current trial ID
         self.display = None
-        self.eyes = {}
+        self.eyes = {'left': None,
+                     'right': None,
+                     'head': None}
 
         # Display options
         # ===============
@@ -197,12 +198,14 @@ class EyeTracker(object):
         :return:
         """
         if not self.dummy_mode and self.link is not None:
-            print('[{0}] Connecting to the EyeLink at {1}'.format(__name__, self.link))
+            self.__logger.info('[{0}] Connecting to the EyeLink at {1}'.format(__name__, self.link))
             try:
                 self.el = EyeLink(self.link)
-                print('[{0}] Connection successful!'.format(__name__))
-            except Exception:
-                raise Exception("[{0}] Connection - Unexpected error:", __name__, sys.exc_info()[0])
+                self.__logger.info('[{0}] Connection successful!'.format(__name__))
+            except RuntimeError as e:
+                msg = "[{0}] Connection - Unexpected error: {1}".format(__name__, e)
+                self.__logger.critical(msg)
+                raise msg
         else:
             self.el = DummyMode()
 
@@ -214,7 +217,9 @@ class EyeTracker(object):
         self.el.sendCommand(cmd)
         error = self.el.commandResult()
         if error != 0:
-            raise Exception('[{}] Command ({}) could not be sent to eyetracker: {1}'.format(__name__, cmd, error))
+            msg = ('[{0}] Command ({1}) could not be sent to eyetracker: {2}'.format(__name__, cmd, error))
+            self.__logger.critical(msg)
+            raise RuntimeError(msg)
 
     def send_message(self, message):
         """
@@ -228,12 +233,12 @@ class EyeTracker(object):
         """
         Startup routine
         """
-        print('[{}] Eyetracker is starting up...'.format(__name__))
+        self.__logger.info('[{}] Eyetracker is starting up...'.format(__name__))
         self.el.setOfflineMode()
         self.getconnectionstatus()
         self.setup()
         self.file.open()
-        print('[{}] Done ---'.format(__name__))
+        self.__logger.info('[{}] Eyetracker successfully started'.format(__name__))
 
     def getconnectionstatus(self, verbose=False):
         """
@@ -249,10 +254,10 @@ class EyeTracker(object):
         elif self.status == 1:
             msg = 'connected'
         else:
-            print('[{0}] The eyetracker retrieved an unknown status: {1}'.format(__name__, self.status))
+            self.__logger.error('[{0}] The eyetracker retrieved an unknown status: {1}'.format(__name__, self.status))
             self.close()
         self.status = {self.status, msg}
-        print('[{0}] Eyelink Status: {1}'.format(__name__, self.status))
+        self.__logger.info('[{0}] Eyelink Status: {1}'.format(__name__, self.status))
 
     def getStatus(self):
         """
@@ -273,7 +278,7 @@ class EyeTracker(object):
         """
         Setup routine
         """
-        print('[{}] Eye tracker setup...'.format(__name__))
+        self.__logger.info('[{}] Eye tracker setup...'.format(__name__))
         self.setup_tracker()
         self.setup_filters()
 
@@ -285,7 +290,7 @@ class EyeTracker(object):
         self.softvs = 0
         self.vs = self.el.getTrackerVersion()
 
-        print('[{0}] Eyelink version: {1}'.format(__name__, self.vs))
+        self.__logger.info('[{0}] Eyelink version: {1}'.format(__name__, self.vs))
         if self.vs >= 3:
             tvstr = self.el.getTrackerVersionString()
             vindex = tvstr.find("EYELINK CL")
@@ -387,6 +392,7 @@ class EyeTracker(object):
         try:
             error = self.el.startRecording(w_sample, w_event, s_sample, s_event)
         except Exception as e:
+            self.__logger.critical(e)
             raise e
 
         if error:
@@ -405,7 +411,7 @@ class EyeTracker(object):
 
         # Check for data availability
         if not self.el.waitForBlockStart(100, 1, 0):
-            print("[{}] ERROR: No link samples received!".format(__name__))
+            self.__logger.critical("[{}] ERROR: No link samples received!".format(__name__))
             return "ABORT_EXPT"
 
         # Get tracked eye and create Eye instance
@@ -429,7 +435,7 @@ class EyeTracker(object):
         """
         Close routine: shutdown the EyeLink, close data file and receive data file
         """
-        print('[{}] Closing Eyetracker ...'.format(__name__))
+        self.__logger.info('[{}] Closing Eyetracker ...'.format(__name__))
         if self.el is not None:
             # File transfer and cleanup!
             self.el.setOfflineMode()
@@ -441,11 +447,14 @@ class EyeTracker(object):
             # Close connection
             try:
                 self.el.close()
-                print("[{}] Connection closed successfully".format(__name__))
-            except Exception:
+                self.__logger.info("[{}] Connection closed successfully".format(__name__))
+            except Exception as e:
+                self.__logger.warning(e)
                 raise Exception('[{}] Could not close connection'.format(__name__))
         else:
-            raise Exception("[{}] Eyelink not available, not closed properly".format(__name__))
+            msg = "[{}] Eyelink not available, not closed properly".format(__name__)
+            self.__logger.warning(msg)
+            raise Exception(msg)
 
 
 class EDFfile(object):
@@ -854,7 +863,7 @@ class Calibration(object):
         self.tracker.el.doTrackerSetup()
 
         # Close calibration display
-        print('[{}} Exit Calibration Mode'.format(__name__))
+        print('[{}] Exit Calibration Mode'.format(__name__))
 
     def driftcorrection(self, x, y, draw=1):
         """
