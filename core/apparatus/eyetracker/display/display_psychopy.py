@@ -25,9 +25,15 @@ from pygame.constants import *
 
 import sys
 import os
-from psychopy import visual, event
+from psychopy import visual, event, sound, __version__ as psychopy_ver
 import numpy as np
 import array
+
+from PIL import Image
+
+import inspect
+from os.path import dirname
+import logging
 
 RIGHT_EYE = 1
 LEFT_EYE = 0
@@ -71,31 +77,60 @@ class EyeLinkCoreGraphicsPsychopy(pylink.EyeLinkCustomDisplay):
         :param ptw: the Psychopy display window
         :param bgcol: background color
         """
-        print "\n*** initializing custom graphics ***"
-
         pylink.EyeLinkCustomDisplay.__init__(self)
         self.tracker = tracker
         self.ptw = ptw
+
+        __FOLDER__ = dirname(dirname(inspect.getfile(self.__class__)))
+
+        # Mouse
+        # =====
+        self.ptw.mouseVisible = dummy
+        self.mouse = event.Mouse(visible=dummy, win=ptw)
+        self.mouse.setPos([0, 0])  # make the mouse appear at the center of the camera image
+        self.last_mouse_state = -1
+
+        # Display settings
+        self.units = 'pix'
         self.displaySize = ptw.size
         self.bgcol = bgcol  # Background color
-        self.mouse = event.Mouse(visible=dummy, win=ptw)
-        self.units = 'pix'
         self.xc = self.displaySize[0]*0.5
         self.yc = self.displaySize[1]*0.5
+        self.sizeX = ptw.size[0]
+        self.sizeY = ptw.size[1]
         self.ld = 40  # Line height in pixels
         self.fontsize = 15
         self.extra_info = True
         self.display_open = True
         self.state = None
 
+        # Target properties
+        # =================
         self.targetsize_out = outer_target_size
         self.outer_tgcol = outer_target_col
         self.targetsize_in = inner_target_size
         self.inner_tgcol = inner_target_col
 
-        # further properties
+        # Eye Image properties
+        # ================
+        self.imgBuffInitType = 'l'
+        self.imagebuffer = array.array(self.imgBuffInitType)
+        # scaling of the camera image, must be an integer, i.e., 1,2,3
+        self.sf = 2
+
+        self.tmp_file = "{}/dump_img.jpg".format(__FOLDER__)
+
         self.pal = None
-        self.size = (0, 0)  # Eye image size
+        self.size = (384, 320)
+
+        # image title
+        self.title = visual.TextStim(self.ptw, '', height=self.size[1]*self.sf/20)
+
+        # lines
+        self.line = visual.Line(self.ptw, start=(0, 0), end=(0, 0), lineWidth=1.0, lineColor=[0, 0, 0])
+
+        # check psychopy version
+        self.psychopyVer = psychopy_ver
 
         # set some useful parameters
         self.keys = []
@@ -111,7 +146,11 @@ class EyeLinkCoreGraphicsPsychopy(pylink.EyeLinkCustomDisplay):
                 pylink.MOUSE_CURSOR_COLOR: pygame.Color('red'),
                 'font': pygame.Color('white'),
                 }
-        print("Finished initializing custom graphics\n")
+
+        # Sounds
+        self.__target_beep__ = sound.Sound('{}/sounds/type.wav'.format(__FOLDER__))
+        self.__target_beep__done__ = sound.Sound('{}/sounds/qbeep.wav'.format(__FOLDER__))
+        self.__target_beep__error__ = sound.Sound('{}/sounds/error.wav'.format(__FOLDER__))
 
     def setup_event_handlers(self):
         """
@@ -145,6 +184,7 @@ class EyeLinkCoreGraphicsPsychopy(pylink.EyeLinkCustomDisplay):
         """
         This function is called just before exiting calibration/validation mode
         """
+        self.ptw.setColor(self.bgcol)
         self.clear_cal_display()
 
     def record_abort_hide(self):
@@ -160,6 +200,7 @@ class EyeLinkCoreGraphicsPsychopy(pylink.EyeLinkCustomDisplay):
         -------
         void
         """
+        self.ptw.setColor(self.bgcol)
         self.ptw.flip(clearBuffer=True)
 
     def erase_cal_target(self):
@@ -169,7 +210,21 @@ class EyeLinkCoreGraphicsPsychopy(pylink.EyeLinkCustomDisplay):
         -------
         void
         """
+        self.ptw.setColor(self.bgcol)
         self.ptw.flip(clearBuffer=True)
+
+    def play_beep(self, beepid):
+        """
+        Play a sound during calibration/drift correct.
+        :param beepid:
+        :return:
+        """
+        if beepid == pylink.CAL_TARG_BEEP or beepid == pylink.DC_TARG_BEEP:
+            self.__target_beep__.play()
+        if beepid == pylink.CAL_ERR_BEEP or beepid == pylink.DC_ERR_BEEP:
+            self.__target_beep__error__.play()
+        if beepid in [pylink.CAL_GOOD_BEEP, pylink.DC_GOOD_BEEP]:
+            self.__target_beep__done__.play()
 
     def draw_cal_target(self, x, y):
         """
@@ -330,6 +385,7 @@ class EyeLinkCoreGraphicsPsychopy(pylink.EyeLinkCustomDisplay):
 
             if key == pylink.JUNK_KEY:
                 return 0
+            print('Pressed key is: {}'.format(key))
             return key
 
         return 0
@@ -339,7 +395,12 @@ class EyeLinkCoreGraphicsPsychopy(pylink.EyeLinkCustomDisplay):
         pygame.event.pump()
         for key in pygame.event.get([KEYDOWN]):
             tkey = self.key_mapping(key)
-            ky.append(KeyInput(tkey))
+            # getKeys does not retrun key modifiers, this workaround doe not work
+            if tkey in ['lshift', 'rshift']:
+                mod = 1
+            else:
+                mod = 0
+            ky.append(pylink.KeyInput(tkey, mod))
         pygame.event.clear()
         return ky
 
@@ -359,20 +420,38 @@ class EyeLinkCoreGraphicsPsychopy(pylink.EyeLinkCustomDisplay):
         return x, y
 
     def setup_image_display(self, w, h):
-        # convert w, h from pixels to relative units
+        """
+        convert w, h from pixels to relative units
+        :param w:
+        :param h:
+        :return:
+        """
         self.size = (w, h)
-        self.clear_cal_display()
+        # self.clear_cal_display()
+        self.title.autoDraw = True
         self.last_mouse_state = -1
-        self.imagebuffer = array.array('L')
 
-    def image_title(self, text):
-        msg = "<center>{0}</center>".format(text)
-        self.label = visual.TextStim(self.ptw, text=msg, units='norm',  pos=(0, -self.img_span[1] / 2.),
-                                     color='white')
-        self.label.draw()
+    def image_title(self, text):#
+        '''Draw title text at the bottom of the screen for camera setup'''
+        # self.clear_cal_display()
+        title_pos = (0, 0-self.size[0]*self.sf/2.0-20)
+        self.title.pos = title_pos
+        self.title.text = text
 
-    def set_image_palette(self, r, g, b):
-        self.palette = np.array([r, g, b], np.uint8).T
+    def set_image_palette(self, r,g,b): #
+        '''Given a set of RGB colors, create a list of 24bit numbers representing the pallet.
+        I.e., RGB of (1,64,127) would be saved as 82047, or the number 00000001 01000000 011111111'''
+        self.imagebuffer = array.array(self.imgBuffInitType)
+        # self.clear_cal_display()
+        sz = len(r)
+        i =0
+        self.pal = []
+        while i < sz:
+            rf = int(b[i])
+            gf = int(g[i])
+            bf = int(r[i])
+            self.pal.append((rf << 16) | (gf << 8) | bf)
+            i += 1
 
     def draw_title(self):
         """
@@ -392,6 +471,29 @@ class EyeLinkCoreGraphicsPsychopy(pylink.EyeLinkCustomDisplay):
         """
         pass
 
+    def draw_image_line_new(self, width, line, totlines, buff):  #
+        '''Display image given pixel by pixel'''
+        i = 0
+        while i < width:
+            self.imagebuffer.append(self.pal[buff[i]])
+            i += 1
+
+        if line == totlines:
+            bufferv = self.imagebuffer.tostring()
+            if float(self.psychopyVer[:4]) < 1.83:
+                img = Image.fromstring("RGBX", (width, totlines), bufferv)
+            else:
+                img = Image.frombytes("RGBX", (width, totlines), bufferv)
+
+            imgResize = img.resize((self.size[0] * self.sf, self.size[1] * self.sf))
+            imgResizeVisual = visual.ImageStim(self.ptw, image=imgResize)
+
+            imgResizeVisual.draw()
+            self.draw_cross_hair()
+            self.ptw.flip()
+
+            self.imagebuffer = array.array(self.imgBuffInitType)
+
     def draw_image_line(self, width, line, totlines, buff):
         """
         Draws a single eye video frame, line by line.
@@ -409,11 +511,12 @@ class EyeLinkCoreGraphicsPsychopy(pylink.EyeLinkCustomDisplay):
                 self.imagebuffer.append(self.pal[buff[i]])
             except:
                 pass
+
         # If the buffer is full, push it to the display.
         if line == totlines:
-            self.scale = totlines/320.
-            self._size = int(self.scale*self.size[0]), int(
-                self.scale*self.size[1])
+            self.sf = totlines/320.
+            self._size = int(self.sf*self.size[0]), int(
+                self.sf*self.size[1])
             # Convert the image buffer to a pygame image, save it ...
             try:
                 # This is based on PyLink >= 1.1
@@ -425,21 +528,23 @@ class EyeLinkCoreGraphicsPsychopy(pylink.EyeLinkCustomDisplay):
                 # between these two versions.
                 self.cam_img = pygame.image.fromstring(
                     self.imagebuffer.tostring(), self.size, 'RGBX')
-                self.scale = 1.
+                self.sf = 1.
             if self.extra_info:
                 self.draw_cross_hair()
-                self.draw_title()
+                #self.draw_title()
+
             pygame.image.save(self.cam_img, self.tmp_file)
+
             # ... and then show the image.
             self.ptw.flip()
-            self.ptw.draw_image(self.tmp_file, scale=1.5/self.scale)
-            self.ptw.fill(self.ptw)
-            self.ptw.show()
+            imgStim = visual.ImageStim(self.ptw, image=self.tmp_file, size=self.sf*self.size[0])
+            imgStim.draw()
+            self.ptw.flip()
+
             # Clear the buffer for the next round!
             self.imagebuffer = array.array('L')
 
     def draw_line(self, x1, y1, x2, y2, colorindex):
-
         """
         Unlike the function name suggests, this draws a single pixel. I.e.
         the end coordinates are always exactly one pixel away from the start
@@ -451,14 +556,16 @@ class EyeLinkCoreGraphicsPsychopy(pylink.EyeLinkCustomDisplay):
         y2			--	The end y.
         colorIndex	--	A color index.
         """
+        y1 = y1 * -1 + self.size[1] / 2
+        x1 = x1 * 1 - self.size[0] / 2
+        y2 = y2 * -1 + self.size[1] / 2
+        x2 = x2 * 1 - self.size[0] / 2
+
         color = self.getColorFromIndex(colorindex)
-        x1 = int(self.scale*x1)
-        y1 = int(self.scale*y1)
-        x2 = int(self.scale*x2)
-        y2 = int(self.scale*y2)
-        line = visual.ShapeStim(self.ptw, units='pix', vertices=( (x1, y1), (x2, y2) ),
-                                lineWidth=1.0, lineColor=color)
-        line.draw()
+        self.line.start = (x1 * self.sf, y1 * self.sf)
+        self.line.end = (x2 * self.sf, y2 * self.sf)
+        self.line.lineColor = color
+        self.line.draw()
 
     def draw_lozenge(self, x, y, w, h, colorindex):
         """
