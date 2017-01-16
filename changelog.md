@@ -1,5 +1,11 @@
 # EasyExp - Changelog
 
+## Version 1.1.1
+- Add possibility to not load trial parameters from file
+
+### Devices
+- EyeTracker (v1.1.0): Fixed display of eye image and handling of key inputs
+
 ## Version 1.1.0
 - Corrected updating of settings dictionary with values specified in settings.json
 - BaseTrial: Assume trial as valid by default. User can define validity of current trial by setting BaseTrial.validTrial
