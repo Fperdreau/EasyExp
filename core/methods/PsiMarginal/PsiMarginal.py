@@ -269,20 +269,20 @@ class PsiMarginal(MethodBase):
         # prior: prior probability over all parameters p_0(alpha,beta,gamma,lambda)
         if self.gammaEQlambda:
             self.dimensions = (len(self.threshold), len(self.slope), len(self.lapseRate), len(self.stimRange))
-            self.parameters = cartesian((self.threshold, self.slope, self.lapseRate, self.stimRange))
-            self.likelihood = PF(self.parameters, psyfun=self._options['Pfunction'])
+            self.likelihood = PF(cartesian((self.threshold, self.slope, self.lapseRate, self.stimRange)),
+                                 psyfun=self._options['Pfunction'])
             self.likelihood = np.reshape(self.likelihood, self.dimensions) # dims: (alpha, beta, lambda, x)
-            self.pr = cartesian((self.priorAlpha, self.priorBeta, self.priorLambda))
-            self.prior = np.prod(self.pr, axis=1) # row-wise products of prior probabilities
+            # row-wise products of prior probabilities
+            self.prior = np.prod(cartesian((self.priorAlpha, self.priorBeta, self.priorLambda)), axis=1)
             self.prior = np.reshape(self.prior, self.dimensions[:-1]) # dims: (alpha, beta, lambda)
         else:
             self.dimensions = (len(self.threshold), len(self.slope), len(self.guessRate),
                                len(self.lapseRate), len(self._options['stimRange']))
-            self.parameters = cartesian((self.threshold, self.slope, self.guessRate, self.lapseRate, self.stimRange))   
-            self.likelihood = PF(self.parameters, psyfun=self._options['Pfunction'])
-            self.likelihood = np.reshape(self.likelihood, self.dimensions) # dims: (alpha, beta, gamma, lambda, x)
-            self.pr = cartesian((self.priorAlpha, self.priorBeta, self.priorGamma, self.priorLambda))
-            self.prior = np.prod(self.pr, axis=1) # row-wise products of prior probabilities
+            self.likelihood = PF(cartesian((self.threshold, self.slope, self.guessRate, self.lapseRate, self.stimRange))
+                                 , psyfun=self._options['Pfunction'])
+            self.likelihood = np.reshape(self.likelihood, self.dimensions)  # dims: (alpha, beta, gamma, lambda, x)
+            # row-wise products of prior probabilities
+            self.prior = np.prod(cartesian((self.priorAlpha, self.priorBeta, self.priorLambda)), axis=1)
             self.prior = np.reshape(self.prior, self.dimensions[:-1]) # dims: (alpha, beta, gamma, lambda)
         
         # normalize prior
