@@ -172,25 +172,78 @@ class EyeTracker(object):
         self.softvs = None  # software version
         self.recording = False  # Recording status
         self.trial = None  # Current trial ID
-        self.display = None
         self.eyes = {'left': None,
                      'right': None,
                      'head': None}
 
-        # Display options
-        # ===============
-        self.display = Display(self.el, display_type=display_type, distance=distance, resolution=resolution,
-                               winsize=winsize, ptw=ptw, bgcol=bgcol, inner_tgcol=inner_tgcol, outer_tgcol=outer_tgcol,
-                               targetsize_in=targetsize_in, targetsize_out=targetsize_out)
-
         # Connect to Eye Tracker
+        # ======================
         self.connect()
 
         # Data file
+        # =========
         self.file = EDFfile(self, self.user_file)
 
+        # Display options
+        # ===============
+        self.__display = None
+        self.graphics = {
+            'display_type': display_type,
+            'distance': distance,
+            'resolution': resolution,
+            'winsize': winsize,
+            'bgcol': bgcol,
+            'inner_tgcol': inner_tgcol,
+            'outer_tgcol': outer_tgcol,
+            'targetsize_in': targetsize_in,
+            'targetsize_out': targetsize_out
+        }
+
+        if ptw is not None:
+            self.set_display(ptw)
+
         # Calibration
-        self.calibration = Calibration(self, self.display, caltype)
+        # ===========
+        self.caltype = caltype
+        self.calibration = None
+        self.set_calibration()
+
+    @property
+    def display(self):
+        return self.__display
+
+    def set_display(self, ptw):
+        """
+        Set display
+        :param ptw:
+        :return:
+        """
+        if self.__display is None:
+            self.__display = Display(self.el, ptw=ptw, **self.graphics)
+
+    def set_calibration(self):
+        """
+        Set calibration
+        :return:
+        """
+        if self.display is None:
+            self.__logger.warning('A window pointer must be specified before instantiating Calibration by calling '
+                                  'EyeTracker.set_display(ptw)')
+        else:
+            if self.calibration is None:
+                self.calibration = Calibration(self, screen=self.display, cal_type=self.caltype)
+
+    def unset_calibration(self):
+        """
+        Unset calibration instance
+        :return:
+        """
+        del self.calibration
+        self.calibration = None
+
+    def unset_display(self):
+        del self.__display
+        self.__display = None
 
     def connect(self):
         """
@@ -205,7 +258,7 @@ class EyeTracker(object):
             except RuntimeError as e:
                 msg = "[{0}] Connection - Unexpected error: {1}".format(__name__, e)
                 self.__logger.critical(msg)
-                raise msg
+                raise RuntimeError(msg)
         else:
             self.el = DummyMode()
 
@@ -356,10 +409,7 @@ class EyeTracker(object):
         self.send_command('record_status_message "TRIAL %d"' % self.trial)
         self.send_command('set_idle_mode')
         self.send_command('clear_screen %d' % 0)  # clear tracker display and draw box at center
-        self.send_command('draw_box {} {} {} {} 15'.format(self.display.center[0] - 50,
-                                                           self.display.center[1] - 50,
-                                                           self.display.center[0] + 50,
-                                                           self.display.center[1] + 50))
+
         self.el.sendMessage('TRIALID %d' % self.trial)
         if param is not None:
             data = ''
@@ -651,7 +701,7 @@ class Display(object):
     This class handles display used by the tracker for calibration
     """
 
-    def __init__(self, tracker, dummy=False, display_type='pygame', distance=550, resolution=(1024, 768),
+    def __init__(self, tracker, dummy=False, display_type='psychopy', distance=550, resolution=(1024, 768),
                  winsize=(400, 300), bgcol=(0, 0, 0), inner_tgcol=(1, 1, 1), outer_tgcol=(0, 0, 0), targetsize_in=0.5,
                  targetsize_out=1.5, ptw=None):
         """
@@ -681,9 +731,6 @@ class Display(object):
         :param ptw: window's pointer
         """
 
-        if ptw is None:
-            Exception('You must provide a window/Qt application pointer')
-
         self.tracker = tracker  # Link to eye tracker
         self.dummy = dummy  # dummy mode
         self.display_type = display_type  # display type
@@ -704,25 +751,36 @@ class Display(object):
         self.init()
 
     def init(self):
+        """
+        Initialization of display
+        :return:
+        """
+        if self.ptw is None:
+            RuntimeError('You must provide a window/Qt application pointer')
+
         print(self)
 
         # Convert target size from visual angles to pixels
         targetsize_out = deg2pix(self.targetsize_out, 1, self.distance, self.resolution, self.winsize)  # Target outer size
         targetsize_in = deg2pix(self.targetsize_in, 1, self.distance, self.resolution, self.winsize)
 
-        if self.display_type is 'pygame':
+        if self.display_type == 'pygame':
             from display.display_pygame import DisplayPygame
             self.gui = DisplayPygame(self.tracker)
-        elif self.display_type is 'qt':
+        elif self.display_type == 'qt':
             from display.qeyelink import QEyelink
             self.gui = QEyelink(self.tracker)
-        elif self.display_type is 'psychopy':
+        elif self.display_type == 'psychopy':
             from display.display_psychopy import EyeLinkCoreGraphicsPsychopy
             self.gui = EyeLinkCoreGraphicsPsychopy(self.tracker, self.ptw, dummy=self.dummy, bgcol=self.bgcol,
                                                    outer_target_size=targetsize_out,
                                                    inner_target_size=targetsize_in,
                                                    outer_target_col=self.outer_tgcol,
                                                    inner_target_col=self.inner_tgcol)
+            print('GUI INSTANCE')
+            print(self.gui)
+        print('Display type: {}'.format(self.display_type))
+        print('DISPLAY INIT DONEs')
 
     def __str__(self):
         return '\n.:: EYETRACKER GUI::. \n' \
@@ -739,7 +797,7 @@ class Calibration(object):
     sequence of presentation
     """
 
-    def __init__(self, tracker, screen=display, cal_type='HV5'):
+    def __init__(self, tracker, screen=Display, cal_type='HV5'):
         """
         Calibration class constructor
         :param tracker: EyeTracker class instance
@@ -759,6 +817,9 @@ class Calibration(object):
         self.setup()
         self.setup_cal_sound()
 
+    def set_display(self, new_display=Display):
+        self.display = new_display
+
     def setup(self):
         """
         Setup calibration
@@ -770,8 +831,9 @@ class Calibration(object):
         # Set display coordinates
         self.getgraphicenv()
 
+        binocular = self.tracker.trackedeye is "both"
         self.tracker.send_command("calibration_type=%s" % self.ctype)
-        self.tracker.send_command("binocular_enabled = YES")
+        self.tracker.send_command("binocular_enabled = %s" % binocular)
         self.tracker.send_command("enable_automatic_calibration = YES")
 
         # switch off the randomization of the targets
@@ -810,9 +872,9 @@ class Calibration(object):
         # Generates validation targets list
         validation_targets = ' '.join(['{0:d},{1:d}'.format(int(x[i]), int(y[i])) for i in range(len(x))])
 
-        print('[{}] ### Using custom calibration ###'.format(__name__))
-        print('[{0}] Sequence index: {1}'.format(__name__, sequence_index))
-        print('[{0}]calibration targets: {1}'.format(__name__, calibration_targets))
+        logging.getLogger('EasyExp').info('[{}] ### Using custom calibration ###'.format(__name__))
+        logging.getLogger('EasyExp').info('[{0}] Sequence index: {1}'.format(__name__, sequence_index))
+        logging.getLogger('EasyExp').info('[{0}]calibration targets: {1}'.format(__name__, calibration_targets))
 
         # Set graphics
         self.getgraphicenv()
@@ -853,8 +915,7 @@ class Calibration(object):
         print('[{}] Start Calibration'.format(__name__))
 
         # Switch calibration display on
-        env = self.display.gui
-        openGraphicsEx(env)
+        openGraphicsEx(self.display.gui)
 
         self.lost = 0
         self.last = time.time()
