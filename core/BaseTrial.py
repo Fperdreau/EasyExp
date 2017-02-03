@@ -45,7 +45,6 @@ import logging
 from Core import Core
 from movie.moviemaker import MovieMaker
 from buttons.buttons import UserInput
-from display.fpscounter import FpsCounter
 from events.timer import Timer
 from StateMachine import StateMachine
 from core.stimuli.trigger import Trigger
@@ -185,8 +184,6 @@ class BaseTrial(StateMachine):
 
         # Dependencies
         # ============
-        # FPScounter: measures flip duration or simply flips the screen
-        self.fpsCounter = FpsCounter(self.screen.ptw)
 
         # State Machine
         # =============
@@ -341,6 +338,7 @@ class BaseTrial(StateMachine):
         lapses = []
         while self.status:
             init_time = time.time()
+            self.lock.acquire(blocking=1)
 
             # Default states for this state machine
             self.__default_graphic_states()
@@ -350,6 +348,7 @@ class BaseTrial(StateMachine):
 
             # Update display
             self.update_graphics()
+            self.lock.release()
 
             stop_time = time.time() - init_time
             lapses.append(stop_time)
@@ -558,7 +557,7 @@ class BaseTrial(StateMachine):
             self.clear_screen()
 
         # Flip the screen
-        self.fpsCounter.flip()
+        self.ptw.flip()
 
         # Make Movie
         if self.triggers['startTrigger'] and self.trial.settings['setup']['movie']:
@@ -568,12 +567,13 @@ class BaseTrial(StateMachine):
         """
         Clear screen: set all stimuli triggers to False
         """
-        # Clear screen
-        for key, value in self.stimuli.items():
-            self.stimuli[key].setAutoDraw(False)
+        with self.lock:
+            # Clear screen
+            for key, value in self.stimuli.items():
+                self.stimuli[key].setAutoDraw(False)
 
-        # Reset all triggers
-        self.stimuliTrigger.reset()
+            # Reset all triggers
+            self.stimuliTrigger.reset()
 
     ################################
     # CUSTOMIZATION STARTS HERE    #
