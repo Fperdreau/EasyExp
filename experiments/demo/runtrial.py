@@ -135,7 +135,8 @@ class RunTrial(BaseTrial):
             'pauseRequested': False,
             'startTrigger': False,
             'response_given': False,
-            'quitRequested': False
+            'quitRequested': False,
+            'calibration_requested': False
         }
 
         # Stimulus triggers
@@ -216,7 +217,7 @@ class RunTrial(BaseTrial):
         # self.buttons.add_listener('mouse', 'right', 2)  # Right mouse click
         self.buttons.add_listener('mouse', 'left', 0)
         self.buttons.add_listener('mouse', 'right', 2)
-        self.buttons.add_listener('keyboard', 'calibration', pygame.K_c)
+        # self.buttons.add_listener('keyboard', 'calibration', pygame.K_c)
 
     ################################
     # CUSTOMIZATION STARTS HERE    #
@@ -275,7 +276,7 @@ class RunTrial(BaseTrial):
         # Customization goes below
         # Create eye-tracker instance
         if self.devices['eyetracker'] is not None and not self.devices['eyetracker'].dummy_mode:
-            self.state = 'calibration'
+            self.next_state = 'calibration'
 
     def init_audio(self):
         """
@@ -305,6 +306,8 @@ class RunTrial(BaseTrial):
         Then on every loop, the state machine will automatically call self.stimuli['stimulus_name'].draw() if
         self.stimuliTrigger['stimulus_name'] is set to True.
         """
+        self.stimuli = dict()
+
         # Probe size
         probeSizeM = deg2m(float(self.trial.parameters['probeSize']), self.screen.distance/1000.0)*1000.0
         probeSize = 0.5*mm2pix(probeSizeM, probeSizeM, self.screen.resolution, self.screen.size)  # Radius in pixels
@@ -369,6 +372,14 @@ class RunTrial(BaseTrial):
             self.data['response'] = 'left' if self.buttons.get_status('left') else 'right'
             self.data['correct'] = self.data['response'] == 'right'
 
+    def check_calibration_request(self):
+        """
+        Check if eyetracker calibration is requested
+        :return:
+        """
+        if self.buttons.get_status('calibration'):
+            self.triggers['calibration_requested'] = True
+
     # =========================================
     # SLED movement
     # =========================================
@@ -415,6 +426,7 @@ class RunTrial(BaseTrial):
         # Get sled (viewer) position
         if self._running:
             self.getviewerposition()
+            # self.check_calibration_request()
 
         if self.state == 'pause':
             # PAUSE experiment
@@ -427,7 +439,14 @@ class RunTrial(BaseTrial):
 
         if self.state == 'calibration':
             # Eye-tracker calibration
-            self.next_state = 'iti'
+            self.next_state = 'init'
+            self.triggers['calibration_requested'] = False
+            if self.singleshot('pause_sled'):
+                # Move the sled back to its default position
+                if 'sled' in self.devices and self.devices['sled'] is not None:
+                    self.devices['sled'].move(self.sledHome, self.mvtBackDuration)
+                    time.sleep(self.mvtBackDuration)
+                    self.devices['sled'].lights(True)  # Turn the lights off
 
         elif self.state == 'iti':
             if self.singleshot('sled_light'):
@@ -443,6 +462,7 @@ class RunTrial(BaseTrial):
                 # Stimuli Triggers
                 self.triggers['startTrigger'] = True
                 self.stimuliTrigger['fixation'] = True
+                self.triggers['calibration_requested'] = True
 
                 side = 1 if self.trial.params['side'] == 'right' else -1
                 self.sledStart = side * float(self.trial.parameters['sledStart'])  # Sled homing position (in m)
@@ -528,14 +548,23 @@ class RunTrial(BaseTrial):
         """
         if self.state == 'calibration':
             if self.singleshot('el_calibration'):
+                # Start calibration
+                # self.lock.acquire()
+
                 # Create calibration points (polar grid, with points spaced by 45 degrees)
                 x, y = pol2cart(0.25 * (self.screen.resolution[0] / 2), np.linspace(0, 2 * np.pi, 9))
                 x += 0.5 * self.screen.resolution[0]  # Center coordinates on screen center
                 y += 0.5 * self.screen.resolution[1]
 
-                # Start calibration
+                self.devices['eyetracker'].set_display(self.ptw)
+                self.devices['eyetracker'].set_calibration()
                 self.devices['eyetracker'].calibration.custom_calibration(x=x, y=y, ctype='HV9')
                 self.devices['eyetracker'].calibration.calibrate()
+
+                self.devices['eyetracker'].unset_display()
+                self.devices['eyetracker'].unset_calibration()
+
+                # self.lock.release()
 
         # Update fixation position (body-fixed)
         if self.triggers['startTrigger']:
