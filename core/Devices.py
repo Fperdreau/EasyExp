@@ -209,7 +209,7 @@ class Devices(object):
             except AttributeError as e:
                 msg = AttributeError('Could not instantiate {}: {}'.format(device_name, e))
                 self.__logger.critical(msg)
-                raise msg
+                raise AttributeError(msg)
 
             # Start device if not self-started
             if hasattr(self.__devices[device_name.lower()], 'run'):
@@ -219,7 +219,7 @@ class Devices(object):
                 except RuntimeError as e:
                     msg = AttributeError('Could not start {}: {}'.format(device_name, e))
                     self.__logger.critical(msg)
-                    raise msg
+                    raise RuntimeError(msg)
 
     def close_all(self):
         """
