@@ -3,21 +3,21 @@
         "EyeTracker": {
             "options": {
                 "outer_tgcol": [
-                    255, 
-                    255, 
-                    255
+                    0, 
+                    0, 
+                    0
                 ], 
                 "distance": 1470, 
                 "bgcol": [
-                    127, 
-                    127, 
-                    127
+                    -1, 
+                    -1, 
+                    -1
                 ], 
                 "thresvel": 35, 
                 "inner_tgcol": [
-                    127, 
-                    127, 
-                    127
+                    -1, 
+                    -1, 
+                    -1
                 ], 
                 "targetsize_out": 1.5, 
                 "sprate": 1000, 
@@ -25,11 +25,11 @@
                     1206.0, 
                     679.0
                 ], 
-                "link": "10.0.0.20", 
-                "display_type": "pygame", 
+                "dodrift": false, 
+                "link": "100.1.1.1", 
+                "display_type": "psychopy", 
                 "targetsize_in": 0.5, 
                 "dummy_mode": false, 
-                "trackedeye": "right", 
                 "illumi": 2, 
                 "caltype": "H3", 
                 "resolution": [
@@ -37,7 +37,7 @@
                     1080
                 ], 
                 "thresacc": 9500, 
-                "dodrift": false
+                "trackedeye": "right"
             }
         }, 
         "Sled": {
@@ -54,7 +54,7 @@
                 "off", 
                 "dummy"
             ], 
-            "value": "dummy", 
+            "value": "on", 
             "label": "Eyetracker"
         }, 
         "Sled": {
