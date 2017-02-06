@@ -107,6 +107,12 @@ def rad2deg(angle):
     return float(angle/(math.pi/180))
 
 
+# Constant
+LEFT_EYE = 0
+RIGHT_EYE = 1
+BINOCULAR = 2
+
+
 class EyeTracker(object):
     """
     EyeTracker Class: handles attributes and routines for controlling the EyeLink
@@ -117,7 +123,7 @@ class EyeTracker(object):
     dummy_mode = False
 
     def __init__(self, link='10.0.0.20', dummy_mode=False, user_file='X', sprate=1000, thresvel=35, thresacc=9500, illumi=2, caltype='H3',
-                 dodrift=False, trackedeye='right', display_type='pygame', ptw=None, bgcol=(127, 127, 127), distance=550,
+                 dodrift=False, trackedeye='RIGHT', display_type='pygame', ptw=None, bgcol=(127, 127, 127), distance=550,
                  resolution=(800, 600), winsize=(800, 600), inner_tgcol=(127, 127, 127), outer_tgcol=(255, 255, 255),
                  targetsize_out=1.5, targetsize_in=0.5):
 
@@ -132,7 +138,7 @@ class EyeTracker(object):
         :param int illumi: Illumination of the infrared (1:100% 2:75% 3:50%)
         :param str caltype: Calibration type (HV5, ...)
         :param bool dodrift: Drift correction
-        :param str trackedeye: Tracked eye ('left','right','both')
+        :param str trackedeye: Tracked eye ('LEFT','RIGHT','BINOCULAR')
         :param str display_type:
         :param ptw: Windows pointer
         :param tuple bgcol: Background color
@@ -172,9 +178,7 @@ class EyeTracker(object):
         self.softvs = None  # software version
         self.recording = False  # Recording status
         self.trial = None  # Current trial ID
-        self.eyes = {'left': None,
-                     'right': None,
-                     'head': None}
+        self.eye = None
 
         # Connect to Eye Tracker
         # ======================
@@ -394,6 +398,14 @@ class EyeTracker(object):
         if eu > 4:
             eu = 0
         self.trackedeye = self.eye_list[eu] if eu >= 0 else None
+
+        if eu == RIGHT_EYE:
+            self.el.sendMessage("EYE_USED 1 RIGHT")
+        elif eu == LEFT_EYE or eu == BINOCULAR:
+            self.el.sendMessage("EYE_USED 0 LEFT")
+        else:
+            self.__logger.warning("[{}] Error in getting the eye information!".format(__name__))
+            return TRIAL_ERROR
         return self.trackedeye
 
     def start_trial(self, trial, param=None):
@@ -465,12 +477,15 @@ class EyeTracker(object):
             return "ABORT_EXPT"
 
         # Get tracked eye and create Eye instance
+        self.set_eye()
+
+    def set_eye(self):
+        """
+        Set Eye object
+        :return:
+        """
         self.trackedeye = self.get_eye_used()
-        if self.trackedeye is "BINOCULAR":
-            self.eyes['left'] = Eye(self, 'LEFT_EYE')
-            self.eyes['right'] = Eye(self, 'RIGHT_EYE')
-        else:
-            self.eyes[self.trackedeye] = Eye(self, self.trackedeye)
+        self.eye = Eye(self, self.trackedeye)
 
     def stop_recording(self):
         """
@@ -668,7 +683,7 @@ class Eye(object):
         """
         self.status = self.missing | self.blink
 
-    def get_position(self, sample_type='newest'):
+    def get_position(self, sample_type='next'):
         """
         Get eye samples for the recorded eye
         :param sample_type:
@@ -677,7 +692,8 @@ class Eye(object):
             if sample_type is 'newest':
                 dt = self.tracker.el.getNewestSample()  # check for new sample update
             else:
-                dt = self.tracker.el.getNewestSample()
+                dt = self.tracker.el.getNextData()  # Get oldest sample
+                dt = None if dt == 200 else dt
 
             if dt is not None:
                 # Gets the gaze position of the latest sample,
@@ -761,7 +777,7 @@ class Display(object):
         print(self)
 
         # Convert target size from visual angles to pixels
-        targetsize_out = deg2pix(self.targetsize_out, 1, self.distance, self.resolution, self.winsize)  # Target outer size
+        targetsize_out = deg2pix(self.targetsize_out, 1, self.distance, self.resolution, self.winsize)
         targetsize_in = deg2pix(self.targetsize_in, 1, self.distance, self.resolution, self.winsize)
 
         if self.display_type == 'pygame':
@@ -777,10 +793,6 @@ class Display(object):
                                                    inner_target_size=targetsize_in,
                                                    outer_target_col=self.outer_tgcol,
                                                    inner_target_col=self.inner_tgcol)
-            print('GUI INSTANCE')
-            print(self.gui)
-        print('Display type: {}'.format(self.display_type))
-        print('DISPLAY INIT DONEs')
 
     def __str__(self):
         return '\n.:: EYETRACKER GUI::. \n' \
@@ -831,9 +843,8 @@ class Calibration(object):
         # Set display coordinates
         self.getgraphicenv()
 
-        binocular = self.tracker.trackedeye is "both"
         self.tracker.send_command("calibration_type=%s" % self.ctype)
-        self.tracker.send_command("binocular_enabled = %s" % binocular)
+        self.tracker.send_command("binocular_enabled = %s" % self.tracker.trackedeye is BINOCULAR)
         self.tracker.send_command("enable_automatic_calibration = YES")
 
         # switch off the randomization of the targets
@@ -1082,9 +1093,8 @@ class Checking(object):
         :return bool fix
         """
         fix = []
-        for eye_id, eye in self.tracker.eyes.iteritems():
-            mx, my, status = eye.get_position('newest')
-            fix.append(self.inrange(mx, my, cx, cy))
+        mx, my, status = self.tracker.eye.get_position('newest')
+        fix.append(self.inrange(mx, my, cx, cy))
 
         # Check if we need to redo a calibration
         if True not in fix:
