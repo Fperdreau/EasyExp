@@ -299,10 +299,6 @@ class EyeLinkCoreGraphicsPsychopy(pylink.EyeLinkCustomDisplay):
         if flip:
             self.ptw.flip()
 
-    def play_beep(self, beepid):
-        """ Play a sound during calibration/drift correct."""
-        pass
-
     def getColorFromIndex(self, colorindex):
         """Return psychopy colors for varius objects"""
         if colorindex == pylink.CR_HAIR_COLOR:
