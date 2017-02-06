@@ -548,13 +548,10 @@ class RunTrial(BaseTrial):
         """
         if self.state == 'calibration':
             if self.singleshot('el_calibration'):
-                # Start calibration
-                # self.lock.acquire()
-
                 # Create calibration points (polar grid, with points spaced by 45 degrees)
-                x, y = pol2cart(0.25 * (self.screen.resolution[0] / 2), np.linspace(0, 2 * np.pi, 9))
-                x += 0.5 * self.screen.resolution[0]  # Center coordinates on screen center
-                y += 0.5 * self.screen.resolution[1]
+                dx, dy = pol2cart(0.25 * (self.screen.resolution[0] * 0.5), np.linspace(0, 2 * np.pi, 9))
+                x = 0.5 * self.screen.resolution[0] + dx  # Center coordinates on screen center
+                y = 0.5 * self.screen.resolution[1] + dy
 
                 self.devices['eyetracker'].set_display(self.ptw)
                 self.devices['eyetracker'].set_calibration()
@@ -563,8 +560,6 @@ class RunTrial(BaseTrial):
 
                 self.devices['eyetracker'].unset_display()
                 self.devices['eyetracker'].unset_calibration()
-
-                # self.lock.release()
 
         # Update fixation position (body-fixed)
         if self.triggers['startTrigger']:
