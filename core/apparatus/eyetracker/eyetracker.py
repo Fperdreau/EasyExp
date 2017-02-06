@@ -648,6 +648,9 @@ class DummyMode(object):
         return 3
 
 
+EYE_MISSING = -32768
+
+
 class Eye(object):
     """
     Handle eye status and position
@@ -665,7 +668,6 @@ class Eye(object):
         self.id = eye_id
         self.x = 0
         self.y = 0
-        self.missing = False
         self.blink = False
         self.status = False
 
@@ -673,8 +675,7 @@ class Eye(object):
         """
         Print method
         """
-        return "Eye '%s' status| x:%.1f y: %.1f Missing: %s Blink: %s" \
-               % (self.id, self.x, self.y, self.missing, self.blink)
+        return "Eye '%s' | x:%.1f y: %.1f | Missing: %s" % (self.id, self.x, self.y, self.missing)
 
     def get_status(self):
         """
@@ -682,6 +683,10 @@ class Eye(object):
 
         """
         self.status = self.missing | self.blink
+
+    @property
+    def missing(self):
+        return self.x == EYE_MISSING or self.y == EYE_MISSING
 
     def get_position(self, sample_type='next'):
         """
@@ -701,6 +706,7 @@ class Eye(object):
                     self.x, self.y = dt.getRightEye().getGaze()
                 elif self.id == 'LEFT_EYE' and dt.isLeftSample():
                     self.x, self.y = dt.getLeftEye().getGaze()
+
             else:
                 self.x, self.y = 0, 0
         else:
@@ -843,8 +849,8 @@ class Calibration(object):
         # Set display coordinates
         self.getgraphicenv()
 
-        self.tracker.send_command("calibration_type=%s" % self.ctype)
-        self.tracker.send_command("binocular_enabled = %s" % self.tracker.trackedeye is BINOCULAR)
+        self.tracker.send_command("calibration_type = {}".format(self.ctype))
+        self.tracker.send_command("binocular_enabled = {}".format(self.tracker.trackedeye is BINOCULAR))
         self.tracker.send_command("enable_automatic_calibration = YES")
 
         # switch off the randomization of the targets
