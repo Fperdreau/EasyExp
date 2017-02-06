@@ -108,7 +108,7 @@ else:
 
 # From this point, the EyeTracker wrapper class works the same whatever we are using a pygame or a psychopy window
 eyetracker = EyeTracker(link=link, dummy_mode=False, sprate=1000, thresvel=35, thresacc=9500, illumi=2,
-                        caltype='HV9', dodrift=False, trackedeye='right', display_type=display_type, ptw=win,
+                        caltype='HV9', dodrift=False, trackedeye='left', display_type=display_type, ptw=win,
                         bgcol=(0, 0, 0), distance=distance, resolution=resolution, winsize=screen_size,
                         inner_tgcol=(0, 0, 0), outer_tgcol=(1, 1, 1), targetsize_out=1.0,
                         targetsize_in=0.25)
@@ -146,13 +146,14 @@ for trialID in range(5):
         eyetracker.display.gui.draw_fixation(normCenter[0], normCenter[1], flip=False)
 
         # Draw eye-position
-        eyetracker.display.gui.draw_eye(x=eyetracker.eyes['left'].x - 0.5*resolution[0],
-                                        y=-eyetracker.eyes['left'].y + 0.5*resolution[1], flip=False)
+        eyetracker.display.gui.draw_eye(x=eyetracker.eye.x - 0.5*resolution[0],
+                                        y=-eyetracker.eye.y + 0.5*resolution[1], flip=False)
 
         # Check fixation
         fix = checking.fixationcheck(cx=0.5*resolution[0], cy=0.5*resolution[1])
-        print eyetracker.eyes['left']
-        print eyetracker.eyes['right']
+        print(eyetracker.eye)
+
+        # Flip screen
         win.flip()
 
         # Exit example if ESCAPE is pressed
@@ -162,7 +163,7 @@ for trialID in range(5):
         if stopexp:
             break
 
-    print 'Fixated: {}'.format(fix)
+    print('Fixated: {}'.format(fix))
 
     # Start trial
     # Here, we simply draw a black dot at the current gaze location. YAY, our first gaze-contingent experiment!
@@ -171,12 +172,12 @@ for trialID in range(5):
     while time.time() < initTime + trialDuration and not stopexp:
         # Get eye position
         eyetracker.eyes['left'].get_position()
-        eyeposition = (eyetracker.eyes['left'].x, eyetracker.eyes['left'].y)
-        print eyetracker.eyes['left']
+        eyeposition = (eyetracker.eye.x, eyetracker.eye.y)
+        print(eyetracker.eye)
 
         # Draw eye-position
-        eyetracker.display.gui.draw_eye(x=eyetracker.eyes['left'].x - 0.5*resolution[0],
-                                        y=-eyetracker.eyes['left'].y + 0.5*resolution[1], flip=False)
+        eyetracker.display.gui.draw_eye(x=eyetracker.eye.x - 0.5*resolution[0],
+                                        y=-eyetracker.eye.y + 0.5*resolution[1], flip=False)
 
         win.flip()
 
