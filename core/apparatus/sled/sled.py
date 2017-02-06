@@ -347,8 +347,12 @@ class PositionTracker(object):
     def dt(self):
         if self.__tOld is None:
             self.__tOld = time.time()
-        if self.__tOld is not None:
-            self.__dt = time.time() - self.__tOld
+
+        try:
+            if self.__tOld is not None:
+                self.__dt = time.time() - self.__tOld
+        except TypeError as e:
+            logging.getLogger('EasyExp').warning(e)
 
         return self.__dt
 
