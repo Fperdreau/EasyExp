@@ -544,7 +544,7 @@ class EDFfile(object):
         """
         Open EDF file
         """
-        print('[{0}] Opening data file "{1}"'.format(__name__, self.edfname))
+        logging.getLogger('EasyExp').info('[{0}] Opening data file "{1}"'.format(__name__, self.edfname))
 
         try:
             self.tracker.el.openDataFile(self.edfname)
@@ -555,7 +555,7 @@ class EDFfile(object):
         """
         Close data file
         """
-        print('[{0}] Closing data file {1}'.format(__name__, self.edfname))
+        logging.getLogger('EasyExp').info('[{0}] Closing data file {1}'.format(__name__, self.edfname))
         self.tracker.el.closeDataFile()
         self.retrieve()
 
@@ -610,8 +610,8 @@ class DummyMode(object):
         self.elDummyMode = lambda: True
         self.elCurrentMode = lambda: IN_RECORD_MODE
         self.waitForBlockStart = lambda a, b, c: 1
-        print('[{}] !!! You are entering the Dummy Mode: '
-              'Eye movements will be simulated with the mouse !!!'.format([__name__]))
+        logging.getLogger('EasyExp').debug('[{}] !!! You are entering the Dummy Mode: Eye movements will be simulated '
+                                           'with the mouse !!!'.format([__name__]))
 
     def sendMessage(self, msg):
         """
@@ -621,7 +621,7 @@ class DummyMode(object):
         """
         if not isinstance(msg, str):
             raise TypeError('msg must be str')
-        print('[{0}] Message sent to eyelink: {1}'.format(__name__, msg))
+        logging.getLogger('EasyExp').debug('[{0}] Message sent to eyelink: {1}'.format(__name__, msg))
 
     def sendCommand(self, cmd):
         """
@@ -631,7 +631,7 @@ class DummyMode(object):
         """
         if not isinstance(cmd, str):
             raise TypeError('msg must be str')
-        print('[{0}] Command sent to eyelink: {1}'.format(__name__, cmd))
+        logging.getLogger('EasyExp').debug('[{0}] Command sent to eyelink: {1}'.format(__name__, cmd))
 
     def getTrackerVersion(self):
         """
@@ -838,7 +838,7 @@ class Calibration(object):
         :return:
         """
         # Calibration settings
-        print('[{0}] Calibration type set to {1}'.format(__name__, self.ctype))
+        logging.getLogger('EasyExp').debug('[{0}] Calibration type set to {1}'.format(__name__, self.ctype))
 
         # Set display coordinates
         self.getgraphicenv()
@@ -923,7 +923,7 @@ class Calibration(object):
         """
         Perform a calibration
         """
-        print('[{}] Start Calibration'.format(__name__))
+        logging.getLogger('EasyExp').info('[{}] Start Calibration'.format(__name__))
 
         # Switch calibration display on
         openGraphicsEx(self.display.gui)
@@ -935,7 +935,7 @@ class Calibration(object):
         self.tracker.el.doTrackerSetup()
 
         # Close calibration display
-        print('[{}] Exit Calibration Mode'.format(__name__))
+        logging.getLogger('EasyExp').info('[{}] Exit Calibration'.format(__name__))
 
     def driftcorrection(self, x, y, draw=1):
         """
@@ -956,12 +956,12 @@ class Calibration(object):
             except Exception:
                 raise Exception("[{}] Drift correction failed".format(__name__))
             else:
-                print("[{0}] Drift result: {1}".format(__name__, error))
+                logging.getLogger('EasyExp').info("[{0}] Drift result: {1}".format(__name__, error))
                 if error != 27:
                     break
                 else:
                     self.calibrate()
-        print("[{}] Drift correction successfully performed".format(__name__))
+        logging.getLogger('EasyExp').info("[{}] Drift correction successfully performed".format(__name__))
 
 
 class Checking(object):
@@ -1016,7 +1016,7 @@ class Checking(object):
         :param ry: vertical coordinate of fixation point
         :return bool fix:
         """
-        print('[{}] Start fixation test'.format(__name__))
+        logging.getLogger('EasyExp').info('[{}] Start fixation test'.format(__name__))
         self.tracker.el.sendMessage('EVENT_FIXATION_TEST_START')
 
         if radius is not None:
@@ -1127,14 +1127,14 @@ class Checking(object):
         keys = self.display.gui.get_input_key()
         for key in keys:
             if key:
-                print ('[{0}] Key "{1}" has been pressed'.format(__name__, key))
+                logging.getLogger('EasyExp').debug('[{0}] Key "{1}" has been pressed'.format(__name__, key))
                 if key.__key__ == ord('c'):
-                    print('[{0}] Calibration requested by the user'.format(__name__))
+                    logging.getLogger('EasyExp').debug('[{0}] Calibration requested by the user'.format(__name__))
                     self.tracker.calibration.calibrate()
                     self.tracker.start_recording()
                     return True
                 elif key.__key__ == ESC_KEY:
-                    print('[{}} Esc pressed, exiting fixation test'.format(__name__))
+                    logging.getLogger('EasyExp').debug('[{}} Esc pressed, exiting fixation test'.format(__name__))
                     self.tracker.el.sendMessage('EVENT_FIXATION_TEST_ABORTED')
                     return True
                 return False
