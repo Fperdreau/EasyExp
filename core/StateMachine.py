@@ -192,12 +192,13 @@ class StateMachine(object):
             return True
 
         # If we transition to the next state
-        if (self.durations[self.state] is False and self._current.running and force_move_on)\
+        if self._current.executed and (self.durations[self.state] is False and self._current.running and force_move_on)\
                 or (self.durations[self.state] is not False and self._current.status and self._current.running):
             self.stop()
             self.start()
             return True
         else:
+            self._current.executed()
             return False
 
     def move_on(self):
@@ -253,11 +254,20 @@ class State(object):
         self._end_time = None  # State ending time
         self._duration = 0.0  # State duration
         self._running = False  # Has the state started already
+        self._executed = False
         self.__singleshot = SingleShot()
 
     @property
     def running(self):
         return self._running
+
+    def executed(self):
+        """
+        Set state as executed
+        :return:
+        """
+        if not self._executed:
+            self._executed = True
 
     @property
     def status(self):
