@@ -283,19 +283,20 @@ class OptoTrak(object):
         # Start recording
         self.start_recording()
 
-    def stop_trial(self, trial, valid=True):
+    def stop_trial(self, trial_id, valid=True):
         """
-        Stop trial routine
-        :param trial: trial id
-        :param valid: boolean (valid or invalid trial)
-        :return:
+        Routine running at the end of a trial
+        :param trial_id: trial unique id
+        :type trial_id: int
+        :param valid: valid (True) or invalid (False) trial
+        :type valid: bool
         """
         if valid:
             trial_status = 'VALID'
         else:
             trial_status = 'INVALID'
 
-        self.send_message('\nTRIAL_END {} {}'.format(trial, trial_status))
+        self.send_message('\nTRIAL_END {} {}'.format(trial_id, trial_status))
         self.stop_recording()  # Stop recording
         self.file.close()  # Close data file
 
