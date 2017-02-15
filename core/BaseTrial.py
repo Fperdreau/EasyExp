@@ -338,7 +338,6 @@ class BaseTrial(StateMachine):
         lapses = []
         while self.status:
             init_time = time.time()
-            self.lock.acquire(blocking=1)
 
             # Default states for this state machine
             self.__default_graphic_states()
@@ -348,7 +347,6 @@ class BaseTrial(StateMachine):
 
             # Update display
             self.update_graphics()
-            self.lock.release()
 
             stop_time = time.time() - init_time
             lapses.append(stop_time)
@@ -363,30 +361,31 @@ class BaseTrial(StateMachine):
         """
         lapses = []
         while self.status:
-            init_time = time.time()
+            with self.lock:
+                init_time = time.time()
 
-            if self._running:
-                # Update input devices state
-                self.buttons.update()
-                move_on = self.go_next()
-            else:
-                move_on = False
+                if self._running:
+                    # Update input devices state
+                    self.buttons.update()
+                    move_on = self.go_next()
+                else:
+                    move_on = False
 
-            # Default states for this state machine
-            self.__default_fast_states()
+                # Default states for this state machine
+                self.__default_fast_states()
 
-            # Check state status
-            if self.change_state(force_move_on=move_on):
-                # Send events to devices that will be written into their data file
-                for device in self.devices:
-                    if hasattr(self.devices[device], 'send_message'):
-                        self.devices[device].send_message('EVENT_STATE_{}'.format(self.state))
+                # Check state status
+                if self.change_state(force_move_on=move_on):
+                    # Send events to devices that will be written into their data file
+                    for device in self.devices:
+                        if hasattr(self.devices[device], 'send_message'):
+                            self.devices[device].send_message('EVENT_STATE_{}'.format(self.state))
 
-            # Custom Fast states
-            self.fast_state_machine()
+                # Custom Fast states
+                self.fast_state_machine()
 
-            stop_time = time.time() - init_time
-            lapses.append(stop_time)
+                stop_time = time.time() - init_time
+                lapses.append(stop_time)
 
         mean_lapse = np.mean(lapses)
         self.logger.debug('Average lapse for FAST: {} ms'.format(mean_lapse * 1000))
@@ -488,12 +487,13 @@ class BaseTrial(StateMachine):
                 self.movie = MovieMaker(self.ptw, "{}_TrialID_{}".format(self.core.expname, self.trial.id), "png")
 
             # Initialize stimuli
+
             self.init_stimuli()
 
             # Reset stimuli triggers and make sure that there is a stimulus trigger for every stimulus defined in
             # self.stimuli dictionary.
             if not self._initialized or self.clearAll:
-                for label, obj in self.stimuli.iteritems():
+                for label in self.stimuli.keys():
                     if label in self.stimuliTrigger:
                         self.stimuliTrigger[label] = False
                     else:
@@ -531,7 +531,7 @@ class BaseTrial(StateMachine):
         # Call closing trial routine
         for device in self.devices:
             if hasattr(self.devices[device], "stop_trial"):
-                self.devices[device].stop_trial(self.validTrial)
+                self.devices[device].stop_trial(self.trial.id, self.validTrial)
 
     def update_graphics(self):
         """
@@ -547,11 +547,9 @@ class BaseTrial(StateMachine):
                     if status:
                         self.stimuli[stim].draw()
                 else:
-                    msg = Exception(
-                        'Stimulus "{}" has not been initialized in RunTrial::init_stimuli() method!'.format(
-                            stim))
+                    msg = 'Stimulus "{}" has not been initialized in RunTrial::init_stimuli() method!'.format(stim)
                     self.logger.logger.critical(msg)
-                    raise msg
+                    raise Exception(msg)
         elif self.clearAll:
             # Clear screen
             self.clear_screen()
@@ -567,9 +565,9 @@ class BaseTrial(StateMachine):
         """
         Clear screen: set all stimuli triggers to False
         """
+        # Clear screen
         with self.lock:
-            # Clear screen
-            for key, value in self.stimuli.items():
+            for key in self.stimuli.keys():
                 self.stimuli[key].setAutoDraw(False)
 
             # Reset all triggers
