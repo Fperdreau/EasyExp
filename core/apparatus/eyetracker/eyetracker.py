@@ -433,13 +433,17 @@ class EyeTracker(object):
         # Start recording the eye and collect some data
         self.start_recording()
 
-    def stop_trial(self, valid=True):
+    def stop_trial(self, trial_id, valid=True):
         """
         Routine running at the end of a trial
-        :param bool valid: valid (True) or invalid (False) trial
+        :param trial_id: trial unique id
+        :type trial_id: int
+        :param valid: valid (True) or invalid (False) trial
+        :type valid: bool
         """
         valid = 'VALID' if valid else 'INVALID'
-        self.el.sendMessage('TRIAL_OK {}'.format(valid))
+        self.send_message('\nTRIAL_OK {} {}'.format(trial_id, valid))
+
         self.stop_recording()
 
     def start_recording(self, w_sample=1, w_event=1, s_sample=1, s_event=1):
