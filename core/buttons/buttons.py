@@ -20,8 +20,9 @@
 
 import psychopy
 import pygame
+import time
 
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 
 
 class InputDevice(object):
@@ -57,7 +58,6 @@ class InputDevice(object):
             if self.__device == 'keyboard':
                 self.__instance = pygame.key
             elif self.__device == 'mouse':
-                print(self.__args)
                 self.__instance = psychopy.event.Mouse(**self.__args)
         return self.__instance
 
@@ -125,9 +125,9 @@ class UserInput(object):
         """
         UserInput constructor
         """
-        self.__listeners = dict()
-        self.__devices = dict()
-        self.__behavior = dict()
+        self._listeners = dict()
+        self._devices = dict()
+        self._behavior = dict()
 
     def add_device(self, device, **kwargs):
         """
@@ -136,20 +136,21 @@ class UserInput(object):
         :type device: str
         :param kwargs: arguments passed to device's constructor
         """
-        if device not in self.__devices:
-            self.__devices[device] = InputDevice(device, **kwargs)
+        if device not in self._devices:
+            self._devices[device] = InputDevice(device, **kwargs)
 
     def update(self):
         """
         Update devices' state
         :return:
         """
-        for label, device in self.__devices.iteritems():
+        for label, device in self._devices.iteritems():
             device.update()
 
     def add_listener(self, device, name, code, target=None, **kwargs):
         """
         Add a listener
+        :param target:
         :param device: name of device
         :type device: str
         :param name: name of listener
@@ -158,8 +159,8 @@ class UserInput(object):
         :type code: int
         :return:
         """
-        if name not in self.__listeners:
-            self.__listeners.update({
+        if name not in self._listeners:
+            self._listeners.update({
                 name: {
                     'device': device,
                     'code': code
@@ -167,7 +168,7 @@ class UserInput(object):
             })
 
             if target is not None:
-                self.__behavior.update({
+                self._behavior.update({
                     name: {
                         'target': target,
                         'args': kwargs
@@ -181,8 +182,8 @@ class UserInput(object):
         :return: success or failure
         :rtype: bool
         """
-        if name in self.__listeners:
-            del self.__listeners[name]
+        if name in self._listeners:
+            del self._listeners[name]
             return True
         else:
             return False
@@ -192,7 +193,7 @@ class UserInput(object):
         Remove all listeners
         :return:
         """
-        for device in self.__listeners:
+        for device in self._listeners:
             del device
 
     def get_status(self, name):
@@ -202,26 +203,92 @@ class UserInput(object):
         :return: status of listener
         :rtype: bool
         """
-        if name in self.__listeners:
-            status = self.__devices[self.__listeners[name]['device']].status(self.__listeners[name]['code'])
+        if name in self._listeners:
+            status = self._devices[self._listeners[name]['device']].status(self._listeners[name]['code'])
             if status:
-                self.__trigger(name)
+                self._trigger(name)
             return status
         else:
             raise Exception('"{}" is not present in the listeners list. You must add it by calling '
                             'UserInput.add_listener() method')
 
-    def __trigger(self, name):
+    def get_position(self, name):
+        """
+        Get listener position
+        :param name: name of listener
+        :return: position of listener
+        :rtype: bool
+        """
+        if name in self._listeners:
+            return self._devices[self._listeners[name]['device']].position
+        else:
+            raise Exception('"{}" is not present in the listeners list. You must add it by calling '
+                            'UserInput.add_listener() method')
+
+    def _trigger(self, name):
         """
         Execute function binded to event
         :param name:
         :return:
         """
-        if name in self.__behavior:
+        if name in self._behavior:
             try:
-                self.__behavior[name]['target'](**self.__behavior[name]['args'])
+                self._behavior[name]['target'](**self._behavior[name]['args'])
             except Exception as e:
                 raise Exception(e)
+
+
+class SlowUserInput(UserInput):
+    """
+    SlowUserInput class
+    Inherits from UserInput class
+
+    This class simply implement a down-sampled version of UserInput class
+    """
+
+    def __init__(self, sampling=60.0):
+        """
+        SlowUserInput constructor
+        :param sampling: desired sampling rate (in Hz)
+        :type sampling: float
+        """
+        super(SlowUserInput, self).__init__()
+        self.__timer = None
+        self.__sampling = float(sampling)
+        self.__min_dt = 1/self.__sampling
+
+    @property
+    def time_to_update(self):
+        """
+        Check if it is time to update key status
+        :return: True or False
+        :rtype: bool
+        """
+        if self.__timer is None:
+            self.__timer = time.time()
+        status = (time.time() - self.__timer) >= self.__min_dt
+        if status:
+            self.__timer = time.time()
+        return status
+
+    def get_status(self, name):
+        """
+        Get listener status
+        :param name: name of listener
+        :return: status of listener
+        :rtype: bool
+        """
+        if name in self._listeners:
+            if self.time_to_update:
+                status = self._devices[self._listeners[name]['device']].status(self._listeners[name]['code'])
+                if status:
+                    self._trigger(name)
+                return status
+            else:
+                return False
+        else:
+            raise Exception('"{}" is not present in the listeners list. You must add it by calling '
+                            'UserInput.add_listener() method')
 
 
 class Buttons(object):
@@ -324,8 +391,6 @@ if __name__ == '__main__':
     init_time = time.time()
     duration = 5.0  # Loop duration
     while (time.time() - init_time) < duration:
-        tic = time.time()
-
         # Update devices' state
         Inputs.update()
         for key in key_list:
