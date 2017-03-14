@@ -196,8 +196,7 @@ class MethodBase(object):
         if intensity is not None or load:
             self._get_lists(intensity=intensity, response=response)
 
-        if self.cpt_stair <= self._options['warm_up']:
-
+        if self._options['warm_up'] > 0 and self.cpt_stair <= self._options['warm_up']:
             # If warm-up phase, then present extremes values
             self.intensity = self._options['stimRange'][self.cpt_stair % 2]
             return self.intensity
