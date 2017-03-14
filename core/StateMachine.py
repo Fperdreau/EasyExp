@@ -57,12 +57,17 @@ class StateMachine(object):
         self.__durations = timings if timings is not None else dict()
         self.__logger = logger
 
-        self._state = None
-        self._current = None
-        self._next_state = None
+        self.__state = None
+        self.__current = None
+        self.__next_state = None
 
-        self._runtime = Timer()
-        self._runtime.start()
+        self.__runtime = Timer()
+        self.__runtime.start()
+
+        self.__counter = 0
+        self._syncer = None
+
+        self.__move_on_requested = False
 
     @property
     def logger(self):
@@ -87,7 +92,7 @@ class StateMachine(object):
         Get current state
         :return:
         """
-        return self._current
+        return self.__current
 
     @property
     def state(self):
@@ -95,7 +100,7 @@ class StateMachine(object):
         Get current state
         :return:
         """
-        return self._state
+        return self.__state
 
     @state.setter
     def state(self, new_state):
@@ -105,7 +110,7 @@ class StateMachine(object):
         :type new_state: str
         :return:
         """
-        self._state = new_state
+        self.__state = new_state
 
     @property
     def next_state(self):
@@ -113,7 +118,7 @@ class StateMachine(object):
         Get next state
         :return:
         """
-        return self._next_state
+        return self.__next_state
 
     @next_state.setter
     def next_state(self, next_state):
@@ -123,7 +128,7 @@ class StateMachine(object):
         :type next_state: str
         :return:
         """
-        self._next_state = next_state
+        self.__next_state = next_state
 
     @property
     def durations(self):
@@ -143,6 +148,16 @@ class StateMachine(object):
         """
         self.__durations.update(timings)
 
+    def add_syncer(self, nb_threads, lock=None):
+        """
+        Add Syncer instance
+        :param lock:
+        :param nb_threads:
+        :return:
+        """
+        if self._syncer is None:
+            self._syncer = Syncer(nb_thread=nb_threads, lock=lock)
+
     def singleshot(self, name='default', target=None, **kwargs):
         """
         Fire singleshot event
@@ -159,31 +174,55 @@ class StateMachine(object):
     def start(self):
         """
         This function handles transition between states
-        DO NOT MODIFY
         :rtype: bool
         """
         # If we enter a new state
-        self._current = State(self.state, duration=self.__durations[self.state])
-        self._current.start()
-        msg = "[{0}] '{1}' state starting [t={2:1.3f}]".format(__name__,
-                                                               self.state.upper(), self.current.start_time
-                                                               - self._runtime.get_time('start'))
+        self.__current = State(self.state, duration=self.__durations[self.state])
+        self.__current.start()
+        msg = "[{0}] '{1}' state begins [t={2:1.3f}]".format(__name__, self.state.upper(),
+                                                             self.current.start_time - self.__runtime.get_time('start'))
         self.__logger.info(msg)
+
+        self.__move_on_requested = False
 
     def stop(self):
         """
-        Move to next state
+        Stop current state
         :return:
         """
         if self.current is not None:
+            # Stop current state
             self.current.stop()
             self.__logger.info(self)
+
+            # Reset state watcher
+            self.__reset_syncer()
+
+            # Set new state
             self.state = self.next_state
 
-    def change_state(self, force_move_on=False):
+            # Unset current state
+            self.__current = None
+
+    def __reset_syncer(self):
+        """
+        Reset state watcher
+        :return: void
+        """
+        if self._syncer is not None:
+            # self._syncer.get(self.state)
+            self._syncer.reset()
+
+    def __is_state_completed(self):
+        """
+        Check if current state has been executed by every running threads
+        :return:
+        """
+        return self._syncer.completed(self.state) if self._syncer is not None else True
+
+    def change_state(self):
         """
         This function handles transition between states
-        DO NOT MODIFY
         :rtype: bool
         """
         if self.current is None:
@@ -192,39 +231,45 @@ class StateMachine(object):
             return True
 
         # If we transition to the next state
-        if self._current.executed and (self.durations[self.state] is False and self._current.running and force_move_on)\
-                or (self.durations[self.state] is not False and self._current.status and self._current.running):
+        if self.__is_state_completed() and (
+                    (self.durations[self.state] is False and self.__move_on_requested)
+                or (self.durations[self.state] is not False and self.current.status and self.current.running)
+        ):
+
+            # Stop current state
             self.stop()
-            self.start()
-            return True
+            return False
         else:
-            self._current.executed()
             return False
 
-    def move_on(self):
+    def jump(self):
         """
         Move directly to next state
-        :return:
+        :return: bool
         """
-        if self.current is None:
+        if self.current is not None:
             # If we enter a new state
-            self.start()
-            return True
-        # If we transition to the next state
-        else:
             self.stop()
-            self.start()
             return True
+        return False
+
+    def request_move_on(self):
+        """
+        Request transition to next state. This only has an effect if the current state has no maximum duration defined.
+        :return: void
+        """
+        if not self.__move_on_requested:
+            self.logger.info('[{}] STATE: {} - Move on requested'.format(__name__, self.state))
+            self.__move_on_requested = True
 
     def __str__(self):
         """
         Print State information
         :return:
         """
-        return '[{0}]: {1}=>{2} [START: {3:.3f}s | DUR: {4:.3f}s]'.format(__name__, self.state, self.next_state,
-                                                                          self._current.start_time
-                                                                          - self._runtime.get_time('start'),
-                                                                          self.current.duration)
+        return "[{0}]: '{1}' state ends [DUR: {3:.3f}s | NEXT: {4}]".format(
+            __name__, self.state.upper(), self.__current.start_time - self.__runtime.get_time('start'),
+            self.current.duration, self.next_state)
 
 
 class State(object):
@@ -246,28 +291,36 @@ class State(object):
         :param name:
         :param duration:
         """
-        self._name = name  # Name of the state
-        self._status = False  # Status: False if the state has finished
-        self._max_duration = duration  # Maximum duration of the state (can be False (no limit), 0.0, or float > 0.0)
-        self._timer = None  # State timer
-        self._start_time = None  # State starting time
-        self._end_time = None  # State ending time
-        self._duration = 0.0  # State duration
-        self._running = False  # Has the state started already
-        self._executed = False
+        self.__name = name  # Name of the state
+        self.__status = False  # Status: False if the state has finished
+        self.__max_duration = duration  # Maximum duration of the state (can be False (no limit), 0.0, or float > 0.0)
+        self.__timer = None  # State timer
+        self.__start_time = None  # State starting time
+        self.__end_time = None  # State ending time
+        self.__duration = 0.0  # State duration
+        self.__running = False  # Has the state started already
+        self.__executed = False
         self.__singleshot = SingleShot()
 
     @property
     def running(self):
-        return self._running
+        return self.__running
 
+    @property
     def executed(self):
         """
         Set state as executed
         :return:
         """
-        if not self._executed:
-            self._executed = True
+        return self.__executed
+
+    def execute(self):
+        """
+        Set state as executed
+        :return:
+        """
+        if not self.__executed:
+            self.__executed = True
 
     @property
     def status(self):
@@ -275,11 +328,11 @@ class State(object):
         Return status of current state: True if it is time to move on
         :return:
         """
-        if self._running and self._max_duration is not False:
-            self._status = self._timer.get_time('elapsed') >= self._max_duration
+        if self.__running and self.__max_duration is not False:
+            self.__status = self.__timer.get_time('elapsed') >= self.__max_duration
         else:
-            self._status = False
-        return self._status
+            self.__status = False
+        return self.__status
 
     def singleshot(self, name, target=None, **kwargs):
         """
@@ -296,26 +349,26 @@ class State(object):
 
     @property
     def duration(self):
-        self._duration = self._timer.get_time('elapsed')
-        return self._duration
+        self.__duration = self.__timer.get_time('elapsed')
+        return self.__duration
 
     @property
     def start_time(self):
-        return self._start_time
+        return self.__start_time
 
     @property
     def end_time(self):
-        return self._end_time
+        return self.__end_time
 
     def start(self):
         """
         Start state
         :return:
         """
-        self._timer = Timer(max_duration=self._max_duration)
-        self._timer.start()
-        self._start_time = self._timer.get_time('start')
-        self._running = True
+        self.__timer = Timer(max_duration=self.__max_duration)
+        self.__timer.start()
+        self.__start_time = self.__timer.get_time('start')
+        self.__running = True
 
     def stop(self):
         """
@@ -323,9 +376,70 @@ class State(object):
         :return:
         """
         # Stop and reset timer
-        self._timer.stop()
-        self._end_time = self._timer.get_time('stop')
-        self._running = False
+        self.__timer.stop()
+        self.__end_time = self.__timer.get_time('stop')
+        self.__running = False
+
+
+class Syncer(object):
+    """
+    Syncer class
+    """
+
+    def __init__(self, nb_thread=1, lock=None):
+        """
+        Syncer's constructor
+        :param nb_thread:
+        """
+        self.__child = {}
+        self.__nb_thread = nb_thread
+        self.__lock = threading.RLock() if lock is None else lock
+
+    def count(self, thread, state):
+        """
+        Append thread to the list of threads having executed the current state
+        :param thread:
+        :param state:
+        :return: void
+        """
+        with self.__lock:
+            self.__add_state(state)
+
+            if thread not in self.__child[state]:
+                self.__child[state].append(thread)
+
+    def __add_state(self, state):
+        """
+        Add state to watched list
+        :param state:
+        :return: void
+        """
+        if state not in self.__child:
+            self.__child.update({state: []})
+
+    def completed(self, state):
+        """
+        Check all threads threads have fully executed the current state
+        :param state:
+        :return: Has the current state been executed by all running threads?
+        :rtype: bool
+        """
+        with self.__lock:
+            if state in self.__child:
+                return len(self.__child[state]) == self.__nb_thread
+            else:
+                return False
+
+    def get(self, state):
+        if state in self.__child:
+            print(self.__child[state])
+
+    def reset(self):
+        """
+        Reset watched list
+        :return: void
+        """
+        self.__child = {}
 
 
 class SingleShot(object):
@@ -422,48 +536,52 @@ def show(text):
     :param text:
     :return:
     """
-    print(text)
+    print('{}\n'.format(text))
 
 
 from system.customlogger import CustomLogger
 import logging
 import threading
+from threading import RLock
 
 
-class TestMachine(object):
+class TestMachine(StateMachine):
     """
     Test machine
     """
 
     def __init__(self):
-        self.threads = None
-        self.status = True
-        self.timings = {
+        super(TestMachine, self).__init__(timings={
             "no_duration": False,
             "zero": 0.0,
             "duration": 2.0,
             "quit": 0.0
-        }
+        })
+        self.threads = None
+        self.status = True
+        self.state = 'no_duration'
+        self.next_state = 'duration'
         self.logger = CustomLogger('root', 'test.log')
         self.queues = {}
-        self.state_machine = None
+        self.lock = RLock()
+        self.add_syncer(2, self.lock)
 
     def run(self):
         """
         Application main loop
         DO NOT MODIFY
         """
-        self.state_machine = StateMachine(timings=self.timings, logger=self.logger)
-        self.state_machine.state = 'no_duration'
-        self.state_machine.next_state = 'duration'
-
         self.threads = threading.Thread(name='fast', target=self.fast_loop)
         self.threads.start()
 
         self.graphics_loop()
-        self.threads.join()
+        self.quit()
 
     def quit(self):
+        """
+        Quit Test machine and stop all threads
+        :return:
+        """
         self.status = False
         self.threads.join()
 
@@ -472,124 +590,140 @@ class TestMachine(object):
         Graphic state machine loop
         :return:
         """
-        lapses = []
+        counter = 0
+        init_time = time.time()
         while self.status:
-            init_time = time.time()
             # Custom Graphics state
             self.graphics_state_machine()
+
+            # Add state to watcher
+            self._syncer.count('graphics', self.state)
 
             # Simulate screen flip
             time.sleep(0.016)
 
-            # Update display
-            stop_time = time.time() - init_time
-            lapses.append(stop_time)
+            # Increment loop counter
+            counter += 1
 
-        mean_lapse = np.mean(lapses)
-        self.logger.debug('Average lapse for GRAPHICS: {} ms'.format(mean_lapse * 1000))
+        # Compute average looping time
+        lapses = (time.time() - init_time) / float(counter)
+        self.logger.debug('Average lapse for GRAPHICS: {} ms'.format(lapses * 1000))
 
     def fast_loop(self):
         """
         Fast state machine loop
         :return:
         """
-        lapses = []
-        start = time.time()
+        counter = 0
+        init_time = time.time()
         while self.status:
-            init_time = time.time()
+
+            if go_next():
+                self.request_move_on()
 
             # Check state status
-            if self.state_machine.change_state(force_move_on=go_next()):
+            if self.change_state():
                 # Send events to devices that will be written into their data file
-                self.logger.debug("Send message to devices")
+                self.logger.debug("Send message to devices: {}".format(self.state))
 
             # Custom Fast states
             self.fast_state_machine()
 
-            stop_time = time.time() - init_time
-            lapses.append(stop_time)
+            self._syncer.count('fast', self.state)
 
-            if time.time() - start > 5.0:
+            # Increment loop counter
+            counter += 1
+
+            if time.time() - init_time > 5.0:
                 self.logger.info('Time is up')
                 self.status = False
                 break
 
-        mean_lapse = np.mean(lapses)
-        self.logger.debug('Average lapse for FAST: {} ms'.format(mean_lapse * 1000))
+        # Compute average looping time
+        lapses = (time.time() - init_time) / float(counter)
+        self.logger.debug('Average lapse for FAST: {} ms'.format(lapses * 1000))
 
     def fast_state_machine(self):
 
-        if self.state_machine.state == 'no_duration':
-            self.state_machine.next_state = 'zero'
-            if self.state_machine.singleshot('first'):
-                self.logger.debug('No Duration 1st')
-            if self.state_machine.singleshot('second'):
-                self.logger.debug('No duration 2nd')
-            if self.state_machine.singleshot('second'):
-                self.logger.debug('This message should not be printed')
+        if self.state == 'no_duration':
+            self.next_state = 'zero'
+            counter = 0
+
+            if self.singleshot('first'):
+                counter += 1
+                self.logger.debug('Fast: No Duration 1st')
+            if self.singleshot('second'):
+                counter += 1
+                self.logger.debug('Fast: No duration 2nd')
+            if self.singleshot('second'):
+                counter += 1
+                self.logger.debug('Fast: This message should not be printed')
 
             # Fire target function only once
-            self.state_machine.singleshot('third', target=show, text='Hello world')
+            self.singleshot('third', target=show, text='Fast: Hello world')
 
             # If no label is specified, then "default" will be used
-            if self.state_machine.singleshot():
-                self.logger.debug('again')
+            if self.singleshot():
+                counter += 1
+                self.logger.debug('Fast: again')
 
             # This event will never be executed because it also uses "default" label (no label has been specified)
-            if self.state_machine.singleshot():
-                self.logger.debug('This message should not be printed')
+            if self.singleshot():
+                counter += 1
+                self.logger.debug('Fast: This message should not be printed')
 
-        elif self.state_machine.state == 'zero':
-            self.state_machine.next_state = 'duration'
-            if self.state_machine.singleshot('zero'):
-                self.logger.debug('Zero')
+            if self.singleshot('assert'):
+                assert counter == 3
 
-        elif self.state_machine.state == 'duration':
-            self.state_machine.next_state = 'quit'
-            if self.state_machine.singleshot('duration'):
-                self.logger.debug('Duration')
+        elif self.state == 'zero':
+            self.next_state = 'duration'
+            if self.singleshot('zero'):
+                self.logger.debug('Fast: Zero')
 
-        elif self.state_machine.state == 'quit':
-            if self.state_machine.singleshot:
-                self.logger.debug('Quit')
+        elif self.state == 'duration':
+            self.next_state = 'quit'
+            if self.singleshot('duration'):
+                self.logger.debug('Fast: Duration')
+
+        elif self.state == 'quit':
+            if self.singleshot:
+                self.logger.debug('Fast: Quit')
                 self.status = False
 
     def graphics_state_machine(self):
-        if self.state_machine.state == 'no_duration':
-            self.state_machine.next_state = 'zero'
-            if self.state_machine.singleshot('graphics_first'):
-                self.logger.debug('No Duration 1st')
-            if self.state_machine.singleshot('graphics_second'):
-                self.logger.debug('No duration 2nd')
-            if self.state_machine.singleshot('graphics_second'):
-                self.logger.debug('This message should not be printed')
+        if self.state == 'no_duration':
+            self.next_state = 'zero'
+            if self.singleshot('graphics_first'):
+                self.logger.debug('Graphics: No Duration 1st')
+            if self.singleshot('graphics_second'):
+                self.logger.debug('Graphics: No duration 2nd')
+            if self.singleshot('graphics_second'):
+                self.logger.debug('Graphics: This message should not be printed')
 
             # Fire target function only once
-            self.state_machine.singleshot('third', target=show, text='Hello world')
+            self.singleshot('third', target=show, text='Graphics: Hello world')
 
-            # If no label is specified, then "default" will be used
-            if self.state_machine.singleshot():
-                self.logger.debug('again')
+        elif self.state == 'zero':
+            self.next_state = 'duration'
+            if self.singleshot('graphics_zero'):
+                self.logger.debug('Graphics: Zero')
 
-            # This event will never be executed because it also uses "default" label (no label has been specified)
-            if self.state_machine.singleshot():
-                self.logger.debug('This message should not be printed')
-
-        elif self.state_machine.state == 'zero':
-            self.state_machine.next_state = 'duration'
-            if self.state_machine.singleshot('graphics_zero'):
-                self.logger.debug('Zero')
-
-        elif self.state_machine.state == 'duration':
-            self.state_machine.next_state = 'quit'
-            if self.state_machine.singleshot('graphics_duration'):
-                self.logger.debug('Duration')
+        elif self.state == 'duration':
+            self.next_state = 'quit'
+            if self.singleshot('graphics_duration'):
+                self.logger.debug('Graphics: Duration')
 
 if __name__ == "__main__":
     import numpy as np
 
     Machine = TestMachine()
-    Machine.run()
+    try:
+        Machine.run()
+    except AssertionError as e:
+        Machine.logger.error(e)
+        Machine.quit()
+        raise e
+
 
 
 
