@@ -154,10 +154,6 @@ class Trial(object):
         self.__random_design = None
         self.design.load()
 
-        design = []
-        for t in self.design.design:
-            design.append(t)
-
         # Remove played trials from trials list
         self.__random_design = Trial.filter_design(self.design.design)
 
@@ -167,7 +163,7 @@ class Trial(object):
         :return self.status: Trial's status (True, False or 'pause')
         """
         self.replayed = True
-        self.parameters = Trial.get_params(self.__paramsfile)
+        # self.parameters = Trial.get_params(self.__paramsfile)
 
         # Get trial to play
         self.__load_design()
