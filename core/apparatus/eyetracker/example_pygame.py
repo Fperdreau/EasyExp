@@ -19,11 +19,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # Imports
+from __future__ import print_function
 import time
 import pygame
 from pygame.constants import *
 import numpy as np
-from eyetracker import EyeTracker, Checking, deg2pix
+from eyetracker import EyeTracker, Checking
+import math
 
 
 def normalize(x_input, y_input, resolution):
@@ -66,16 +68,43 @@ def pol2cart(rho, phi):
 
     Returns
     -------
-
+    :rtype: ndarray
     """
     x_output = rho * np.cos(phi)
     y_output = rho * np.sin(phi)
     return x_output, y_output
 
+
+def deg2pix(size, height, distance, resolution):
+    """
+    Convert degrees to pixels
+    :param size: size to convert to degrees (in pixels)
+    :param height: screen height (in cm)
+    :param distance: distance eye-screen (in cm)
+    :param resolution: screen vertical resolution (in pixels)
+    :return: converted size in degrees
+    """
+    deg_per_px = math.degrees(math.atan2(.5 * height, distance)) / (.5 * resolution)
+    size_in_px = size / deg_per_px
+    print('The size of the stimulus is %s pixels and %s visual degrees' \
+          % (size_in_px, size))
+    return size_in_px
+
+
+def stop_exp():
+    """
+    Exit example if ESCAPE is pressed
+    :return:
+    """
+    pygame.event.pump()
+    keys = pygame.key.get_pressed()
+    return keys[pygame.K_ESCAPE]
+
+
 display_type = 'psychopy'  # window's type (pygame, psychopy, qt)
 resolution = 1680, 1050  # Screen resolution
-screen_size = 400, 300
-distance = 550  # Distance eye-screen (in mm)
+screen_size = 480, 300
+distance = 570  # Distance eye-screen (in mm)
 center = 0, 0  # Screen's center in pixels
 normCenter = np.array(center, dtype='float32')/np.array(resolution, dtype='float32')  # Normalized screen's center
 
@@ -120,24 +149,32 @@ checking = Checking(eyetracker, eyetracker.display, radius=1.5)
 eyetracker.run()
 
 # Set custom calibration
-# Create calibration points (polar grid, with points spaced by 45 degrees)
-x, y = pol2cart(0.25*(resolution[0]/2), np.linspace(0, 2*np.pi, 9))
-x += 0.5*resolution[0]  # Center coordinates on screen center
-y += 0.5*resolution[1]
+# ======================
+cal_radius = 0.5  # Distance of calibration targets from screen center
+
+# custom 9-points spherical grid
+# x, y = eyetracker.calibration.generate_cal_targets(cal_radius, 9, shape='sphere')
+
+# custom 5-points grid
+x, y = eyetracker.calibration.generate_cal_targets(cal_radius, 5, shape='rect')
+
+# custom 9-points grid
+# x, y = eyetracker.calibration.generate_cal_targets(cal_radius, 9, shape='rect')
 
 # Start calibration
-eyetracker.calibration.custom_calibration(x=x, y=y, ctype='HV9')
+eyetracker.calibration.custom_calibration(x=x, y=y, ctype='HV5')
 eyetracker.calibration.calibrate()
 
 # Start trials
 stopexp = False
+radius_px = deg2pix(size=1.5, height=screen_size[1], distance=distance, resolution=resolution[1])
 for trialID in range(5):
     # Starting routine
     eyetracker.start_trial(trialID+1)
 
     # Fixation test before we start the trial
     fix = False
-    while not fix and not stopexp:
+    while not fix and not stop_exp():
         # Draw radius
         radiusCircle = visual.Circle(win, units='pix', pos=normCenter, radius=checking.radius, fillColor=None)
         radiusCircle.draw()
@@ -150,19 +187,19 @@ for trialID in range(5):
                                         y=-eyetracker.eye.y + 0.5*resolution[1], flip=False)
 
         # Check fixation
-        fix = checking.fixationcheck(cx=0.5*resolution[0], cy=0.5*resolution[1])
+        eyetracker.eye.get_position()
+        fix = eyetracker.eye.validate(position=[0.5*resolution[0], 0.5*resolution[1]], radius=radius_px, duration=0.200)
         print(eyetracker.eye)
 
         # Flip screen
         win.flip()
 
-        # Exit example if ESCAPE is pressed
-        pygame.event.pump()
-        keys = pygame.key.get_pressed()
-        stopexp = keys[pygame.K_ESCAPE]
+        stopexp = stop_exp()
         if stopexp:
             break
 
+    if stopexp:
+        break
     print('Fixated: {}'.format(fix))
 
     # Start trial
@@ -171,7 +208,7 @@ for trialID in range(5):
     initTime = time.time()
     while time.time() < initTime + trialDuration and not stopexp:
         # Get eye position
-        eyetracker.eyes['left'].get_position()
+        eyetracker.eye.get_position()
         eyeposition = (eyetracker.eye.x, eyetracker.eye.y)
         print(eyetracker.eye)
 
@@ -181,16 +218,12 @@ for trialID in range(5):
 
         win.flip()
 
-        # Exit example if ESCAPE is pressed
-        pygame.event.pump()
-        keys = pygame.key.get_pressed()
-        stopexp = keys[pygame.K_ESCAPE]
+        stopexp = stop_exp()
+        if stopexp:
+            break
 
     # End the trial (stop recording)
-    eyetracker.stop_trial()
-
-    if stopexp:
-        break
+    eyetracker.stop_trial(trial_id=trialID+1)
 
 # Close connection to eyelink
 eyetracker.close()
