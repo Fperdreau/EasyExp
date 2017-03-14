@@ -47,7 +47,10 @@ from movie.moviemaker import MovieMaker
 from buttons.buttons import UserInput
 from events.timer import Timer
 from StateMachine import StateMachine
-from core.stimuli.trigger import Trigger
+from core.stimuli.stimuli import Stimuli
+
+# Define globals
+Lock = threading.RLock()
 
 
 class Loading(object):
@@ -167,23 +170,21 @@ class BaseTrial(StateMachine):
         ##################################
         super(BaseTrial, self).__init__()
 
-        self.core = exp_core
-        self.screen = exp_core.screen
-        self.trial = exp_core.trial
-        self.user = exp_core.user
-        self.ptw = self.screen.ptw
-        self.logger = exp_core.logger
-        self.textToDraw = BaseTrial.__homeMsg
+        self.core = exp_core  # EasyExp Core instance
+        self.screen = exp_core.screen  # Screen instance
+        self.trial = exp_core.trial  # Trial instance
+        self.user = exp_core.user  # User instance
+        self.ptw = self.screen.ptw  # Window pointer
+        self.logger = exp_core.logger  # EasyExp logger
+        self.textToDraw = BaseTrial.__homeMsg  # Default welcome message
 
-        self.status = True
-        self._running = False
-        self._initialized = False
-        self.validTrial = True
-        self.threads = dict()
-        self.lock = threading.RLock()
-
-        # Dependencies
-        # ============
+        self.status = True  # Experiment status (True=running)
+        self._running = False  # First Experiment initialization completed
+        self._initialized = False  # First trial initialization completed
+        self.validTrial = True  # Trial validity
+        self.threads = dict()  # Thread container
+        self.lock = Lock  # Thread Lock
+        self.add_syncer(2, self.lock)  # Add sync manager
 
         # State Machine
         # =============
@@ -222,27 +223,10 @@ class BaseTrial(StateMachine):
 
         # Stimuli
         # =======
-        self.stimuli = dict()
+        # Stimulus container
 
-        # Stimulus triggers
-        #
-        # Stimuli triggers can be added by calling:
-        # self.stimuliTrigger.add('stimulus_name', 'value')
-        # If value is not provided, then False will be set by default.
-        #
-        # IMPORTANT: if 'stimulus_name' is added to self.stimuliTrigger, then it should also be added to self.stimuli
-        # dictionary in RunTrial.init_stimuli() method
-        #
-        # stimuliTrigger acts like a dictionary. item's value can be accessed by calling:
-        # self.stimuliTrigger['stimulus_name']
-        #
-        # and new trigger value can be set by calling:
-        # self.stimuliTrigger['stimulus_name'] = True
-        #
-        # if self.stimuliTrigger['stimulus_name'] is True, then self.stimuli['stimulus_name'].draw() will be called.
-        #
-        # IMPORTANT: stimuli are rendered in the same order as the triggers defined in stimuliTrigger dictionary.
-        self.stimuliTrigger = Trigger()
+        # See BaseTrial.init_stimuli() for documentation about how to add stimuli
+        self.stimuli = Stimuli()
 
         # Timers
         # ======
@@ -272,6 +256,13 @@ class BaseTrial(StateMachine):
         # ====
         # Data field that will be output into the data file should be specified here.
         self.data = dict()
+
+        # Storage
+        # =======
+        # Any customized variable (e.g. not defined in the settings, parameters or conditions file) should be added to
+        # this dictionary.
+        # e.g. self.storage['my_variable'] = value
+        self.storage = dict()
 
         # Keyboard/Mouse Inputs
         # Calls UserInput observer
@@ -306,7 +297,6 @@ class BaseTrial(StateMachine):
         # Devices
         # Devices should be implemented in RunTrial::init_devices() method.
         # =======
-        import copy
         self.devices = exp_core.devices
 
         # Audio/Video
@@ -318,7 +308,6 @@ class BaseTrial(StateMachine):
     # =========================================
     # STATE MACHINE
     # =========================================
-
     def run(self):
         """
         Application main loop
@@ -335,60 +324,64 @@ class BaseTrial(StateMachine):
         Graphic state machine loop
         :return:
         """
-        lapses = []
+        counter = 0
+        init_time = time.time()
         while self.status:
-            init_time = time.time()
-
             # Default states for this state machine
             self.__default_graphic_states()
 
             # Custom Graphics state
             self.graphics_state_machine()
 
+            # Add state to watcher
+            self._syncer.count('graphics', self.state)
+
             # Update display
             self.update_graphics()
 
-            stop_time = time.time() - init_time
-            lapses.append(stop_time)
+            # Increment loop counter
+            counter += 1
 
-        mean_lapse = np.mean(lapses)
-        self.logger.debug('Average lapse for GRAPHICS: {} ms'.format(mean_lapse * 1000))
+        # Compute average looping time
+        lapses = (time.time() - init_time) / float(counter)
+        self.logger.debug('Average lapse for GRAPHICS: {} ms'.format(lapses * 1000))
 
     def fast_loop(self):
         """
         Fast state machine loop
         :return:
         """
-        lapses = []
+        counter = 0
+        init_time = time.time()
         while self.status:
-            with self.lock:
-                init_time = time.time()
 
-                if self._running:
-                    # Update input devices state
-                    self.buttons.update()
-                    move_on = self.go_next()
-                else:
-                    move_on = False
+            if self._running:
+                # Update input devices state
+                self.buttons.update()
+                self.go_next()
 
-                # Default states for this state machine
-                self.__default_fast_states()
+            # Check state status
+            if self.change_state():
+                # Send events to devices that will be written into their data file
+                for device in self.devices:
+                    if hasattr(self.devices[device], 'send_message'):
+                        self.devices[device].send_message('EVENT_STATE_{}'.format(self.state))
 
-                # Check state status
-                if self.change_state(force_move_on=move_on):
-                    # Send events to devices that will be written into their data file
-                    for device in self.devices:
-                        if hasattr(self.devices[device], 'send_message'):
-                            self.devices[device].send_message('EVENT_STATE_{}'.format(self.state))
+            # Default states for this state machine
+            self.__default_fast_states()
 
-                # Custom Fast states
-                self.fast_state_machine()
+            # Custom Fast states
+            self.fast_state_machine()
 
-                stop_time = time.time() - init_time
-                lapses.append(stop_time)
+            # Add state to watcher
+            self._syncer.count('fast', self.state)
 
-        mean_lapse = np.mean(lapses)
-        self.logger.debug('Average lapse for FAST: {} ms'.format(mean_lapse * 1000))
+            # Increment loop counter
+            counter += 1
+
+        # Compute average looping time
+        lapses = (time.time() - init_time) / float(counter)
+        self.logger.debug('Average lapse for FAST: {} ms'.format(lapses * 1000))
 
     def quit(self):
         """
@@ -414,28 +407,20 @@ class BaseTrial(StateMachine):
         Check if it is time to move on to the next state. State changes can be triggered by key press (e.g.: ESCAPE key)
         or timers. States' duration can be specified in the my_project_name/experiments/experiment_name/parameters.json
         file.
-        :rtype: bool
+        :rtype: void
         """
-        if self.triggers['moveOnRequested']:
-            return True
-
         # Does the user want to quit the experiment?
         if self.buttons.get_status('quit'):
             self.next_state = 'quit'
-            self.triggers['quitRequested'] = True
-            self.move_on()
-            return True
+            self.jump()
 
         # Does the user want a break?
         if self.buttons.get_status('pause'):
             self.next_state = 'pause'
-            self.triggers['pauseRequested'] = True
-            return True
+            self.jump()
 
         if self.buttons.get_status('move_on'):
-            return True
-
-        return False
+            self.request_move_on()
 
     def init_trial(self):
         """
@@ -486,18 +471,15 @@ class BaseTrial(StateMachine):
             if self.trial.settings['setup']['movie']:
                 self.movie = MovieMaker(self.ptw, "{}_TrialID_{}".format(self.core.expname, self.trial.id), "png")
 
-            # Initialize stimuli
-
-            self.init_stimuli()
-
-            # Reset stimuli triggers and make sure that there is a stimulus trigger for every stimulus defined in
-            # self.stimuli dictionary.
+            # Reset all stimuli triggers
             if not self._initialized or self.clearAll:
-                for label in self.stimuli.keys():
-                    if label in self.stimuliTrigger:
-                        self.stimuliTrigger[label] = False
-                    else:
-                        self.stimuliTrigger.add(label, False)
+                with self.lock:
+                    self.stimuli.remove_all()
+                    self.init_stimuli()
+
+            # Update stimuli based on trial parameters
+            with self.lock:
+                self.update_stimuli()
 
             return True
 
@@ -519,12 +501,6 @@ class BaseTrial(StateMachine):
             self.logger.logger.debug('[{}] {}: {}'.format(__name__, data, value))
         self.logger.logger.info('[{}] Trial {} - Valid: {}'.format(__name__, self.trial.id, self.validTrial))
 
-        # Play an auditory feedback to inform whether the trial was valid or not
-        if not self.validTrial:
-            self.sounds['wrong'].play()
-        else:
-            self.sounds['valid'].play()
-
         self.trial.stop(self.validTrial)  # Stop routine
         self.trial.write_data(self.data)  # Write data
 
@@ -542,14 +518,10 @@ class BaseTrial(StateMachine):
         """
         # Draw stimuli
         if self._initialized and (self.triggers['startTrigger'] or not self.clearAll):
-            for stim, status in self.stimuliTrigger.iteritems():
-                if stim in self.stimuli:
-                    if status:
-                        self.stimuli[stim].draw()
-                else:
-                    msg = 'Stimulus "{}" has not been initialized in RunTrial::init_stimuli() method!'.format(stim)
-                    self.logger.logger.critical(msg)
-                    raise Exception(msg)
+            for stim, stimulus in self.stimuli.iteritems():
+                if stimulus.status:
+                    self.stimuli[stim].draw()
+
         elif self.clearAll:
             # Clear screen
             self.clear_screen()
@@ -565,13 +537,13 @@ class BaseTrial(StateMachine):
         """
         Clear screen: set all stimuli triggers to False
         """
-        # Clear screen
         with self.lock:
-            for key in self.stimuli.keys():
+            # Clear screen
+            for key, stimulus in self.stimuli.iteritems():
                 self.stimuli[key].setAutoDraw(False)
 
             # Reset all triggers
-            self.stimuliTrigger.reset()
+            self.stimuli.reset()
 
     ################################
     # CUSTOMIZATION STARTS HERE    #
@@ -643,13 +615,42 @@ class BaseTrial(StateMachine):
         """
         Prepare/Make stimuli
 
-        Stimuli objects (Psychopy) should be stored in self.stimuli dictionary, for example:
-        self.stimuli['stimulus_name'] = visual.Circle(self.ptw, radius=2, pos=(0, 0))
+        Stimuli objects (Psychopy) should be stored in self.stimuli container, for example:
+        self.stimuli.add(
+            'stimulus_name',
+            visual.Circle(self.ptw, radius=2, pos=(0, 0))
+        )
 
-        Then on every loop, the state machine will automatically call self.stimuli['stimulus_name'].draw() if
-        self.stimuliTrigger['stimulus_name'] is set to True.
+        IMPORTANT: stimuli are rendered in the same order as they were added.
+
+        # Stimulus rendering
+        # ==================
+        Then on every loop, the graphics state machine will automatically call self.stimuli['stimulus_name'].draw() if
+        self.stimuli['stimulus_name'].status is True.
+
+        State of each stimulus can be manipulated by doing:
+        self.stimuli['stimulus_name'].on() => this will set stimulus' status to True
+        or
+        self.stimuli['stimulus_name'].off() => this will set stimulus' status to False
+
+        # Accessing/Setting stimulus attributes
+        # =====================================
+        Stimulus's attribute can be accessed or modified as follows:
+        self.stimuli['stimulus_name'].__attribute_name = value
+            Example:
+                # Set new orientation of stimulus (Psychopy)
+                self.stimuli['stimulus_name'].ori = 30
         """
         raise NotImplementedError('Should implement this')
+
+    def update_stimuli(self):
+        """
+        Update stimuli attributes based on trial parameters
+
+        This method is intended to update stimuli already created in BaseTrial.init_stimuli()
+        :return: void
+        """
+        pass
 
     def get_response(self):
         """
@@ -664,12 +665,7 @@ class BaseTrial(StateMachine):
         loading -> idle -> iti -> init -> ...(custom states)... -> end
         :return:
         """
-        if self.state == 'pause':
-            self.next_state = 'iti'
-            if self.singleshot('run_pause'):
-                self.trial.run_pause(force=True)
-
-        elif self.state == 'loading':
+        if self.state == 'loading':
             self.next_state = 'idle'
             if self.singleshot('loading'):
                 self.init_devices()
@@ -695,17 +691,18 @@ class BaseTrial(StateMachine):
                 status = self.init_trial()  # Get trial parameters
                 if not status:
                     self.next_state = 'quit'
-                    self.move_on()
+                    self.jump()
                 if status is 'pause':
                     self.next_state = 'pause'
-                    self.move_on()
+                    self.jump()
 
-            self._initialized = True
+                self._initialized = True
 
         elif self.state == 'quit':
             # QUIT experiment
             # DO NOT MODIFY
             if self.singleshot():
+                self.triggers['quitRequested'] = False
                 self.clear_screen()
                 self.status = False
                 self._running = False
@@ -715,6 +712,8 @@ class BaseTrial(StateMachine):
             # DO NOT MODIFY
             self.next_state = 'iti'
             self.triggers['pauseRequested'] = False
+            if self.singleshot('run_pause'):
+                self.trial.run_pause(force=True)
 
         elif self.state == 'end':
             # End of trial. Call ending routine.
@@ -758,9 +757,10 @@ class BaseTrial(StateMachine):
 
         elif self.state == 'pause':
             if self.singleshot('pause_graphics'):
+                self.clear_screen()
+
                 if self.trial.settings['setup']['pauseDur'] > 0:
                     self.__countdown = TimeUp(self.durations['pause'])
-                self.clear_screen()
 
             # Render information displayed during break
             break_info_txt = 'PAUSE {0}/{1} [Replayed: {2}]'.format(self.trial.nplayed, self.trial.ntrials,
