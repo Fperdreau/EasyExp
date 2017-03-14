@@ -269,24 +269,29 @@ class PsiMarginal(MethodBase):
         # prior: prior probability over all parameters p_0(alpha,beta,gamma,lambda)
         if self.gammaEQlambda:
             self.dimensions = (len(self.threshold), len(self.slope), len(self.lapseRate), len(self.stimRange))
-            self.likelihood = PF(cartesian((self.threshold, self.slope, self.lapseRate, self.stimRange)),
-                                 psyfun=self._options['Pfunction'])
-            self.likelihood = np.reshape(self.likelihood, self.dimensions) # dims: (alpha, beta, lambda, x)
+            self.likelihood = np.reshape(
+                PF(cartesian((self.threshold, self.slope, self.lapseRate, self.stimRange)),
+                   psyfun=self._options['Pfunction']), self.dimensions)  # dims: (alpha, beta, lambda, x)
+
             # row-wise products of prior probabilities
-            self.prior = np.prod(cartesian((self.priorAlpha, self.priorBeta, self.priorLambda)), axis=1)
-            self.prior = np.reshape(self.prior, self.dimensions[:-1]) # dims: (alpha, beta, lambda)
+            self.prior = np.reshape(
+                np.prod(cartesian((self.priorAlpha, self.priorBeta, self.priorLambda)), axis=1),
+                self.dimensions[:-1]
+            )  # dims: (alpha, beta, lambda)
         else:
             self.dimensions = (len(self.threshold), len(self.slope), len(self.guessRate),
                                len(self.lapseRate), len(self._options['stimRange']))
-            self.likelihood = PF(cartesian((self.threshold, self.slope, self.guessRate, self.lapseRate, self.stimRange))
-                                 , psyfun=self._options['Pfunction'])
-            self.likelihood = np.reshape(self.likelihood, self.dimensions)  # dims: (alpha, beta, gamma, lambda, x)
+            self.likelihood = np.reshape(
+                PF(cartesian((self.threshold, self.slope, self.guessRate, self.lapseRate, self.stimRange)),
+                   psyfun=self._options['Pfunction']), self.dimensions)  # dims: (alpha, beta, gamma, lambda, x)
             # row-wise products of prior probabilities
-            self.prior = np.prod(cartesian((self.priorAlpha, self.priorBeta, self.priorLambda)), axis=1)
-            self.prior = np.reshape(self.prior, self.dimensions[:-1]) # dims: (alpha, beta, gamma, lambda)
+            self.prior = np.reshape(
+                np.prod(cartesian((self.priorAlpha, self.priorBeta, self.priorGamma, self.priorLambda)), axis=1),
+                self.dimensions[:-1]
+            )  # dims: (alpha, beta, gamma, lambda)
         
         # normalize prior
-        self.prior = self.prior / np.sum(self.prior)
+        self.prior /= np.sum(self.prior)
 
         # Set probability density function to prior
         self.pdf = np.copy(self.prior)
@@ -345,8 +350,7 @@ class PsiMarginal(MethodBase):
         self.nDims = np.ndim(self.pdf)
 
         # make pdf the same dims as conditional prob table likelihood
-        self.pdfND = np.expand_dims(self.pdf, axis=self.nDims)  # append new axis
-        self.pdfND = np.tile(self.pdfND, self.nX)  # tile along new axis
+        self.pdfND = np.tile(np.expand_dims(self.pdf, axis=self.nDims), self.nX)  # tile along new axis
         
         # Probabilities of response r (success, failure) after presenting a stimulus
         # with stimulus intensity x at the next trial, multiplied with the prior (pdfND)
@@ -373,7 +377,7 @@ class PsiMarginal(MethodBase):
         self.iTrial += 1
         if self.iTrial == (self.nTrials -1):
             self.stop = 1
-        logging.getLogger('EasyExp').info('computed intensity: {}'.format(self.intensity))
+        logging.getLogger('EasyExp').info('[{}] Computed intensity: {}'.format(__name__, self.intensity))
 
     def compute(self):
         """
@@ -407,7 +411,7 @@ class PsiMarginal(MethodBase):
             self.pdf = self.posteriorTplus1failure[Ellipsis, self.minEntropyInd]
 
         # normalize the pdf
-        self.pdf = self.pdf / np.sum(self.pdf)
+        self.pdf /= np.sum(self.pdf)
 
         # Marginalized probabilities per parameter
         if self.gammaEQlambda:
