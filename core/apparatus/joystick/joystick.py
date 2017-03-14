@@ -27,8 +27,9 @@ import logging
 from os.path import isfile
 import pymouse
 from psychopy import visual
+import copy
 
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 
 
 class Joystick(object):
@@ -612,6 +613,9 @@ class GraphicsJoy(Joystick):
 
         return [self._x, self._y, self._t]
 
+    def get_position(self):
+        return self.cursor
+
 
 class Response(object):
     """
@@ -671,6 +675,112 @@ class Response(object):
             self.start_time = None
 
         return {'response': current_response, 'response_time': self.response_time, 'timeout': self.time_out}
+
+
+class Validator(object):
+    """
+    Validator class
+    Implements methods to validate position of tracking device (joystick, eye-tracking, etc.)
+
+    """
+
+    def __init__(self, tracker, time_threshold=0.200, spatial_threshold=30.0):
+        """
+        Validator constructor
+        :param tracker: instance of tracker. Tracker class must have a get_position() method implemented
+        :param time_threshold: time window (in s)
+        :param spatial_threshold: spatial tolerance (must be in same units as coordinates provided by
+        tracker.get_position())
+        """
+        if not hasattr(tracker, 'get_position'):
+            raise AttributeError('Tracker must implement a get_position() method')
+
+        self.__tracker = tracker
+        self.__time_threshold = time_threshold
+        self.__spatial_threshold = spatial_threshold
+
+        self.__started = False
+        self.base_position = None
+        self.prev_position = None
+        self.current_position = [0.0, 0.0]
+        self.validated = None
+        self.valid_time = None
+        self.t_old = None
+
+    @staticmethod
+    def distance(init, end):
+        """
+        Compute spherical distance between two given points
+        :param init:
+        :type init: list
+        :param end:
+        :type end: list
+        :return: Euclidian distance between the two points (same units as input)
+        :rtype: float
+        """
+        i = 0
+        diff = list()
+        for c in init:
+            diff.append((end[i] - init[i]) ** 2)
+            i += 1
+            if i == 2:
+                break
+        distance = np.math.sqrt(np.sum(diff))
+        print(distance)
+        return distance
+
+    def reset(self):
+        print('reset')
+        self.base_position = None
+        self.prev_position = None
+        self.__started = False
+
+    def validate(self, position=None):
+        """
+        Validate position: tracker device must stay within the same spatial region for a given duration
+        :return: bool
+        :rtype: bool
+        """
+        validated = False  # We return False as default
+
+        self.prev_position = copy.copy(self.current_position)
+        self.current_position = self.__tracker.get_position() if position is None else position
+        if self.t_old is None:
+            self.t_old = time.time()
+
+        self.t_old = time.time() - self.t_old
+        print self.t_old
+
+        if not self.__started:
+            if self.base_position is None:
+                self.base_position = copy.copy(self.current_position)
+                print('Base position: {}'.format(self.base_position))
+
+            # Did we leave the starting position?
+            if self.distance(self.base_position, self.current_position)\
+                    >= self.__spatial_threshold:
+                self.__started = True
+                print('Leaving base position')
+
+        # If we have left the starting position, then start the validation
+        else:
+            print(self.prev_position, self.current_position)
+            if self.distance(self.prev_position, self.current_position)  <= self.__spatial_threshold:
+                if self.valid_time is None:
+                    print('Start validation')
+                    self.valid_time = time.time()
+
+                elif (time.time() - self.valid_time) >= self.__time_threshold:
+                    print('Validated')
+                    self.validated = self.current_position
+                    self.valid_time = None
+                    validated = True
+            else:
+                # Restart the timer
+                print('Restart')
+                self.valid_time = None
+
+        return validated
 
 
 class File(object):
@@ -797,6 +907,8 @@ if __name__ == "__main__":
     # Initialize joystick
     joy.init()
 
+    validator = Validator(joy)
+
     # Get response
     response = None
     response_time = None
@@ -818,6 +930,9 @@ if __name__ == "__main__":
         cursor.setPos(position)
         cursor.draw()
         win.flip()
+
+        if validator.validate(position):
+            validator.reset()
 
         # Record position into a file
         if joy.record():
