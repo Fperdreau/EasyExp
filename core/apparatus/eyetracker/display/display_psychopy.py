@@ -381,7 +381,6 @@ class EyeLinkCoreGraphicsPsychopy(pylink.EyeLinkCustomDisplay):
 
             if key == pylink.JUNK_KEY:
                 return 0
-            print('Pressed key is: {}'.format(key))
             return key
 
         return 0
