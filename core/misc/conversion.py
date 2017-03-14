@@ -18,13 +18,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import print_function
+from __future__ import print_function
 import math
 import numpy as np
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 
-def deg2pix(angle=float, direction=1, distance=550, screen_res=(800, 600), screen_size=(400, 300)):
+def deg2pix_old(angle=float, direction=1, distance=550, screen_res=(800, 600), screen_size=(400, 300)):
 
     """
     Convert visual angle to pixels or pixels to visual angle.
@@ -175,9 +177,59 @@ def inrect(x, y, rect):
     :param rect: rectangle coordinates (left, top, right, bottom)
     :return: boolean
     """
-    cond1 = x > rect[1] & x < rect[3]
-    cond2 = y > rect[2] & y < rect[4]
+    rect = [float(r) for r in rect]
+    cond1 = (float(x) > rect[0]) & (float(x) < rect[2])
+    cond2 = (float(y) > rect[1]) & (float(y) < rect[3])
     return cond1 & cond2
+
+
+def distance(start, end):
+    """
+    Compute spherical distance between two given points
+    :param start: starting position
+    :type start: ndarray
+    :param end: end position
+    :type end: ndarray
+    :return: spherical distance
+    :rtype: float
+    """
+    diff = []
+    for key, coord in start:
+        diff.append((end[key] - start[key])**2)
+
+    return np.sqrt(np.sum(np.array(diff)))
+
+
+def pix2deg(size, height, distance, resolution):
+    """
+    Convert pixels to degrees
+    :param size: size to convert to degrees (in pixels)
+    :param height: screen height (in cm)
+    :param distance: distance eye-screen (in cm)
+    :param resolution: screen vertical resolution (in pixels)
+    :return: converted size in degrees
+    """
+    deg_per_px = math.degrees(math.atan2(.5 * height, distance())) / (.5 * resolution)
+    size_in_deg = size * deg_per_px
+    print('The size of the stimulus is %s pixels and %s visual degrees' \
+          % (size, size_in_deg))
+    return size_in_deg
+
+
+def deg2pix(size, height, distance, resolution):
+    """
+    Convert degrees to pixels
+    :param size: size to convert to degrees (in pixels)
+    :param height: screen height (in cm)
+    :param distance: distance eye-screen (in cm)
+    :param resolution: screen vertical resolution (in pixels)
+    :return: converted size in degrees
+    """
+    deg_per_px = math.degrees(math.atan2(.5 * height, distance)) / (.5 * resolution)
+    size_in_px = size / deg_per_px
+    print('The size of the stimulus is %s pixels and %s visual degrees' \
+          % (size_in_px, size))
+    return size_in_px
 
 
 def deg2m(angle, d):
@@ -187,7 +239,6 @@ def deg2m(angle, d):
     :param float d: distance in meters
     :return float size: converted size in meters
     """
-    import math
     return d * math.tan((math.pi / 180.0) * angle)
 
 
