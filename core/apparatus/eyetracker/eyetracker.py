@@ -45,8 +45,9 @@ import gc
 import math
 import random
 import logging
+import numpy as np
 
-__version__ = '1.1.0'
+__version__ = '1.2.0'
 
 
 def deg2pix(angle, direction=1, distance=550, screen_res=(800, 600), screen_size=(400, 300)):
@@ -111,6 +112,7 @@ def rad2deg(angle):
 LEFT_EYE = 0
 RIGHT_EYE = 1
 BINOCULAR = 2
+MOUSE = 3
 
 
 class EyeTracker(object):
@@ -403,6 +405,8 @@ class EyeTracker(object):
             self.el.sendMessage("EYE_USED 1 RIGHT")
         elif eu == LEFT_EYE or eu == BINOCULAR:
             self.el.sendMessage("EYE_USED 0 LEFT")
+        elif eu == MOUSE:
+            self.el.sendMessage("EYE_USED 0 LEFT")
         else:
             self.__logger.warning("[{}] Error in getting the eye information!".format(__name__))
             return TRIAL_ERROR
@@ -525,6 +529,14 @@ class EyeTracker(object):
             self.__logger.warning(msg)
             raise Exception(msg)
 
+    @property
+    def logger(self):
+        """
+        Return Logging instance
+        :return:
+        """
+        return self.__logger
+
 
 class EDFfile(object):
     """
@@ -614,6 +626,7 @@ class DummyMode(object):
         self.elDummyMode = lambda: True
         self.elCurrentMode = lambda: IN_RECORD_MODE
         self.waitForBlockStart = lambda a, b, c: 1
+        self.__fakedEye = None
         logging.getLogger('EasyExp').debug('[{}] !!! You are entering the Dummy Mode: Eye movements will be simulated '
                                            'with the mouse !!!'.format([__name__]))
 
@@ -651,6 +664,30 @@ class DummyMode(object):
         """
         return 3
 
+    def getNewestSample(self):
+        return FakeSample()
+
+    def getNextData(self):
+        return self.getNewestSample()
+
+
+class FakeSample(object):
+
+    def __init__(self):
+        self.__fakeEye = None
+
+    def isRightSample(self):
+        return True
+
+    def isLeftSample(self):
+        return True
+
+    def getRightEye(self):
+        pass
+
+    def getLeftEye(self):
+        pass
+
 
 EYE_MISSING = -32768
 
@@ -674,6 +711,8 @@ class Eye(object):
         self.y = 0
         self.blink = False
         self.status = False
+        self.__position_tracker = PositionTracker()
+        self.__fixation_checker = FixationChecker(tracker)
 
     def __str__(self):
         """
@@ -692,7 +731,7 @@ class Eye(object):
     def missing(self):
         return self.x == EYE_MISSING or self.y == EYE_MISSING
 
-    def get_position(self, sample_type='next'):
+    def get_position(self, sample_type='newest'):
         """
         Get eye samples for the recorded eye
         :param sample_type:
@@ -710,16 +749,163 @@ class Eye(object):
                     self.x, self.y = dt.getRightEye().getGaze()
                 elif self.id == 'LEFT_EYE' and dt.isLeftSample():
                     self.x, self.y = dt.getLeftEye().getGaze()
-
             else:
                 self.x, self.y = 0, 0
         else:
             minput = self.tracker.display.gui.get_mouse_state()
             self.x, self.y = minput.__position__
-            self.tracker.display.gui.draw_eye(self.x, self.y, flip=False)
+            # self.tracker.display.gui.draw_eye(self.x, self.y, flip=False)
 
         self.get_status()
+
+        self.__position_tracker.add_history(self.position)
+
         return self.x, self.y, self.status
+
+    @property
+    def position(self):
+        """
+        Return eye position
+        :return: horizontal and vertical position of the gaze
+        :rtype: list
+        """
+        return np.array([self.x, self.y])
+
+    @property
+    def velocity(self):
+        """
+        Return eye velocity
+        :return: eye velocity in m/s
+        """
+        return self.__position_tracker.velocity
+
+    def validate(self, position, radius, duration):
+        """
+        Validate end position of sensor: sensor must not move for a given duration to be considered as stable
+        :param position: reference position
+        :type position: ndarray
+        :param radius: tolerance radius (in pixels)
+        :type radius: float
+        :param duration: duration of validation period (in seconds)
+        :type duration: float
+        :rtype: bool
+        """
+        return self.__fixation_checker.validate(position, radius, duration)
+
+    def reset_validator(self):
+        """
+        Reset fixation validator
+        :return: void
+        """
+        self.__fixation_checker.reset()
+
+    def draw(self):
+        """
+        Draw eye
+        :return:
+        """
+        self.tracker.display.gui.draw_eye(self.x, self.y, flip=False)
+
+
+class PositionTracker(object):
+    """
+    PositionTracker class: track positions of sled over time, compute current velocity and estimate motion state
+     (is moving or not)
+    """
+    __max_positions = 3
+    __time_interval = 0.01
+    __velocity_threshold = 0.001
+
+    def __init__(self):
+        self.__history = []
+        self.__previous = []
+        self.__position = []
+        self.__intervals = []
+        self.__dt = 0.0
+        self.__tOld = None
+        self.__nb_positions = 0
+
+    @property
+    def dt(self):
+        if self.__tOld is None:
+            self.__tOld = time.time()
+        if self.__tOld is not None:
+            self.__dt = time.time() - self.__tOld
+
+        return self.__dt
+
+    def __reset(self):
+        """
+        Reset timer
+        :return:
+        """
+        self.__dt = 0.0
+        self.__tOld = None
+
+    def add_history(self, position):
+        """
+        Add new position to sensor's position history in order to compute statistics
+        :return:
+        """
+        if self.dt >= self.__time_interval:
+
+            if self.__nb_positions == 0:
+                self.__history = np.array(position)
+                self.__intervals = np.array(self.dt)
+            else:
+                if self.__nb_positions < self.__max_positions:
+                    old = self.__history
+                    self.__history = np.vstack((old, position))
+
+                    old_dts = self.__intervals
+                    self.__intervals = np.vstack((old_dts, self.dt))
+                else:
+                    old = self.__history[range(1, self.__max_positions)]
+                    self.__history = np.vstack((old, position))
+
+                    old_dts = self.__intervals[range(1, self.__max_positions)]
+                    self.__intervals = np.vstack((old_dts, self.dt))
+
+            self.__nb_positions += 1
+
+            # Reset timer
+            self.__reset()
+
+        return self.__history
+
+    @property
+    def velocity(self):
+        """
+        Get velocity
+        :rtype: float
+        """
+        if self.__nb_positions >= self.__max_positions:
+            distances = [self.distance(self.__history[i], self.__history[j]) for i, j
+                         in zip(range(0, self.__max_positions - 1), range(1, self.__max_positions))]
+
+            return float(np.mean(np.array(distances) / np.array(self.__intervals)))
+        else:
+            return 0.0
+
+    @property
+    def is_moving(self):
+        """
+        Check if sensor is moving
+        :return: sensor is moving (True)
+        """
+        return self.velocity > self.__velocity_threshold
+
+    @staticmethod
+    def distance(init, end):
+        """
+        Compute spherical distance between two given position
+        :param init:
+        :type init: float
+        :param end:
+        :type end: float
+        :return:
+        """
+        return math.sqrt((end - init)**2)
 
 
 class Display(object):
@@ -853,19 +1039,20 @@ class Calibration(object):
         # Set display coordinates
         self.getgraphicenv()
 
-        self.tracker.send_command("calibration_type = {}".format(self.ctype))
+        # self.tracker.send_command("calibration_type = {}".format(self.ctype))
         self.tracker.send_command("binocular_enabled = {}".format(self.tracker.trackedeye is BINOCULAR))
-        self.tracker.send_command("enable_automatic_calibration = YES")
+        # self.tracker.send_command("enable_automatic_calibration = YES")
 
         # switch off the randomization of the targets
-        self.tracker.send_command("randomize_calibration_order = YES")
-        self.tracker.send_command("randomize_validation_order = YES")
+        # self.tracker.send_command("randomize_calibration_order = NO")
+        # self.tracker.send_command("randomize_validation_order = NO")
 
         # prevent it from repeating the first calibration point
-        self.tracker.send_command("cal_repeat_first_target = NO")
-        self.tracker.send_command("val_repeat_first_target = NO")
+        # self.tracker.send_command("cal_repeat_first_target = NO")
+        # self.tracker.send_command("val_repeat_first_target = NO")
+
         # so we can tell it which targets to use
-        self.tracker.send_command("generate_default_targets = YES")
+        # self.tracker.send_command("generate_default_targets = YES")
 
         # Sets the calibration target and background color
         setCalibrationColors(self.display.outer_tgcol, self.display.bgcol)
@@ -882,10 +1069,10 @@ class Calibration(object):
         """
         ctype = ctype if ctype is not None else self.ctype
 
-        nb_samples = len(x) + 1
+        nb_samples = len(x)
 
         # Generates sequence list
-        sequence_index = ','.join(['{}'.format(i) for i in range(0, nb_samples)])
+        sequence_index = ','.join(['{}'.format(i) for i in range(0, nb_samples+1)])
 
         # Generates calibration targets list
         calibration_targets = ' '.join(['{0:d},{1:d}'.format(int(x[i]), int(y[i])) for i in range(len(x))])
@@ -893,22 +1080,28 @@ class Calibration(object):
         # Generates validation targets list
         validation_targets = ' '.join(['{0:d},{1:d}'.format(int(x[i]), int(y[i])) for i in range(len(x))])
 
+        print(sequence_index)
+        print(calibration_targets)
+        print(validation_targets)
+
         logging.getLogger('EasyExp').info('[{}] ### Using custom calibration ###'.format(__name__))
         logging.getLogger('EasyExp').info('[{0}] Sequence index: {1}'.format(__name__, sequence_index))
-        logging.getLogger('EasyExp').info('[{0}]calibration targets: {1}'.format(__name__, calibration_targets))
+        logging.getLogger('EasyExp').info('[{0}] Calibration targets: {1}'.format(__name__, calibration_targets))
 
         # Set graphics
         self.getgraphicenv()
 
         # Prevent Eye-tracker generating default targets
-        self.tracker.send_command("calibration_type=%s" % ctype)
+        self.tracker.send_command("calibration_type = %s" % ctype)
         self.tracker.send_command('generate_default_targets = NO')
 
         # Set calibration sequence
-        self.tracker.send_command('calibration_samples = {}'.format(nb_samples-1))
+        self.tracker.send_command('calibration_samples = {}'.format(nb_samples))
         self.tracker.send_command('calibration_sequence = {}'.format(sequence_index))
         self.tracker.send_command('calibration_targets = {}'.format(calibration_targets))
-        self.tracker.send_command('validation_samples = {}'.format(nb_samples-1))
+
+        # Set validation sequence
+        self.tracker.send_command('validation_samples = {}'.format(nb_samples))
         self.tracker.send_command('validation_sequence = {}'.format(sequence_index))
         self.tracker.send_command('validation_targets = {}'.format(validation_targets))
 
@@ -918,9 +1111,9 @@ class Calibration(object):
         :return:
         """
         self.tracker.send_command('screen_pixel_coords = {0:d} {1:d} {2:d} {3:d}'
-                                  .format(0, 0, int(self.display.resolution[0]), int(self.display.resolution[1])))
+                                  .format(0, 0, int(self.display.resolution[0])-1, int(self.display.resolution[1])-1))
         self.tracker.el.sendMessage('DISPLAY_COORDS {0:d} {1:d} {2:d} {3:d}'
-                                    .format(0, 0, int(self.display.resolution[0]), int(self.display.resolution[1])))
+                                    .format(0, 0, int(self.display.resolution[0])-1, int(self.display.resolution[1])-1))
 
     def setup_cal_sound(self):
         """
@@ -972,6 +1165,60 @@ class Calibration(object):
                 else:
                     self.calibrate()
         logging.getLogger('EasyExp').info("[{}] Drift correction successfully performed".format(__name__))
+
+    def generate_cal_targets(self, radius, n, shape='rect'):
+        """
+        Generate calibration targets coordinates
+        :param shape: Calibration type
+        :type shape: str
+        :param radius: distance of targets from screen center
+        :type radius: float
+        :param n: number of points
+        :type n: int
+        :return: ndarray, ndarray
+        """
+        if n not in [5, 9]:
+            raise AttributeError('EyeLink only accepts 5- or 9-points calibration grids')
+
+        if shape == 'rect':
+            if n == 5:
+                x = radius * np.array([-1, 1, 0, -1, 1]) * (self.display.resolution[0] / 2)
+                y = radius * np.array([1, 1, 0, -1, -1]) * (self.display.resolution[1] / 2)
+                x += 0.5 * self.display.resolution[0]  # Center coordinates on screen center
+                y += 0.5 * self.display.resolution[1]
+            else:
+                x = radius * np.array([-1, 0, 1, -1, 0, 1, -1, 0, 1]) * (self.display.resolution[0] / 2)
+                y = radius * np.array([1, 1, 1, 0, 0, 0, -1, -1, -1]) * (self.display.resolution[1] / 2)
+                x += 0.5 * self.display.resolution[0]  # Center coordinates on screen center
+                y += 0.5 * self.display.resolution[1]
+        elif shape == 'sphere':
+            x, y = self.pol2cart(0.5 * (self.display.resolution[0] / 2), np.linspace(0, 7 * np.pi / 4, n-1))
+            x += 0.5 * self.display.resolution[0]  # Center coordinates on screen center
+            y += 0.5 * self.display.resolution[1]
+            x = np.insert(x, 0, 0.5 * self.display.resolution[0])
+            y = np.insert(y, 0, 0.5 * self.display.resolution[1])
+        else:
+            raise AttributeError('Unknown calibration shape: "{}". Possible options are "rect" or "sphere"'.format(
+                shape))
+
+        return x, y
+
+    @staticmethod
+    def pol2cart(rho, phi):
+        """
+        Converts polar to cartesian
+        Parameters
+        ----------
+        rho
+        phi
+
+        Returns
+        -------
+        :rtype: ndarray
+        """
+        x_output = rho * np.cos(phi)
+        y_output = rho * np.sin(phi)
+        return x_output, y_output
 
 
 class Checking(object):
@@ -1150,3 +1397,89 @@ class Checking(object):
                 return False
             else:
                 return False
+
+
+class FixationChecker(object):
+    """
+    FixationChecker
+    Handles validation procedure for eye fixation
+    Eye is fixating if its position stays within a defined spatial region for a minimum amount of time
+    """
+
+    def __init__(self, tracker):
+        """
+        FixationChecker constructor
+        :param tracker: EyeTracker instance
+        :type tracker: EyeTracker
+        """
+        self.__tracker = tracker
+        self.__responseChecking = False
+        self.__done = False
+        self.__responseChecking_start = time.time()
+
+    def validate(self, position, radius, duration):
+        """
+        Check if the gaze stays within the same spatial region
+        :param position: Reference position
+        :type position: ndarray
+        :param radius: tolerance radius
+        :type radius: float
+        :param duration: length of validation period (in seconds)
+        :type duration: float
+        :rtype: bool
+        """
+        if not self.__done:
+            status = self.__checkposition(position, radius)
+
+            if status:
+                if not self.__responseChecking:
+                    self.__tracker.logger.info('[{}] Start checking'.format(__name__))
+                    self.__responseChecking_start = time.time()
+                    self.__responseChecking = True
+                else:
+                    self.__done = (time.time() - self.__responseChecking_start) >= duration
+                    if self.__done:
+                        self.__tracker.logger.info('[{}]Position validated'.format(__name__))
+            else:
+                self.__responseChecking = False
+        return self.__done
+
+    @property
+    def done(self):
+        return self.__done
+
+    def reset(self):
+        """
+        Reset checker
+        :return:
+        """
+        self.__done = False
+        self.__responseChecking = False
+        self.__responseChecking_start = time.time()
+
+    def __checkposition(self, (x, y), radius):
+        """
+        Check that the tracked hands are located within a range from a given position
+        :param radius:
+        :return:
+        """
+        ref_position = np.array((x, y))
+        distance = FixationChecker.distance(ref_position, self.__tracker.eye.position)
+        return distance <= radius
+
+    @staticmethod
+    def distance(start, end):
+        """
+        Compute spherical distance between two given points
+        :param start: starting position
+        :type start: ndarray
+        :param end: end position
+        :type end: ndarray
+        :return:
+        """
+        x_diff = end[0] - start[0]
+        y_diff = end[1] - start[1]
+        distance = math.sqrt(x_diff**2+y_diff**2)
+        return distance
+
+
