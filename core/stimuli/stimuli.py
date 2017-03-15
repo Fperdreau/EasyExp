@@ -177,8 +177,7 @@ class Stimuli(object):
         Delete all stimuli
         :return: void
         """
-        for item in self.__container:
-            self.remove(item)
+        self.__container = dict()
 
 
 class Stimulus(object):
