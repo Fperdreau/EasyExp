@@ -139,7 +139,7 @@ class LinearGuide(object):
         :type valid: bool
         :return: void
         """
-        self.tracker.stop_trial(trial=trial_id, valid=valid)
+        self.tracker.stop_trial(trial_id=trial_id, valid=valid)
 
     def close(self):
         """
