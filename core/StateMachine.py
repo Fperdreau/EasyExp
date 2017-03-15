@@ -405,7 +405,7 @@ class Syncer(object):
         with self.__lock:
             self.__add_state(state)
 
-            if thread not in self.__child[state]:
+            if state in self.__child and thread not in self.__child[state]:
                 self.__child[state].append(thread)
 
     def __add_state(self, state):
