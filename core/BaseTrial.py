@@ -228,6 +228,18 @@ class BaseTrial(StateMachine):
         # See BaseTrial.init_stimuli() for documentation about how to add stimuli
         self.stimuli = Stimuli()
 
+        self.default_stimuli = Stimuli()
+        self.default_stimuli.add('loading', visual.TextStim(self.ptw, pos=(0, 0), text="Loading", units="pix",
+                                                            height=40.0))
+        self.default_stimuli.add('welcome', visual.TextStim(self.ptw, pos=(0, 0), text=self.textToDraw, units="pix",
+                                                            height=40.0))
+        self.default_stimuli.add('quit', visual.TextStim(self.ptw, pos=(0, 0), text="Experiment is over", units="pix",
+                                                         height=40.0))
+        self.default_stimuli.add('pause_txt', visual.TextStim(self.ptw, pos=(0, 0), text="Pause", units="pix",
+                                                              height=40.0))
+        self.default_stimuli.add('countdown', visual.TextStim(self.ptw, pos=(0, -50), text="Countdown", units="pix",
+                                                              height=40.0))
+
         # Timers
         # ======
         # Add your timers to this dictionary.
@@ -740,39 +752,35 @@ class BaseTrial(StateMachine):
             """
             Display loading message while preparing the experiment
             """
-            msg = self.__loading.text
-            text = visual.TextStim(self.ptw, pos=(0, 0), text=msg, units="pix", height=40.0)
-            text.draw()
+            self.default_stimuli['loading'].setText(self.__loading.text)
+            self.default_stimuli['loading'].draw()
 
         elif self.state == 'idle':
-            text = visual.TextStim(self.ptw, pos=(0.0, 0.0), text=self.textToDraw, units="pix", height=40.0)
-            text.draw()
+            self.default_stimuli['welcome'].draw()
 
         elif self.state == 'quit':
             if self.singleshot('quit_graphics'):
                 self.clear_screen()
-
-            text = visual.TextStim(self.ptw, pos=(0.0, 0.0), text="Experiment is over", units="pix", height=40.0)
-            text.draw()
+            self.default_stimuli['quit'].draw()
 
         elif self.state == 'pause':
             if self.singleshot('pause_graphics'):
+                # Clear the screen
                 self.clear_screen()
 
+                # Make text stimulus
+                self.default_stimuli['pause_txt'].setText('PAUSE {0}/{1} [Replayed: {2}]'.format(self.trial.nplayed,
+                                                                                                 self.trial.ntrials,
+                                                                                                 self.trial.nreplay))
+                # Make countdown stimulus if necessary
                 if self.trial.settings['setup']['pauseDur'] > 0:
                     self.__countdown = TimeUp(self.durations['pause'])
 
-            # Render information displayed during break
-            break_info_txt = 'PAUSE {0}/{1} [Replayed: {2}]'.format(self.trial.nplayed, self.trial.ntrials,
-                                                                    self.trial.nreplay)
-            break_msg = visual.TextStim(self.ptw, pos=(0, 0), text=break_info_txt, units="pix", height=40.0)
-            break_msg.draw()
-
+            self.default_stimuli['pause_txt'].draw()
             # Show countdown if experiment starts automatically after some delay
             if self.__countdown is not None:
-                timeup_msg = visual.TextStim(self.ptw, pos=(0, -50), text=self.__countdown.text, units="pix",
-                                             height=30.0)
-                timeup_msg.draw()
+                self.default_stimuli['countdown'].setText(self.__countdown.text)
+                self.default_stimuli['countdown'].draw()
 
     def fast_state_machine(self):
         """
