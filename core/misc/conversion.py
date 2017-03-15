@@ -248,8 +248,8 @@ def mm2pix(x, y, px, mm):
 
     Parameters
     ----------
-    :param x: horizontal coordinate
-    :param y: vertical coordinate
+    :param x: horizontal coordinate (in mm)
+    :param y: vertical coordinate (in mm)
     :param px: screen dimension in pixels (width, height)
     :type px: tuple
     :param mm: screen dimension in mm (width, height)
@@ -257,10 +257,34 @@ def mm2pix(x, y, px, mm):
 
     Returns
     -------
-    :return numpy array (int, int): Converted coordinates
+    :return numpy array (float, float): Converted coordinates
     """
     pix_density_x = px[0] / mm[0]
     pix_density_y = px[1] / mm[1]
+    nx = pix_density_x * x
+    ny = pix_density_y * y
+    return np.array((float(nx), float(ny)))
+
+
+def pix2mm(x, y, px, mm):
+    """
+    Converts pixels to mm
+
+    Parameters
+    ----------
+    :param x: horizontal coordinate (in pixels)
+    :param y: vertical coordinate (in pixels)
+    :param px: screen dimension in pixels (width, height)
+    :type px: tuple
+    :param mm: screen dimension in mm (width, height)
+    :type mm: tuple
+
+    Returns
+    -------
+    :return numpy array (float, float): Converted coordinates
+    """
+    pix_density_x = mm[0] / px[0]
+    pix_density_y = mm[1] / px[1]
     nx = pix_density_x * x
     ny = pix_density_y * y
     return np.array((float(nx), float(ny)))
