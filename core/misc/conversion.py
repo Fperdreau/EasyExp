@@ -38,8 +38,9 @@ def deg2pix_old(angle=float, direction=1, distance=550, screen_res=(800, 600), s
      pixels; 2= pixels to visual angle).
     :param angle: size to convert
     :param distance: distance eye-screen in mm
-    :return: wdth: width expressed in pixels or visual angles.
+    :return wdth: width expressed in pixels or visual angles.
              hght: height expressed in pixels or visual angles.
+     :rtype: tuple (int, int)
     """
 
     widthscr, heightscr = [float(i) for i in screen_res]
@@ -52,7 +53,7 @@ def deg2pix_old(angle=float, direction=1, distance=550, screen_res=(800, 600), s
         wdth = rad2deg(math.atan(((angle/2)/(distance*(widthres/widthscr)))))*2
         hght = rad2deg(math.atan(((angle/2)/(distance*(heightres/heightscr)))))*2
 
-    return int(wdth)
+    return int(wdth), int(hght)
 
 
 def deg2rad(angle):
@@ -60,6 +61,7 @@ def deg2rad(angle):
     Convert degrees to radians
     :param angle: angle to convert (in degree)
     :return: converted angle in radians
+    :rtype: float
     """
     return angle*(math.pi/180)
 
@@ -69,6 +71,7 @@ def rad2deg(angle):
     Convert radians to degrees
     :param angle: angle to convert (in radians)
     :return: converted angle in degrees
+    :rtype: float
     """
     return float(angle/(math.pi/180))
 
@@ -76,9 +79,10 @@ def rad2deg(angle):
 def cart2pol(x, y):
     """
     Convert cartesian coordinates (x,y) to polar coordinates (rho, theta)
-    :param x:
-    :param y:
+    :param x: horizontal coordinate
+    :param y: vertical coordinate
     :return: rho, theta
+    :rtype: list (float, float)
     """
     rho = math.sqrt(x**2 + y**2)
     theta = math.atan2(y, x)
@@ -91,6 +95,7 @@ def pol2cart(rho, phi):
     :param rho: norm
     :param phi: angle
     :return: cartesian coordinates
+    :rtype: tuple (float, float)
     """
     x_output = rho * np.cos(phi)
     y_output = rho * np.sin(phi)
@@ -106,6 +111,7 @@ def pix2cm(size, direction, window=None):
     :return: s: converted size
             ppi: pixels per inch
             di: screen diagonal in inches
+    :rtype: tuple (float, float, float)
     """
     if window is not None:
         widthscr, heightscr = window.displaySize
@@ -132,32 +138,34 @@ def pix2cm(size, direction, window=None):
 def roundn(x, n):
     """
     Rounds a value to the nearest multiple of 10^n.
-    :param x:
-    :param n:
+    :param x: number to round
+    :param n: requested decimal
     :return: x: rounded value
+    :rtype: float
     """
     p = 10**n
     x = p*round(x/p)
     return x
 
 
-def visdist(distance, py, yc, a, window):
+def visdist(d, py, yc, a, window):
     """
     Compute Distance of a particular point on the screen according to the distance from the center of the screen,
     the relative position of the target from this center, and the slant of the screen.
-    :param distance:
+    :param d: distance from eye to screen center
     :param py: horizontal coordinates of the screen center (in pixels from the left border)
     :param yc: vertical coordinates of the screen center (in pixels from the top border)
     :param a: angle (slant) of the screen
     :param window: object providing screen's information
-    :return:
+    :return: distance of a point relative to eye.
+    :rtype: float
     """
     dy = abs(py - yc)
     dy = pix2cm(dy, 1, window)*10  # in mm
     d1 = math.sin(a)*dy
     ha = math.cos(a)*dy
-    angle = math.atan2(distance, ha)  # Viewing angle
-    d2 = math.cos(angle)*distance
+    angle = math.atan2(d, ha)  # Viewing angle
+    d2 = math.cos(angle)*d
 
     if py - yc > 0:
         d = d2 + d1
@@ -176,6 +184,7 @@ def inrect(x, y, rect):
     :param y:
     :param rect: rectangle coordinates (left, top, right, bottom)
     :return: boolean
+    :rtype: bool
     """
     rect = [float(r) for r in rect]
     cond1 = (float(x) > rect[0]) & (float(x) < rect[2])
@@ -200,35 +209,33 @@ def distance(start, end):
     return np.sqrt(np.sum(np.array(diff)))
 
 
-def pix2deg(size, height, distance, resolution):
+def pix2deg(size, height, d, resolution):
     """
     Convert pixels to degrees
     :param size: size to convert to degrees (in pixels)
     :param height: screen height (in cm)
-    :param distance: distance eye-screen (in cm)
+    :param d: distance eye-screen (in cm)
     :param resolution: screen vertical resolution (in pixels)
     :return: converted size in degrees
+    :rtype: float
     """
-    deg_per_px = math.degrees(math.atan2(.5 * height, distance())) / (.5 * resolution)
+    deg_per_px = math.degrees(math.atan2(.5 * height, d)) / (.5 * resolution)
     size_in_deg = size * deg_per_px
-    print('The size of the stimulus is %s pixels and %s visual degrees' \
-          % (size, size_in_deg))
     return size_in_deg
 
 
-def deg2pix(size, height, distance, resolution):
+def deg2pix(size, height, d, resolution):
     """
     Convert degrees to pixels
     :param size: size to convert to degrees (in pixels)
     :param height: screen height (in cm)
-    :param distance: distance eye-screen (in cm)
+    :param d: distance eye-screen (in cm)
     :param resolution: screen vertical resolution (in pixels)
     :return: converted size in degrees
+    :rtype: float
     """
-    deg_per_px = math.degrees(math.atan2(.5 * height, distance)) / (.5 * resolution)
+    deg_per_px = math.degrees(math.atan2(.5 * height, d)) / (.5 * resolution)
     size_in_px = size / deg_per_px
-    print('The size of the stimulus is %s pixels and %s visual degrees' \
-          % (size_in_px, size))
     return size_in_px
 
 
@@ -238,6 +245,7 @@ def deg2m(angle, d):
     :param float angle: visual angle to convert
     :param float d: distance in meters
     :return float size: converted size in meters
+    :rtype: float
     """
     return d * math.tan((math.pi / 180.0) * angle)
 
@@ -258,6 +266,7 @@ def mm2pix(x, y, px, mm):
     Returns
     -------
     :return numpy array (float, float): Converted coordinates
+    :rtype: list [float, float]
     """
     pix_density_x = px[0] / mm[0]
     pix_density_y = px[1] / mm[1]
@@ -282,6 +291,7 @@ def pix2mm(x, y, px, mm):
     Returns
     -------
     :return numpy array (float, float): Converted coordinates
+    :rtype: list [float, float]
     """
     pix_density_x = mm[0] / px[0]
     pix_density_y = mm[1] / px[1]
@@ -304,6 +314,7 @@ def normsize(x, y, width_mm, height_mm):
     Returns
     -------
     :return: normalized size
+    :rtype: list [float, float]
 
     """
     nx = x / (0.5 * width_mm)
