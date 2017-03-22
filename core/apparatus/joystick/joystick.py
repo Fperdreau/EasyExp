@@ -749,7 +749,6 @@ class Validator(object):
             self.t_old = time.time()
 
         self.t_old = time.time() - self.t_old
-        print self.t_old
 
         if not self.__started:
             if self.base_position is None:
