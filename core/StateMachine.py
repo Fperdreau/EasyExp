@@ -403,10 +403,13 @@ class Syncer(object):
         :return: void
         """
         with self.__lock:
-            self.__add_state(state)
+            try:
+                self.__add_state(state)
 
-            if state in self.__child and thread not in self.__child[state]:
-                self.__child[state].append(thread)
+                if state in self.__child and thread not in self.__child[state]:
+                    self.__child[state].append(thread)
+            except KeyError as e:
+                logging.getLogger(version.__app_name__).error("[{0}] {1}".format(__name__, e))
 
     def __add_state(self, state):
         """
