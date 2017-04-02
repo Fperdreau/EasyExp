@@ -48,13 +48,12 @@ class Design(object):
 
     ignored_field = {"repetition", "method", "options"}
 
-    def __init__(self, expname='', conditionfile='', userfile='', demo=False, custom=False, folder='', practice=False,
+    def __init__(self, conditionfile='', userfile='', demo=False, custom=False, folder='', practice=False,
                  max_trials=None, conditions=None):
         """
         Class constructor
         :param bool demo: demo mode (boolean)
         :param string conditionfile: conditions file name
-        :param string expname: name of the experiment
         :param string userfile: user design file name
         :param bool practice: practice mode
         :param int max_trials: maximum number of trials in practice mode
@@ -67,7 +66,6 @@ class Design(object):
         self.folder = folder  # path to experiment folder
         self.custom = custom  # Enable custom experiment design
         self.demo = demo  # Enable demo mode
-        self.expname = expname  # Name of the experiment
         self.userfile = userfile  # path to user's file
 
         # Initialize attributes
