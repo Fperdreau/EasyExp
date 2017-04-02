@@ -98,6 +98,7 @@ class Core(object):
         self.stopTime = None
 
         self.expname = None
+        self.exp_version = None
 
     def get_experiment(self, folder, cli=False):
         """
@@ -127,7 +128,8 @@ class Core(object):
         Get application logger
         :param rootfolder:
         :param expname:
-        :return:
+        :return: Logger instance
+        :rtype: CustomLogger
         """
         if Core.__logger is None:
             # Set application's logger
@@ -150,20 +152,25 @@ class Core(object):
         # Get experiment
         self.experimentsFolder = "{}/experiments/".format(rootfolder)
         self.expname = self.get_experiment(self.experimentsFolder, cli=cli)
+        self.__import_experiment(self.experimentsFolder, self.expname)
+        self.exp_version = RunTrial.version if hasattr(RunTrial, 'version') else '1.0.0'
 
         # Get logger
         if not isdir('{}/logs'.format(rootfolder)):
             mkdir('{}/logs'.format(rootfolder))
         self.logger = self.get_logger(rootfolder, self.expname)
 
+        # Print welcome message
         print("\n##############################\n")
         self.logger.info("# Welcome to {} (version {})".format(self.appname, v.__version__))
         self.logger.info("# {}".format(v.__copyright__))
         self.logger.info("# Date: {}".format(time.strftime("%d-%m-%y %H:%M:%S")))
+        self.logger.info("# Experiment: {} (version {})".format(self.expname, self.exp_version))
         print("\n##############################\n")
 
         # Get and set configuration
-        self.config = Config(rootfolder=rootfolder, expname=self.expname, cli=cli)
+        self.config = Config(rootfolder=rootfolder, expname=self.expname,
+                             cli=cli)
         self.config.setup()
 
         self.settings = self.config.settings
@@ -171,16 +178,16 @@ class Core(object):
         self.files = self.config.files
 
         # Create user
-        self.user = User(datafolder=self.folders['data'], expname=self.expname,
-                         **self.__filter_args(User, self.settings['setup']))
+        self.user = User(data_folder=self.folders['data'], expname='{}_v{}'.format(
+            self.expname, self.exp_version.replace('.', '-')), **self.__filter_args(User, self.settings['setup']))
         self.user.setup(cli=cli)
 
         self.files['design'] = self.user.designfile
 
         # Make factorial design
-        self.design = Design(expname=self.expname, conditionfile=self.files['conditions'],
-                             userfile=self.files['design'], folder=self.folders['expFolder'], custom=custom,
-                             conditions=conditions, **self.__filter_args(Design, self.settings['setup']))
+        self.design = Design(conditionfile=self.files['conditions'], userfile=self.files['design'],
+                             folder=self.folders['expFolder'], custom=custom, conditions=conditions,
+                             **self.__filter_args(Design, self.settings['setup']))
         self.design.make()
 
         # Devices
@@ -192,6 +199,13 @@ class Core(object):
 
     @staticmethod
     def __filter_args(class_obj, args):
+        """
+        Filter arguments passed to class constructor
+        :param class_obj: class instance
+        :param args: arguments
+        :return: filtered dictionary
+        :rtype: dict
+        """
         import inspect
         this_args = inspect.getargspec(class_obj.__init__)
         new_dict = dict()
@@ -200,21 +214,29 @@ class Core(object):
                 new_dict.update({a: args[a]})
         return new_dict
 
+    def __import_experiment(self, exp_folder, exp_name):
+        """
+        # Import experiment class from experiment's folder (e.g.: experiments/experiment_name/runtrial.py)
+        :param exp_folder: path to experiments folder
+        :param exp_name: experiment name
+        :return: void
+        """
+        try:
+            sys.path.append(join(exp_folder, exp_name))
+            global RunTrial
+            from runtrial import RunTrial
+
+        except ImportError as e:
+            msg = '[{}] Could not import RunTrial. Make sure you changed the name of '"runtrial_template.py"' ' \
+                  'to "runtrial.py": {}'.format(__name__, e)
+            self.logger.fatal(msg)
+            raise RuntimeError(msg)
+
     def run(self):
         """
         Run and time experiment
         """
-
-        self.logger.info("[{}] --- Start Experiment: '{}' ---".format(__name__, self.expname))
-
-        # Import experiment class from experiment's folder (e.g.: experiments/experiment_name/runtrial.py)
-        try:
-            sys.path.append(self.folders['expFolder'])
-            from runtrial import RunTrial
-        except ImportError as e:
-            self.logger.fatal('[{}] Could not import RunTrial. Make sure you changed the name of '
-                              '"runtrial_template.py" to "runtrial.py": {}'.format(__name__, e))
-            raise e
+        self.logger.info("[{}] --- Start Experiment: '{}' ---".format(__name__, self.expname, self.exp_version))
 
         # Start timer
         self.startTime = time.time()
