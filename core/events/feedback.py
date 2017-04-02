@@ -92,7 +92,8 @@ class FeedBack(object):
         """
 
         if len(data) > 0 and played > 0:
-            correct_trials = [data[ii] for ii in range(len(data)) if data[ii][self._field] == 'True']
+            n = min([len(data), self._frequency]) - 1
+            correct_trials = [trial for trial in data[-n:] if trial[self._field] == 'True']
             n_correct = float(len(correct_trials))
             score = (n_correct / float(played)) * 100.0
         else:
@@ -121,7 +122,8 @@ class FeedBackContinuous(FeedBack):
         """
 
         if len(data) > 0 and played > 0:
-            correct_trials = [float(data[ii][self._field]) for ii in range(len(data))]
+            n = min([len(data), self._frequency]) - 1
+            correct_trials = [float(trial[self._field]) for trial in data[-n:]]
             score = np.mean(np.abs(correct_trials))
         else:
             score = 0.0
