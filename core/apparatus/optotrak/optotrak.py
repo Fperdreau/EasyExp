@@ -535,8 +535,10 @@ class Sensor(object):
         if self.__nb_positions >= self.__max_positions:
             distances = [OptoTrak.distance(self.__history[i], self.__history[j]) for i, j
                          in zip(range(0, self.__max_positions - 1), range(1, self.__max_positions))]
-
-            return float(np.mean(np.array(distances) / np.array(self.__intervals)))
+            try:
+                return float(np.mean(np.array(distances) / np.array(self.__intervals)))
+            except ZeroDivisionError:
+                return 0.0
         else:
             return 0.0
 
