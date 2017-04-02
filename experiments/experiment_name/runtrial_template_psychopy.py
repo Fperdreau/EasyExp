@@ -30,6 +30,7 @@ from __future__ import division
 from psychopy import prefs
 prefs.general['audioLib'] = ['pygame']
 from psychopy import visual, sound
+import time
 import numpy as np
 
 # EasyExp modules
@@ -78,10 +79,11 @@ class RunTrial(BaseTrial):
     State transition:
     State transition is handled by BaseTrial abstract class. State transition is usually triggered by timers' timeout
      or by key presses as defined in parameters.json file (see documentation for more details). However, transition to
-      next state can be forced without waiting by calling self.move_on().
+      next state can be forced without waiting by calling self.jump().
     """
 
     homeMsg = 'Welcome!'  # Message prompted at the beginning of the experiment
+    version = '1.0.0'
 
     def __init__(self, exp_core=Core):
         """
@@ -109,7 +111,7 @@ class RunTrial(BaseTrial):
         # Because parameters are loaded from a JSON file, they are imported as string. Therefore, it might be necessary
         # to convert the parameter's type: e.g. as a float number.
         # Example:
-        # self.my_parameter = float(self.trial.parameters['my_parameter']
+        # self.storage['my_parameter'] = float(self.trial.parameters['my_parameter'])
 
         # Events triggers
         # ===============
@@ -119,29 +121,10 @@ class RunTrial(BaseTrial):
         #   'trigger_name': False
         # })
 
-        # Stimulus triggers
-        #
-        # Stimuli triggers can be added by calling:
-        # self.stimuliTrigger.add('stimulus_name', 'value')
-        # If value is not provided, then False will be set by default.
-        #
-        # IMPORTANT: if 'stimulus_name' is added to self.stimuliTrigger, then it should also be added to self.stimuli
-        # dictionary in RunTrial.init_stimuli() method
-        #
-        # stimuliTrigger acts like a dictionary. item's value can be accessed by calling:
-        # self.stimuliTrigger['stimulus_name']
-        #
-        # and new trigger value can be set by calling:
-        # self.stimuliTrigger['stimulus_name'] = True
-        #
-        # if self.stimuliTrigger['stimulus_name'] is True, then self.stimuli['stimulus_name'].draw() will be called.
-        #
-        # IMPORTANT: stimuli are rendered in the same order as the triggers defined in stimuliTrigger dictionary.
-        self.stimuliTrigger.add('my_circle')
-
         # Timers
         # ======
-        # Timers act like a watch.
+        # Add your timers to this dictionary.
+        # Default timer is timers['runtime'] and it should not be removed
         #
         # Example:
         # timers = {'timer_name': Timer()}
@@ -257,41 +240,55 @@ class RunTrial(BaseTrial):
 
     def init_stimuli(self):
         """
-        Prepare/Make stimuli
+        Prepare/Make stimuli (Only called once at the beginning of the experiment is self.clearAll if False, or at the 
+        beginning of every trial if self.clearAll is True. To update stimuli properties on every trial, refer to 
+        RunTrial.update_stimuli()
 
-        Stimuli objects (Psychopy) should be stored in self.stimuli dictionary, for example:
-        self.stimuli['stimulus_name'] = visual.Circle(self.ptw, radius=2, pos=(0, 0))
+        Stimuli objects (Psychopy) should be stored in self.stimuli container, for example:
+        self.stimuli.add(
+            'stimulus_name',
+            visual.Circle(self.ptw, radius=2, pos=(0, 0))
+        )
 
-        Then on every loop, the state machine will automatically call self.stimuli['stimulus_name'].draw() if
-        self.stimuliTrigger['stimulus_name'] is set to True.
+        IMPORTANT: stimuli are rendered in the same order as they were added.
+
+        # Stimulus rendering
+        # ==================
+        Then on every loop, the graphics state machine will automatically call self.stimuli['stimulus_name'].draw() if
+        self.stimuli['stimulus_name'].status is True.
+
+        State of each stimulus can be manipulated by doing:
+        self.stimuli['stimulus_name'].on() => this will set stimulus' status to True
+        or
+        self.stimuli['stimulus_name'].off() => this will set stimulus' status to False
+
+        # Accessing/Setting stimulus attributes
+        # =====================================
+        Stimulus's attribute can be accessed or modified as follows:
+        self.stimuli['stimulus_name'].__attribute_name = value
+            Example:
+                # Set new orientation of stimulus (Psychopy)
+                self.stimuli['stimulus_name'].ori = 30
         """
-        self.stimuli['my_circle'] = visual.Circle(self.ptw, radius=30, pos=(0, 0), lineWidth=1,
-                                                  lineColor=(0.0, 0.0, 0.0), fillColor=(0.0, 0.0, 0.0), units='pix')
+        self.stimuli.add(
+            'my_circle',
+            visual.Circle(self.ptw, radius=30, pos=(0, 0), lineWidth=1, lineColor=(0.0, 0.0, 0.0),
+                          fillColor=(0.0, 0.0, 0.0), units='pix')
+        )
+
+    def update_stimuli(self):
+        """
+        Update stimuli attributes based on trial parameters
+
+        This method is intended to update stimuli already created in BaseTrial.init_stimuli()
+        :return: void
+        """
 
     def get_response(self):
         """
         Get participant' response
         """
-        # Initialize response timer
-        if self.timers['responseDuration'] is None or self.timers['responseDuration'].get_time('start') is None:
-            self.timers['responseDuration'] = Timer()
-            self.timers['responseDuration'].start()
-
-        # Get some response (e.g. check buttons status)
-        response_received = self.buttons.get_status('left') or self.buttons.get_status('right')
-
-        # if response has been given for the first time, then process it
-        if not self.triggers['response_given'] and response_received:
-            self.triggers['response_given'] = True  # Yes, we got a response
-
-            # Stop response timer, store response duration, and reset timer
-            self.timers['responseDuration'].stop()
-            self.data['responseDuration'] = round(self.timers['responseDuration'].get_time('elapsed')*1000.0)
-            self.timers['responseDuration'].reset()
-
-            # Do something with the response: for instance, is it a correct answer?
-            self.data['response'] = 'left' if self.buttons.get_status('left') else 'right'
-            self.data['correct'] = self.data['response'] == 'right'
+        pass
 
     # =========================================
     # State machines
@@ -316,6 +313,13 @@ class RunTrial(BaseTrial):
         states as usual. For instance:
         if self.state == "idle":
             # do something
+            
+        State Transition:
+        Transition to next occurs when the current state duration has reached its maximum defined in parameters.json. If
+        the state's maximum duration is set to False, then transition must be triggered manually (either by key press or
+        by any other custom events). Manual transition can be done by calling RunTrial.jump(). RunTrial.jump() method 
+        can also be called for moving to the next state without waiting for the current state to reach its maximum 
+        duration.
         """
 
         # Get sled (viewer) position
@@ -367,9 +371,17 @@ class RunTrial(BaseTrial):
                 self.durations = timings
 
         elif self.state == 'draw_circle':
-            self.next_state = 'response'
+            self.next_state = 'jump_circle'
             # Set trigger to True (from here, the corresponding stimulus will be drawn until told otherwise)
-            self.stimuliTrigger['my_circle'] = True
+            self.stimuli['my_circle'].on()
+
+        elif self.state == 'jump_circle':
+            self.next_state = 'hide_circle'
+
+        elif self.state == 'hide_circle':
+            self.next_state = 'response'
+            # Prevent stimulus from being drawn
+            self.stimuli['my_circle'].off()
 
         elif self.state == 'response':
             self.next_state = 'end'
@@ -379,7 +391,7 @@ class RunTrial(BaseTrial):
             if self.triggers['response_given']:
                 # If response is given, then we move directly to the next state ('end') without waiting for the end of
                 #  the response phase
-                self.move_on()
+                self.jump()
 
     def graphics_state_machine(self):
         """
@@ -402,10 +414,11 @@ class RunTrial(BaseTrial):
         if self.state == "idle":
             # do something
         """
-        if self.state == 'draw_cicle':
-            # Example: make the circle jumping to a next random location
-            current_position = self.stimuli['my_circle'].pos
-            max_amplitude = 50  # jump size
-            new_position = current_position + np.random.uniform(-1, 1) * max_amplitude
-            self.stimuli['my_circle'].setPos(new_position)  # Update fixation position
+        if self.state == 'jump_circle':
+            if self.singleshot('jump_circle'):
+                # Example: make the circle jumping to a next random location
+                current_position = self.stimuli['my_circle'].pos
+                max_amplitude = 50  # jump size
+                new_position = current_position + np.random.uniform(-1, 1) * max_amplitude
+                self.stimuli['my_circle'].setPos(new_position)  # Update stimulus position
 
