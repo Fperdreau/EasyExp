@@ -24,7 +24,7 @@ from __future__ import print_function
 # =======
 # Import useful libraries
 from os import mkdir
-from os.path import isdir, isfile
+from os.path import isdir, isfile, join
 
 # EasyExp
 
@@ -166,7 +166,7 @@ class Config(object):
             }
         }
 
-    def __init__(self, rootfolder='/', expname='', cli=False):
+    def __init__(self, rootfolder, expname, cli=False):
         """
         Constructor of Config Class
         :param rootfolder: path to root folder
@@ -180,14 +180,14 @@ class Config(object):
 
         self.folders = {
             'rootFolder': rootfolder,
-            'experimentFolder': "{}/experiments".format(rootfolder),
-            'expFolder': "{}/experiments/{}".format(rootfolder, expname)
+            'experimentFolder': join(rootfolder, 'experiments'),
+            'expFolder': join(rootfolder, 'experiments', expname)
         }
 
         self.files = {
-            'settings': "{}/settings.json".format(self.folders['expFolder']),
-            'conditions': "{}/conditions.json".format(self.folders['expFolder']),
-            'parameters': '{}/parameters.json'.format(self.folders['expFolder'])
+            'settings': join(self.folders['expFolder'], 'settings.json'),
+            'conditions': join(self.folders['expFolder'], 'conditions.json'),
+            'parameters': join(self.folders['expFolder'], 'parameters.json')
         }
 
         self.settingsFile = ConfigFiles(self.files['settings'])
@@ -245,9 +245,9 @@ class Config(object):
         Creates necessary folders and get list of useful folders (data, functions, config)
         :rtype : bool
         """
-        self.folders['data'] = "%s/data" % self.folders['rootFolder']
-        self.folders['libs'] = "%s/libs" % self.folders['rootFolder']
-        self.folders['analyses'] = "%s/analyses" % self.folders['rootFolder']
+        self.folders['data'] = join(self.folders['rootFolder'], 'data')
+        self.folders['libs'] = join(self.folders['rootFolder'], 'libs')
+        self.folders['analyses'] = join(self.folders['rootFolder'], 'analyses')
 
         for key, folder in self.folders.iteritems():
             if isdir(folder) == 0:
