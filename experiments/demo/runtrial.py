@@ -30,7 +30,6 @@ from __future__ import division
 from psychopy import prefs
 prefs.general['audioLib'] = ['pygame']
 from psychopy import visual, sound
-import pygame
 import time
 import numpy as np
 
@@ -81,7 +80,7 @@ class RunTrial(BaseTrial):
     State transition:
     State transition is handled by BaseTrial abstract class. State transition is usually triggered by timers' timeout
      or by key presses as defined in parameters.json file (see documentation for more details). However, transition to
-      next state can be forced without waiting by calling self.move_on().
+      next state can be forced without waiting by calling self.jump().
     """
 
     homeMsg = 'Welcome!'  # Message prompted at the beginning of the experiment
@@ -141,7 +140,8 @@ class RunTrial(BaseTrial):
 
         # Timers
         # ======
-        # Timers act like a watch.
+        # Add your timers to this dictionary.
+        # Default timer is timers['runtime'] and it should not be removed
         #
         # Example:
         # timers = {'timer_name': Timer()}
@@ -163,7 +163,6 @@ class RunTrial(BaseTrial):
         #    'timer_name': Timer()
         # })
         self.timers.update({
-            'runtime': Timer(),  # DO NOT MODIFY
             'sled_start': Timer(),
             'responseDuration': Timer()
         })
@@ -277,7 +276,9 @@ class RunTrial(BaseTrial):
 
     def init_stimuli(self):
         """
-        Prepare/Make stimuli
+        Prepare/Make stimuli (Only called once at the beginning of the experiment is self.clearAll if False, or at the 
+        beginning of every trial if self.clearAll is True. To update stimuli properties on every trial, refer to 
+        RunTrial.update_stimuli()
 
         Stimuli objects (Psychopy) should be stored in self.stimuli container, for example:
         self.stimuli.add(
@@ -471,6 +472,13 @@ class RunTrial(BaseTrial):
         states as usual. For instance:
         if self.state == "idle":
             # do something
+            
+        State Transition:
+        Transition to next occurs when the current state duration has reached its maximum defined in parameters.json. If
+        the state's maximum duration is set to False, then transition must be triggered manually (either by key press or
+        by any other custom events). Manual transition can be done by calling RunTrial.jump(). RunTrial.jump() method 
+        can also be called for moving to the next state without waiting for the current state to reach its maximum 
+        duration.
         """
 
         # Get sled (viewer) position
