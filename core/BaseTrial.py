@@ -625,7 +625,9 @@ class BaseTrial(StateMachine):
 
     def init_stimuli(self):
         """
-        Prepare/Make stimuli
+        Prepare/Make stimuli (Only called once at the beginning of the experiment is self.clearAll if False, or at the 
+        beginning of every trial if self.clearAll is True. To update stimuli properties on every trial, refer to 
+        RunTrial.update_stimuli()
 
         Stimuli objects (Psychopy) should be stored in self.stimuli container, for example:
         self.stimuli.add(
@@ -802,6 +804,13 @@ class BaseTrial(StateMachine):
         states as usual. For instance:
         if self.state == "idle":
             # do something
+            
+        State Transition:
+        Transition to next occurs when the current state duration has reached its maximum defined in parameters.json. If
+        the state's maximum duration is set to False, then transition must be triggered manually (either by key press or
+        by any other custom events). Manual transition can be done by calling RunTrial.jump(). RunTrial.jump() method 
+        can also be called for moving to the next state without waiting for the current state to reach its maximum 
+        duration.
         """
         raise NotImplementedError('Should implement this')
 
