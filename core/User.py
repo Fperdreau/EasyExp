@@ -21,8 +21,8 @@
 from __future__ import print_function
 import json
 import time
-from os import mkdir
-from os.path import isdir, isfile
+from os import mkdir, remove
+from os.path import isdir, isfile, join
 
 # GUI
 from gui.gui_wrapper import GuiWrapper
@@ -47,20 +47,25 @@ class User(object):
     - file I/O methods (load, save)
     """
 
-    def __init__(self, datafolder='', expname='', session=1, demo=False, practice=False):
+    def __init__(self, data_folder, expname, session=1, demo=False, practice=False):
         """
         Constructor of User class
-        :param datafolder: path to data folder
-        :param expname: experiment name
+        :param data_folder: path to data folder
+        :type data_folder: str
+        :param expname: experiment name (format: name_version. E.g.: 'my_experiment_v1-0-0')
+        :type expname: str
         :param session: session number
+        :type session: int
         :param demo: does the experiment run in demo mode
+        :type demo: bool
         :param practice: practice mode (create a special design file labeled "practice")
+        :type practice: bool
         """
         self.practice = practice
         self.expname = expname
         self.demo = demo
         self.session = session
-        self.__logger = logging.getLogger('EasyExp')
+        self.__logger = logger
 
         # Subject information
         # ===================
@@ -77,7 +82,7 @@ class User(object):
 
         # Subject folders
         # ===============
-        self.datafolder = datafolder
+        self.datafolder = data_folder
         self.base_file_name = None  # Base file name ("expname_session_(practice)")
         self.subfolder = None  # Subject folder
         self.infofile = None  # subject information file
@@ -112,14 +117,15 @@ class User(object):
             self.name = self.get_user_name(cli)
 
         # Set folders and files
-        self.subfolder = "%s/%s" % (self.datafolder, self.name)
-        self.infofile = "%s/%s_info.txt" % (self.subfolder, self.name)
-        if not self.practice:
-            self.dftName = '{}/{}_{}_{}'.format(self.subfolder, self.name, self.expname, self.session)
-            self.base_file_name = '{}_{}'.format(self.expname, self.session)
-        else:
-            self.dftName = '{}/{}_{}_{}_practice'.format(self.subfolder, self.name, self.expname, self.session)
-            self.base_file_name = '{}_{}_practice'.format(self.expname, self.session)
+        self.subfolder = join(self.datafolder, self.name)
+        self.infofile = join(self.subfolder, "{}_info.txt".format(self.name))
+        self.dftName = join(self.subfolder, '{}_{}_{}'.format(self.name, self.expname, self.session))
+        self.base_file_name = '{}_{}'.format(self.expname, self.session)
+
+        # Append "practice" to practice data files
+        if self.practice:
+            self.dftName = "{}_practice".format(self.dftName)
+            self.base_file_name = "{}_practice".format(self.base_file_name)
 
         self.designfile = "{}_design.txt".format(self.dftName)
         self.datafilename = '{}_data.txt'.format(self.dftName)
@@ -137,15 +143,14 @@ class User(object):
         Delete previous data and design files
         :return:
         """
-        import os
         for file_to_delete in [self.designfile, self.datafilename]:
             if isfile(file_to_delete):
                 try:
-                    os.remove(file_to_delete)
+                    remove(file_to_delete)
                 except IOError as e:
                     self.__logger.warning('Could not delete previous data and design files: {}'.format(e))
 
-    def checkuser(self):
+    def __check_user(self):
         """
         Check if user exists
         :return: int: (0) if user does not already exist,(1) if user's folder exists, (2) if user's folder and info file exist.
@@ -164,7 +169,7 @@ class User(object):
         Create user: If either the info file is missing or the subject's folder does not exist yet
         """
         # Check if user already exists
-        self.checkuser()
+        self.__check_user()
         if self.exist != 2:
             if self.exist == 0:
                 # We create the folder
