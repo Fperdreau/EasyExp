@@ -1,10 +1,20 @@
 # EasyExp - Changelog
 
-## Version 1.1.1
+## Version 1.2.0
 - Add possibility to not load trial parameters from file
+- Improved thread synchronization
+- Improved memory usage and fixed issue with memory continuously
+increasing with time.
+- Added new stimuli container and removed RunTrial.stimuliTrigger container.
+See RunTrial.init_stimuli() documentation for more information.
 
 ### Devices
-- EyeTracker (v1.1.0): Fixed display of eye image and handling of key inputs
+- EyeTracker (v1.1.0):
+    * Fixed display of eye image and handling of key inputs
+    * EyeTracker.stop_trial() now complies with Devices interface.
+    * Added position validator and velocity estimator for Eye class.
+- Sled (v1.1.5): Added work-around to prevent error when accessing PositionTracker.position property.
+- JoyStick (v1.1.0): Improved JoyStick device and added position validator.
 
 ## Version 1.1.0
 - Corrected updating of settings dictionary with values specified in settings.json
