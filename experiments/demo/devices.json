@@ -54,7 +54,7 @@
                 "off", 
                 "dummy"
             ], 
-            "value": "on", 
+            "value": "off", 
             "label": "Eyetracker"
         }, 
         "Sled": {

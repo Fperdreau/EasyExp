@@ -5,14 +5,14 @@
             "value": 3, 
             "label": "Break interval"
         }, 
-        "demo": {
+        "movie": {
             "type": "checkbox", 
             "options": [
                 true, 
                 false
             ], 
-            "value": true, 
-            "label": "Demo"
+            "value": false, 
+            "label": "Movie"
         }, 
         "practice": {
             "type": "checkbox", 
@@ -20,7 +20,7 @@
                 true, 
                 false
             ], 
-            "value": true, 
+            "value": false, 
             "label": "Practice"
         }, 
         "max_trials": {
@@ -33,14 +33,14 @@
             "value": 1, 
             "label": "Session ID"
         }, 
-        "movie": {
+        "demo": {
             "type": "checkbox", 
             "options": [
                 true, 
                 false
             ], 
-            "value": false, 
-            "label": "Movie"
+            "value": true, 
+            "label": "Demo"
         }, 
         "pauseMode": {
             "type": "select", 

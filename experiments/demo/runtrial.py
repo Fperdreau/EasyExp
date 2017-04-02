@@ -85,6 +85,7 @@ class RunTrial(BaseTrial):
     """
 
     homeMsg = 'Welcome!'  # Message prompted at the beginning of the experiment
+    version = '1.0.0'
 
     def __init__(self, exp_core=Core):
         """
@@ -112,16 +113,20 @@ class RunTrial(BaseTrial):
         # Because parameters are loaded from a JSON file, they are imported as string. Therefore, it might be necessary
         # to convert the parameter's type: e.g. as a float number.
         # Example:
-        # self.my_parameter = float(self.trial.parameters['my_parameter']
+        # self.storage['my_parameter'] = float(self.trial.parameters['my_parameter'])
 
         # Sled settings
-        self.pViewer = [0.0, 0.0]
-        self.mvtBackDuration = float(self.trial.parameters['mvtBackDuration'])  # Returning movement duration (in s)
-        self.sledHome = 0.0  # Sled home position
-        self.sledStart = float(self.trial.parameters['sledStart'])  # Sled starting position
-        self.mvtAmplitude = float(self.trial.parameters['movDistance'])  # Movement amplitude
-        self.mvtDuration = float(self.trial.parameters['movDuration'])  # Movement duration (in s)
-        self.sledFinal = 0.0  # Sled final position (trial parameter)
+        self.storage['pViewer'] = [0.0, 0.0]
+        self.storage['mvtBackDuration'] = float(self.trial.parameters['mvtBackDuration'])  # Returning movement duration (in s)
+        self.storage['sledHome'] = 0.0  # Sled home position
+        self.storage['sledStart'] = float(self.trial.parameters['sledStart'])  # Sled starting position
+        self.storage['mvtAmplitude'] = float(self.trial.parameters['movDistance'])  # Movement amplitude
+        self.storage['mvtDuration'] = float(self.trial.parameters['movDuration'])  # Movement duration (in s)
+        self.storage['sledFinal'] = 0.0  # Sled final position (trial parameter)
+
+        # Feedback message
+        self.storage['Feedback_msg_color'] = self.trial.parameters['Feedback_msg_color_default']
+        self.storage['Feedback_msg'] = 'Too late'
 
         # Events triggers
         # ===============
@@ -130,36 +135,9 @@ class RunTrial(BaseTrial):
         # self.triggers.update({
         #   'trigger_name': False
         # })
-        self.triggers = {
-            'moveOnRequested': False,
-            'pauseRequested': False,
-            'startTrigger': False,
-            'response_given': False,
-            'quitRequested': False,
+        self.triggers.update({
             'calibration_requested': False
-        }
-
-        # Stimulus triggers
-        #
-        # Stimuli triggers can be added by calling:
-        # self.stimuliTrigger.add('stimulus_name', 'value')
-        # If value is not provided, then False will be set by default.
-        #
-        # IMPORTANT: if 'stimulus_name' is added to self.stimuliTrigger, then it should also be added to self.stimuli
-        # dictionary in RunTrial.init_stimuli() method
-        #
-        # stimuliTrigger acts like a dictionary. item's value can be accessed by calling:
-        # self.stimuliTrigger['stimulus_name']
-        #
-        # and new trigger value can be set by calling:
-        # self.stimuliTrigger['stimulus_name'] = True
-        #
-        # if self.stimuliTrigger['stimulus_name'] is True, then self.stimuli['stimulus_name'].draw() will be called.
-        #
-        # IMPORTANT: stimuli are rendered in the same order as the triggers defined in stimuliTrigger dictionary.
-        self.stimuliTrigger.add('probe1')
-        self.stimuliTrigger.add('probe2')
-        self.stimuliTrigger.add('fixation')
+        })
 
         # Timers
         # ======
@@ -185,8 +163,9 @@ class RunTrial(BaseTrial):
         #    'timer_name': Timer()
         # })
         self.timers.update({
-            'responseDuration': Timer(),
-            'sled_start': Timer()
+            'runtime': Timer(),  # DO NOT MODIFY
+            'sled_start': Timer(),
+            'responseDuration': Timer()
         })
 
         # Data
@@ -217,7 +196,6 @@ class RunTrial(BaseTrial):
         # self.buttons.add_listener('mouse', 'right', 2)  # Right mouse click
         self.buttons.add_listener('mouse', 'left', 0)
         self.buttons.add_listener('mouse', 'right', 2)
-        # self.buttons.add_listener('keyboard', 'calibration', pygame.K_c)
 
     ################################
     # CUSTOMIZATION STARTS HERE    #
@@ -275,8 +253,9 @@ class RunTrial(BaseTrial):
 
         # Customization goes below
         # Create eye-tracker instance
-        if self.devices['eyetracker'] is not None and not self.devices['eyetracker'].dummy_mode:
-            self.next_state = 'calibration'
+        if self.devices['eyetracker'] is not None:
+            self.devices['eyetracker'].set_display(self.ptw)
+            self.triggers['calibration_requested'] = True
 
     def init_audio(self):
         """
@@ -300,17 +279,35 @@ class RunTrial(BaseTrial):
         """
         Prepare/Make stimuli
 
-        Stimuli objects (Psychopy) should be stored in self.stimuli dictionary, for example:
-        self.stimuli['stimulus_name'] = visual.Circle(self.ptw, radius=2, pos=(0, 0))
+        Stimuli objects (Psychopy) should be stored in self.stimuli container, for example:
+        self.stimuli.add(
+            'stimulus_name',
+            visual.Circle(self.ptw, radius=2, pos=(0, 0))
+        )
 
-        Then on every loop, the state machine will automatically call self.stimuli['stimulus_name'].draw() if
-        self.stimuliTrigger['stimulus_name'] is set to True.
+        IMPORTANT: stimuli are rendered in the same order as they were added.
+
+        # Stimulus rendering
+        # ==================
+        Then on every loop, the graphics state machine will automatically call self.stimuli['stimulus_name'].draw() if
+        self.stimuli['stimulus_name'].status is True.
+
+        State of each stimulus can be manipulated by doing:
+        self.stimuli['stimulus_name'].on() => this will set stimulus' status to True
+        or
+        self.stimuli['stimulus_name'].off() => this will set stimulus' status to False
+
+        # Accessing/Setting stimulus attributes
+        # =====================================
+        Stimulus's attribute can be accessed or modified as follows:
+        self.stimuli['stimulus_name'].__attribute_name = value
+            Example:
+                # Set new orientation of stimulus (Psychopy)
+                self.stimuli['stimulus_name'].ori = 30
         """
-        self.stimuli = dict()
-
         # Probe size
         probeSizeM = deg2m(float(self.trial.parameters['probeSize']), self.screen.distance/1000.0)*1000.0
-        probeSize = 0.5*mm2pix(probeSizeM, probeSizeM, self.screen.resolution, self.screen.size)  # Radius in pixels
+        probeSize = 0.5 * mm2pix(probeSizeM, probeSizeM, self.screen.resolution, self.screen.size)  # Radius in pixels
 
         # Top probe location
         probe1PosM = deg2m(float(self.data['intensity']), self.screen.distance/1000.0)*1000.0
@@ -340,13 +337,66 @@ class RunTrial(BaseTrial):
             probe1Pos = probeBottomPos
             probe2Pos = probeTopPos
 
-        self.stimuli['probe1'] = visual.Circle(self.ptw, radius=probeSize[0], pos=probe1Pos, lineWidth=1,
-                                               lineColor=lineColor, fillColor=fillColor, units='pix')
-        self.stimuli['probe2'] = visual.Circle(self.ptw, radius=probeSize[0], pos=probe2Pos, lineWidth=1,
-                                               lineColor=lineColor, fillColor=fillColor, units='pix')
-        self.stimuli['fixation'] = visual.Circle(self.ptw, radius=fixation[0], pos=(0.0, 0.0), lineWidth=1,
-                                                 lineColor=(-0.7, -0.7, -0.7), fillColor=(-0.7, -0.7, -0.7),
-                                                 units='pix')
+        self.stimuli.add(
+            'probe1',
+            visual.Circle(self.ptw, radius=probeSize[0], pos=probe1Pos, lineWidth=1, lineColor=lineColor,
+                          fillColor=fillColor, units='pix')
+        )
+
+        self.stimuli.add(
+            'probe2',
+            visual.Circle(self.ptw, radius=probeSize[0], pos=probe2Pos, lineWidth=1, lineColor=lineColor,
+                          fillColor=fillColor, units='pix')
+        )
+
+        self.stimuli.add(
+            'fixation',
+            visual.Circle(self.ptw, radius=fixation[0], pos=(0.0, 0.0), lineWidth=1, lineColor=(-0.7, -0.7, -0.7),
+                          fillColor=(-0.7, -0.7, -0.7), units='pix')
+                         )
+
+        self.stimuli.add(
+            'feedback',
+            visual.TextStim(self.ptw, pos=(0, 0), text=self.storage['Feedback_msg'], units="pix", height=40.0,
+                            color=self.storage['Feedback_msg_color'])
+        )
+
+    def update_stimuli(self):
+        """
+        Update stimuli attributes based on trial parameters
+
+        This method is intended to update stimuli already created in BaseTrial.init_stimuli()
+        :return: void
+        """
+        # Top probe location
+        probe1PosM = deg2m(float(self.data['intensity']), self.screen.distance / 1000.0) * 1000.0
+        probeTopPos = mm2pix(probe1PosM, float(self.trial.parameters['probeTop']), self.screen.resolution,
+                             self.screen.size)
+
+        # bottom probe location
+        probeBottomPos = mm2pix(-probe1PosM, float(self.trial.parameters['probeBottom']), self.screen.resolution,
+                                self.screen.size)
+
+        # Make stimuli
+        if self.trial.params['first'] == 'top':
+            self.data['probe1'] = probe1PosM  # Save probe coordinates in mm
+            self.data['probe2'] = -probe1PosM  # Save probe coordinates in mm
+            probe1Pos = probeTopPos
+            probe2Pos = probeBottomPos
+        else:
+            self.data['probe1'] = -probe1PosM  # Save probe coordinates in mm
+            self.data['probe2'] = probe1PosM  # Save probe coordinates in mm
+            probe1Pos = probeBottomPos
+            probe2Pos = probeTopPos
+
+        # Update stimuli position based on trial parameters
+        self.stimuli['probe1'].setPos(probe1Pos)
+        self.stimuli['probe2'].setPos(probe2Pos)
+
+        # Self motion settings
+        self.storage['side'] = 1 if self.trial.params['side'] == 'right' else -1
+        self.storage['sledStart'] = self.storage['side'] * float(self.trial.parameters['sledStart'])
+        self.storage['sledFinal'] = self.storage['sledStart'] + self.storage['side'] * self.storage['mvtAmplitude']
 
     def get_response(self):
         """
@@ -388,7 +438,7 @@ class RunTrial(BaseTrial):
         Get viewer (sled) position
         """
         p = self.devices['sled'].getposition(t=self.devices['sled'].client.time())
-        self.pViewer = (p[0], p[1])
+        self.storage['pViewer'] = (p[0], p[1])
 
     def wait_sled(self, position):
         """
@@ -396,7 +446,7 @@ class RunTrial(BaseTrial):
         :param position: expected position of sled
         :return: Sled at position and not moving
         """
-        return self.devices['sled'].wait_ready(position, duration=self.mvtBackDuration)
+        return self.devices['sled'].wait_ready(position, duration=self.storage['mvtBackDuration'])
 
     # =========================================
     # State machines
@@ -433,22 +483,20 @@ class RunTrial(BaseTrial):
             if self.singleshot('pause_sled'):
                 # Move the sled back to its default position
                 if 'sled' in self.devices and self.devices['sled'] is not None:
-                    self.devices['sled'].move(self.sledHome, self.mvtBackDuration)
-                    time.sleep(self.mvtBackDuration)
+                    self.devices['sled'].move(self.storage['sledHome'], self.storage['mvtBackDuration'])
+                    time.sleep(self.storage['mvtBackDuration'])
                     self.devices['sled'].lights(True)  # Turn the lights off
 
-        if self.state == 'calibration':
+        elif self.state == 'calibration':
             # Eye-tracker calibration
             self.next_state = 'init'
             self.triggers['calibration_requested'] = False
-            if self.singleshot('pause_sled'):
-                # Move the sled back to its default position
-                if 'sled' in self.devices and self.devices['sled'] is not None:
-                    self.devices['sled'].move(self.sledHome, self.mvtBackDuration)
-                    time.sleep(self.mvtBackDuration)
-                    self.devices['sled'].lights(True)  # Turn the lights off
 
         elif self.state == 'iti':
+            if self.triggers['calibration_requested']:
+                self.next_state = 'calibration'
+                self.jump()
+
             if self.singleshot('sled_light'):
                 if 'sled' in self.devices:
                     self.devices['sled'].lights(False)  # Turn the lights off
@@ -461,13 +509,7 @@ class RunTrial(BaseTrial):
                 # ADD YOUR CODE HERE
                 # Stimuli Triggers
                 self.triggers['startTrigger'] = True
-                self.stimuliTrigger['fixation'] = True
-                self.triggers['calibration_requested'] = True
-
-                side = 1 if self.trial.params['side'] == 'right' else -1
-                self.sledStart = side * float(self.trial.parameters['sledStart'])  # Sled homing position (in m)
-                self.mvtAmplitude = float(self.trial.parameters['movDistance'])
-                self.sledFinal = self.sledStart + side * self.mvtAmplitude  # Final sled position
+                self.stimuli['fixation'].on()
 
                 # Compute states duration
                 screen_latency = 0.050  # Screen latency in ms
@@ -482,48 +524,87 @@ class RunTrial(BaseTrial):
                 self.durations = timings
 
             # Move sled to starting position if it is not there already
-            if self.wait_sled(self.sledStart):
-                self.move_on()
+            if self.wait_sled(self.storage['sledStart']):
+                self.jump()
 
         elif self.state == 'first':
             self.next_state = 'probe1'
             if self.singleshot('sled_start'):
                 self.timers['sled_start'].start()
-                self.devices['sled'].move(self.sledFinal, self.mvtDuration)
+                self.devices['sled'].move(self.storage['sledFinal'], self.storage['mvtDuration'])
 
         elif self.state == 'probe1':
             self.next_state = 'probeInterval'
-            self.stimuliTrigger['probe1'] = True
+            self.stimuli['probe1'].on()
             if self.singleshot():
-                self.data['sled_probe1'] = self.pViewer[0]
+                self.data['sled_probe1'] = self.storage['pViewer'][0]
                 self.data['time_probe1'] = self.timers['sled_start'].get_time('elapsed')
 
         elif self.state == 'probeInterval':
             self.next_state = 'probe2'
-            self.stimuliTrigger['probe1'] = False
+            self.stimuli['probe1'].off()
 
         elif self.state == 'probe2':
             self.next_state = 'last'
-            self.stimuliTrigger['probe2'] = True
+            self.stimuli['probe2'].on()
             if self.singleshot():
-                self.data['sled_probe2'] = self.pViewer[0]
+                self.data['sled_probe2'] = self.storage['pViewer'][0]
                 self.data['time_probe2'] = self.timers['sled_start'].get_time('elapsed')
 
         elif self.state == 'last':
             self.next_state = 'response'
-            self.stimuliTrigger['probe2'] = False
+            self.stimuli['probe2'].off()
 
         elif self.state == 'response':
-            self.next_state = 'end'
+            self.next_state = 'feedback'
 
             # Get participant's response
             self.get_response()
 
-        elif self.state == 'end':
-            if self.singleshot('end_print'):
-                if not self.wait_sled(self.sledFinal):
-                    self.logger.warning('TRIAL {}: Sled is not at final position: {} instead of {}'.format(
-                        self.trial.id, self.pViewer[0], self.sledFinal))
+        elif self.state == 'feedback':
+            self.next_state = "end"
+
+            if self.singleshot('feedback'):
+                self.validTrial = self.triggers['response_given']  # Is the current trial valid
+
+                # By default, no feedback
+                self.triggers['feedback'] = False
+
+                if not self.validTrial:
+                    self.triggers['feedback'] = True
+                    self.storage['Feedback_msg'] = 'Too late'
+                    self.sounds['wrong'].play()
+
+                # Move directly to end state if no feedback
+                if self.validTrial:
+                    self.jump()
+
+    def update_fixation(self):
+        """
+        Update fixation point position
+        :return:
+        """
+        fixation_position = mm2pix(1000 * self.storage['pViewer'][0], float(self.trial.parameters['fixation_y']),
+                                   self.screen.resolution, self.screen.size)
+        self.stimuli['fixation'].setPos(fixation_position)  # Update fixation position
+
+    def calibrate_el(self):
+        """
+        Calibrate Eye-tracker
+        :return: void
+        """
+        with self.lock:
+            self.devices['eyetracker'].set_display(self.ptw)
+
+            if not self.devices['eyetracker'].dummy_mode:
+                self.devices['eyetracker'].set_calibration()
+                # custom 5-points grid
+                x, y = self.devices['eyetracker'].calibration.generate_cal_targets(radius=0.5, n=5, shape='rect')
+                self.devices['eyetracker'].calibration.custom_calibration(x=x, y=y, ctype='HV5')
+                self.devices['eyetracker'].calibration.calibrate()
+
+                self.devices['eyetracker'].unset_display()
+                self.devices['eyetracker'].unset_calibration()
 
     def graphics_state_machine(self):
         """
@@ -548,21 +629,19 @@ class RunTrial(BaseTrial):
         """
         if self.state == 'calibration':
             if self.singleshot('el_calibration'):
-                # Create calibration points (polar grid, with points spaced by 45 degrees)
-                dx, dy = pol2cart(0.25 * (self.screen.resolution[0] * 0.5), np.linspace(0, 2 * np.pi, 9))
-                x = 0.5 * self.screen.resolution[0] + dx  # Center coordinates on screen center
-                y = 0.5 * self.screen.resolution[1] + dy
+                self.calibrate_el()
 
-                self.devices['eyetracker'].set_display(self.ptw)
-                self.devices['eyetracker'].set_calibration()
-                self.devices['eyetracker'].calibration.custom_calibration(x=x, y=y, ctype='HV9')
-                self.devices['eyetracker'].calibration.calibrate()
+        elif self.state == 'feedback':
+            if self.singleshot('feedback_clear'):
+                self.clear_screen()
 
-                self.devices['eyetracker'].unset_display()
-                self.devices['eyetracker'].unset_calibration()
+            if self.triggers['feedback']:
+                self.stimuli['feedback'].text = self.storage['Feedback_msg']
+                self.stimuli['feedback'].color = self.storage['Feedback_msg_color']
+                self.stimuli['feedback'].draw()
 
         # Update fixation position (body-fixed)
         if self.triggers['startTrigger']:
-            fixation_position = mm2pix(1000 * self.pViewer[0], 0.0, self.screen.resolution, self.screen.size)
-            self.stimuli['fixation'].setPos(fixation_position)  # Update fixation position
+            # Update fixation position
+            self.update_fixation()
 

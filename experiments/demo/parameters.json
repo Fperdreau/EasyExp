@@ -10,6 +10,10 @@
   "probeDuration": 0.050,
   "probeInterval": 0.100,
   "fixationSize": 0.30,
+  "fixation_y": 0,
+  "Feedback_msg_color_neg": [-0.75, -1.0, -1.0],
+  "Feedback_msg_color_pos": [-1.0, -0.75, -1.0],
+  "Feedback_msg_color_default": [-0.75, -0.75, -0.75],
   "durations": {
     "calibration": 0.0,
     "start": false,
@@ -19,6 +23,7 @@
     "probeInterval": 0.200,
     "probe2": 0.300,
     "last": 0.100,
-    "response": 1.0
+    "response": 1.0,
+    "feedback": 1.0
   }
 }
