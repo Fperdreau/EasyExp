@@ -239,6 +239,8 @@ class BaseTrial(StateMachine):
                                                               height=40.0))
         self.default_stimuli.add('countdown', visual.TextStim(self.ptw, pos=(0, -50), text="Countdown", units="pix",
                                                               height=40.0))
+        self.default_stimuli.add('continue', visual.TextStim(self.ptw, pos=(0, -50), text="Click to continue",
+                                                             units="pix", height=40.0))
 
         # Timers
         # ======
