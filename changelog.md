@@ -7,12 +7,14 @@
 increasing with time.
 - Added new stimuli container and removed RunTrial.stimuliTrigger container.
 See RunTrial.init_stimuli() documentation for more information.
+- Added default stimuli callable by RunTrial.default_stimuli[stimulus_name]
 
 ### Devices
-- EyeTracker (v1.1.0):
+- EyeTracker (v1.3.0):
     * Fixed display of eye image and handling of key inputs
     * EyeTracker.stop_trial() now complies with Devices interface.
     * Added position validator and velocity estimator for Eye class.
+    * Added Eyetracker.calibrate() method
 - Sled (v1.1.5): Added work-around to prevent error when accessing PositionTracker.position property.
 - JoyStick (v1.1.0): Improved JoyStick device and added position validator.
 
