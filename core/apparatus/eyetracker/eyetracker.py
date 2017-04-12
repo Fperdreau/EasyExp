@@ -47,7 +47,7 @@ import random
 import logging
 import numpy as np
 
-__version__ = '1.2.0'
+__version__ = '1.3.0'
 
 
 def deg2pix(angle, direction=1, distance=550, screen_res=(800, 600), screen_size=(400, 300)):
@@ -273,9 +273,14 @@ class EyeTracker(object):
             Sends a command to the eyelink
             :param cmd: command to send (must be a string)
             """
-        self.el.sendCommand(cmd)
-        error = self.el.commandResult()
-        if error != 0:
+        try:
+            self.el.sendCommand(cmd)
+            error = self.el.commandResult()
+            if error != 0:
+                msg = ('[{0}] Command ({1}) could not be sent to eyetracker: {2}'.format(__name__, cmd, error))
+                self.__logger.critical(msg)
+                raise RuntimeError(msg)
+        except RuntimeError as error:
             msg = ('[{0}] Command ({1}) could not be sent to eyetracker: {2}'.format(__name__, cmd, error))
             self.__logger.critical(msg)
             raise RuntimeError(msg)
@@ -360,12 +365,12 @@ class EyeTracker(object):
             self.send_command("autothreshold_click=YES")
             self.send_command("autothreshold_repeat=YES")
             self.send_command("enable_camera_position_detect=YES")
+            self.send_command('sample_rate = %d' % self.sprate)
 
         if self.vs >= 2:
             self.send_command("select_parser_configuration 0")
             if self.vs == 2:  # turn off scenelink camera stuff
                 self.send_command("scene_camera_gazemap = NO")
-            self.send_command('sample_rate = %d' % self.sprate)
         else:
             self.send_command("saccade_velocity_threshold = %d" % self.thresvel)
             self.send_command("saccade_acceleration_threshold = %d" % self.thresacc)
@@ -536,6 +541,48 @@ class EyeTracker(object):
         :return:
         """
         return self.__logger
+
+    def calibrate(self, ptw=None, custom=None, drift=None):
+        """
+        Perform eye-tracker calibration and drift correction
+        This method is used for implementing eye-tracker calibration within a multi-threaded framework.
+        :param ptw: window pointer
+        :param custom: custom calibration settings (if None, then use standard calibration):
+            for example: dict(x=[], y=[], ctype='HV5')
+        :type custom: dict
+        :param drift: drift correction settings (if None, then no drift correction is performed).
+            for example: dict(x=0, y=0)
+        :type drift: dict
+        :return: failure or success
+        :rtype: bool
+        """
+        if ptw is not None:
+            self.set_display(ptw)
+
+        if not self.dummy_mode:
+            try:
+                self.set_calibration()
+
+                if custom is not None:
+                    # Set custom calibration
+                    x, y = self.calibration.generate_cal_targets(**custom)
+                    self.calibration.custom_calibration(x=x, y=y, ctype=custom['ctype'])
+                self.calibration.calibrate()
+
+                if drift is not None:
+                    # Perform drift correction
+                    self.calibration.driftcorrection(**drift)
+
+                # Unset display and calibration instance
+                self.unset_display()
+                self.unset_calibration()
+
+                return True
+            except RuntimeError as e:
+                self.logger.error('[{}] Error during calibration: {}'.format(__name__, e))
+                raise RuntimeError(e)
+        else:
+            return False
 
 
 class EDFfile(object):
@@ -882,8 +929,10 @@ class PositionTracker(object):
         if self.__nb_positions >= self.__max_positions:
             distances = [self.distance(self.__history[i], self.__history[j]) for i, j
                          in zip(range(0, self.__max_positions - 1), range(1, self.__max_positions))]
-
-            return float(np.mean(np.array(distances) / np.array(self.__intervals)))
+            try:
+                return float(np.mean(np.array(distances) / np.array(self.__intervals)))
+            except ZeroDivisionError:
+                return 0.0
         else:
             return 0.0
 
@@ -1155,9 +1204,9 @@ class Calibration(object):
 
             # Does drift correction and handles the re-do camera setup situations
             try:
-                error = self.tracker.el.doDriftCorrect(x, y, draw)
-            except Exception:
-                raise Exception("[{}] Drift correction failed".format(__name__))
+                error = self.tracker.el.doDriftCorrect(x, y, draw, 0)
+            except Exception as e:
+                raise Exception("[{}] Drift correction failed: {}".format(__name__, e))
             else:
                 logging.getLogger('EasyExp').info("[{0}] Drift result: {1}".format(__name__, error))
                 if error != 27:
