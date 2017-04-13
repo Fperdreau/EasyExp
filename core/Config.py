@@ -51,6 +51,15 @@ class Config(object):
     # Default settings
     __defaults = {
             "setup": {
+                "custom": {
+                    "type": "checkbox",
+                    "options": [
+                        True,
+                        False
+                    ],
+                    "value": False,
+                    "label": "Custom design"
+                },
                 "pauseInt": {
                     "type": "text",
                     "value": 30,
@@ -218,9 +227,7 @@ class Config(object):
         :return:
         """
         for key, value in source.iteritems():
-            if key in destination:
-                destination[key] = value
-            else:
+            if key not in destination:
                 destination.update({key: value})
         return destination
 
@@ -265,7 +272,7 @@ class Config(object):
         :return:
         """
         self.settingsFile.load()
-        self.settingsFile.data = self.__merge(self.settingsFile.data, self.__defaults)
+        self.settingsFile.data = self.__merge(self.__defaults, self.settingsFile.data)
 
     def __dispatch(self):
         """
