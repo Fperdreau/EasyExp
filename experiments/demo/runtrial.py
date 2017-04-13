@@ -32,6 +32,7 @@ prefs.general['audioLib'] = ['pygame']
 from psychopy import visual, sound
 import time
 import numpy as np
+import pygame
 
 # EasyExp modules
 from core.Core import Core
@@ -135,7 +136,8 @@ class RunTrial(BaseTrial):
         #   'trigger_name': False
         # })
         self.triggers.update({
-            'calibration_requested': False
+            'calibration_requested': False,
+            'feedback': False
         })
 
         # Timers
@@ -195,6 +197,7 @@ class RunTrial(BaseTrial):
         # self.buttons.add_listener('mouse', 'right', 2)  # Right mouse click
         self.buttons.add_listener('mouse', 'left', 0)
         self.buttons.add_listener('mouse', 'right', 2)
+        self.buttons.add_listener('keyboard', 'calibration', pygame.K_c)
 
     ################################
     # CUSTOMIZATION STARTS HERE    #
@@ -469,7 +472,7 @@ class RunTrial(BaseTrial):
         """
         # Get all stimuli position
         positions = self.stimuli.get_positions()
-        positions['sled'] = self.storage['pViewer'][0]
+        positions['sled'] = self.storage['pViewer']
         self.devices['eyetracker'].record(stimuli=positions)
 
     # =========================================
@@ -522,7 +525,7 @@ class RunTrial(BaseTrial):
         duration.
         """
 
-        if self._running:
+        if self._running and self.triggers['startTrigger']:
             # Call devices-related methods only if experiment is initialized and running
 
             # Get sled position
