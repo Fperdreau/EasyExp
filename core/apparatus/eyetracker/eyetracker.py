@@ -1232,7 +1232,7 @@ class Calibration(object):
             try:
                 error = self.tracker.el.doDriftCorrect(x, y, draw, 0)
             except Exception as e:
-                raise Exception("[{}] Drift correction failed: {}".format(__name__, e))
+                logging.getLogger('EasyExp').warning("[{}] Drift correction failed: {}".format(__name__, e))
             else:
                 logging.getLogger('EasyExp').info("[{0}] Drift result: {1}".format(__name__, error))
                 if error != 27:
