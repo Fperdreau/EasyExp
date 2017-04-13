@@ -261,7 +261,7 @@ class OptoTrak(object):
                 # Record stimuli position
                 if stimuli is not None:
                     datatowrite = 'STIM '
-                    for stimulus, pos in stimuli:
+                    for stimulus, pos in stimuli.iteritems():
                         datatowrite = ' '.join((datatowrite,
                                                 '{} {}'.format(stimulus.upper(), self.position_to_str(pos))))
                     self.send_message(datatowrite)
