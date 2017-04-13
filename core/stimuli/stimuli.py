@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 
 class Stimuli(object):
@@ -178,6 +178,17 @@ class Stimuli(object):
         :return: void
         """
         self.__container = dict()
+
+    def get_positions(self):
+        """
+        Get all stimuli positions
+        :return: dictionary providing each stimulus position (dict('stimulus_name': [float, float, float])
+        :rtype: dict
+        """
+        positions = dict()
+        for stimulus_name, obj in self.iteritems():
+            positions[stimulus_name] = obj.pos
+        return positions
 
 
 class Stimulus(object):
