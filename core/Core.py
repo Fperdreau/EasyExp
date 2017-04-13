@@ -137,13 +137,11 @@ class Core(object):
             Core.__logger = CustomLogger(Core.appname, file_name=log_file, level='debug')
         return Core.__logger
 
-    def init(self, rootfolder, custom=False, cli=False, conditions=None):
+    def init(self, rootfolder, cli=False, conditions=None):
         """
         Initialize dependencies
         :param string rootfolder: full path to root folder
         :type rootfolder: str
-        :param custom: import custom design from custom_design.py
-        :type custom: bool
         :param cli: Run in command line (True)
         :type cli: bool
         :param conditions: dictionary providing experiment conditions (to be used instead of conditions.json)
@@ -186,7 +184,7 @@ class Core(object):
 
         # Make factorial design
         self.design = Design(conditionfile=self.files['conditions'], userfile=self.files['design'],
-                             folder=self.folders['expFolder'], custom=custom, conditions=conditions,
+                             folder=self.folders['expFolder'], conditions=conditions,
                              **self.__filter_args(Design, self.settings['setup']))
         self.design.make()
 
