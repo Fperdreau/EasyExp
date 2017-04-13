@@ -42,7 +42,7 @@ from Screen import Screen
 import time
 import sys
 from os import listdir, mkdir
-from os.path import isdir, join
+from os.path import isdir, join, isfile
 
 # Dialog UI
 from gui.gui_wrapper import GuiWrapper
@@ -255,19 +255,25 @@ class Core(object):
                 sys.exit(self.screen.QTapp.exec_())
             elif self.screen.display_type == 'psychopy':
                 runtrial.run()
-        except (KeyboardInterrupt, SystemExit):
-            runtrial.quit()
-            self.stop()
-            raise
+        except (KeyboardInterrupt, SystemExit) as e:
+            msg = '[{0}] Exit requested: {1}'.format(__name__, e)
+            self.logger.exception(msg)
         except (RuntimeError, Exception) as e:
             msg = '[{0}] An unexpected error has occurred: {1}'.format(__name__, e)
             self.logger.exception(msg)
-            runtrial.quit()
-            self.stop()
             raise Exception(msg)
         finally:
+            # Quit experiment and close all devices
+            runtrial.quit()
+
             # Stop experiment
             self.stop()
+
+            # run callback script
+            self.run_callback()
+
+            # End
+            exit()
 
     def stop(self):
         """
@@ -280,4 +286,20 @@ class Core(object):
         duration = round((self.stopTime - self.startTime) / 60.0)
         self.logger.logger.info("[{}] End of Experiment '{}'".format(__name__, self.expname))
         self.logger.logger.info("[{0}] Total duration: {1} minutes".format(__name__, duration))
-        exit()
+
+    def run_callback(self):
+        """
+        Run callback script
+        :return: 
+        """
+        import os
+        filename = join(self.experimentsFolder, self.expname, 'callback.py')
+        if isfile(filename):
+            try:
+                os.system("{}".format(filename))
+            except RuntimeError as e:
+                msg = '[{}] Error while executing callback script [file: {}]: {}'.format(__name__, filename, e)
+                self.logger.critical(msg)
+                raise msg
+
+
