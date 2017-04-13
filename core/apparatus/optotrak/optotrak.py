@@ -40,7 +40,7 @@ except ImportError as e:
 # Logger
 import logging
 
-__version__ = '1.1.0'
+__version__ = '1.2.0'
 
 
 class OptoTrak(object):
@@ -240,10 +240,13 @@ class OptoTrak(object):
         for tracked in self.tracked:
             self.sensors[tracked].update()
 
-    def record(self):
+    def record(self, stimuli=None):
         """
-        Write position to a file
-        :return:
+        Record sensors position and stimuli position (optional) into data file
+        :param stimuli: dictionary providing stimuli position: for example, dict('stimulus_name'=>[float, float, float])
+        :type stimuli: dict
+        :return: success or failure
+        :rtype: bool
         """
         if self.running:
             if (time.time() - self.freqInitTime) >= self.freq:
@@ -254,6 +257,15 @@ class OptoTrak(object):
                     coordtowrite = '{} {}'.format(tracked, self.position_to_str(self.sensors[tracked].position))
                     datatowrite = ' '.join((datatowrite, coordtowrite))
                 self.file.write(datatowrite)
+
+                # Record stimuli position
+                if stimuli is not None:
+                    datatowrite = 'STIM '
+                    for stimulus, pos in stimuli:
+                        datatowrite = ' '.join((datatowrite,
+                                                '{} {}'.format(stimulus.upper(), self.position_to_str(pos))))
+                    self.send_message(datatowrite)
+
                 return True
             else:
                 return False
