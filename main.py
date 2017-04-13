@@ -42,7 +42,7 @@ def main():
     experiment = Core()
 
     # Initialize experiment
-    experiment.init(root_folder, custom=True, cli=cli)
+    experiment.init(root_folder, cli=cli)
 
     # Open main window and run the experiment
     experiment.run()
