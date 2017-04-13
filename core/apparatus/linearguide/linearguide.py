@@ -148,12 +148,12 @@ class LinearGuide(object):
         """
         self.tracker.close()
 
-    def record(self):
+    def record(self, stimuli=None):
         """
         Record into data file
         :rtype: bool
         """
-        return self.tracker.record()
+        return self.tracker.record(stimuli=stimuli)
 
     def send_message(self, msg):
         """
