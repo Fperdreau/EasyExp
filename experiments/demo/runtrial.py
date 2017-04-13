@@ -251,10 +251,8 @@ class RunTrial(BaseTrial):
         super(RunTrial, self).init_devices()
 
         # Customization goes below
-        # Create eye-tracker instance
         if self.devices['eyetracker'] is not None:
-            self.devices['eyetracker'].set_display(self.ptw)
-            self.triggers['calibration_requested'] = True
+            self.next_state = 'calibration'
 
     def init_audio(self):
         """
@@ -423,16 +421,59 @@ class RunTrial(BaseTrial):
             self.data['response'] = 'left' if self.buttons.get_status('left') else 'right'
             self.data['correct'] = self.data['response'] == 'right'
 
+    # =========================================
+    # Eye-tracker related methods
+    # =========================================
     def check_calibration_request(self):
         """
-        Check if eyetracker calibration is requested
+        Check if eye-tracker calibration is requested
         :return:
         """
-        if self.buttons.get_status('calibration'):
-            self.triggers['calibration_requested'] = True
+        if self.state != 'calibration' \
+                and (self.buttons.get_status('calibration') or self.triggers['calibration_requested']):
+            self.triggers['calibration_requested'] = False
+            self.next_state = 'calibration'
+            self.jump()
+
+    def update_fixation(self):
+        """
+        Update fixation point position
+        :return:
+        """
+        fixation_position = mm2pix(1000 * self.storage['pViewer'][0], float(self.trial.parameters['fixation_y']),
+                                   self.screen.resolution, self.screen.size)
+        self.stimuli['fixation'].setPos(fixation_position)  # Update fixation position
+
+    def calibrate_el(self):
+        """
+        Calibrate Eye-tracker
+        :return: void
+        """
+        with self.lock:
+            self.devices['eyetracker'].calibrate(self.ptw,
+                                                 custom={
+                                                     'radius': 0.5,
+                                                     'n': 5,
+                                                     'shape': 'rect',
+                                                     'ctype': 'HV5'
+                                                 },
+                                                 drift={
+                                                     'x': int(0.5 * self.screen.resolution[0]),
+                                                     'y': int(0.5 * self.screen.resolution[1])
+                                                 })
+
+    def record_stimuli(self):
+        """
+        Record stimuli position in eye-tracker data file
+        :return: 
+        """
+        # Get all stimuli position
+        positions = self.stimuli.get_positions()
+        positions['sled'] = self.storage['pViewer'][0]
+        self.devices['eyetracker'].record(stimulus=positions)
 
     # =========================================
-    # SLED movement
+    # Sled related methods
     # =========================================
     def getviewerposition(self):
         """
@@ -481,10 +522,17 @@ class RunTrial(BaseTrial):
         duration.
         """
 
-        # Get sled (viewer) position
         if self._running:
+            # Call devices-related methods only if experiment is initialized and running
+
+            # Get sled position
             self.getviewerposition()
-            # self.check_calibration_request()
+
+            # Record stimuli position in eye-tracker data file
+            self.record_stimuli()
+
+            # Check for calibration request
+            self.check_calibration_request()
 
         if self.state == 'pause':
             # PAUSE experiment
@@ -497,14 +545,10 @@ class RunTrial(BaseTrial):
 
         elif self.state == 'calibration':
             # Eye-tracker calibration
-            self.next_state = 'init'
+            self.next_state = 'iti'
             self.triggers['calibration_requested'] = False
 
         elif self.state == 'iti':
-            if self.triggers['calibration_requested']:
-                self.next_state = 'calibration'
-                self.jump()
-
             if self.singleshot('sled_light'):
                 if 'sled' in self.devices:
                     self.devices['sled'].lights(False)  # Turn the lights off
@@ -587,33 +631,6 @@ class RunTrial(BaseTrial):
                 if self.validTrial:
                     self.jump()
 
-    def update_fixation(self):
-        """
-        Update fixation point position
-        :return:
-        """
-        fixation_position = mm2pix(1000 * self.storage['pViewer'][0], float(self.trial.parameters['fixation_y']),
-                                   self.screen.resolution, self.screen.size)
-        self.stimuli['fixation'].setPos(fixation_position)  # Update fixation position
-
-    def calibrate_el(self):
-        """
-        Calibrate Eye-tracker
-        :return: void
-        """
-        with self.lock:
-            self.devices['eyetracker'].set_display(self.ptw)
-
-            if not self.devices['eyetracker'].dummy_mode:
-                self.devices['eyetracker'].set_calibration()
-                # custom 5-points grid
-                x, y = self.devices['eyetracker'].calibration.generate_cal_targets(radius=0.5, n=5, shape='rect')
-                self.devices['eyetracker'].calibration.custom_calibration(x=x, y=y, ctype='HV5')
-                self.devices['eyetracker'].calibration.calibrate()
-
-                self.devices['eyetracker'].unset_display()
-                self.devices['eyetracker'].unset_calibration()
-
     def graphics_state_machine(self):
         """
         Graphical (slow) state machine: running speed of this state machine is limited by the screen's refresh rate. For
@@ -638,6 +655,7 @@ class RunTrial(BaseTrial):
         if self.state == 'calibration':
             if self.singleshot('el_calibration'):
                 self.calibrate_el()
+            self.default_stimuli['continue'].draw()
 
         elif self.state == 'feedback':
             if self.singleshot('feedback_clear'):
