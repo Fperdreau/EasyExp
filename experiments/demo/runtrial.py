@@ -470,7 +470,7 @@ class RunTrial(BaseTrial):
         # Get all stimuli position
         positions = self.stimuli.get_positions()
         positions['sled'] = self.storage['pViewer'][0]
-        self.devices['eyetracker'].record(stimulus=positions)
+        self.devices['eyetracker'].record(stimuli=positions)
 
     # =========================================
     # Sled related methods
