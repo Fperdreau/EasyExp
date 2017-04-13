@@ -565,8 +565,10 @@ class EyeTracker(object):
 
                 if custom is not None:
                     # Set custom calibration
+                    ctype = custom['ctype']
+                    del custom['ctype']
                     x, y = self.calibration.generate_cal_targets(**custom)
-                    self.calibration.custom_calibration(x=x, y=y, ctype=custom['ctype'])
+                    self.calibration.custom_calibration(x=x, y=y, ctype=ctype)
                 self.calibration.calibrate()
 
                 if drift is not None:
@@ -593,7 +595,7 @@ class EyeTracker(object):
         :rtype: bool
         """
         datatowrite = 'STIM '
-        for stimulus, pos in stimuli:
+        for stimulus, pos in stimuli.iteritems():
             datatowrite = ' '.join((datatowrite,
                                     '{} {}'.format(stimulus.upper(), self.position_to_str(pos))))
         self.send_message(datatowrite)
