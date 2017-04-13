@@ -47,7 +47,7 @@ import random
 import logging
 import numpy as np
 
-__version__ = '1.3.0'
+__version__ = '1.3.1'
 
 
 def deg2pix(angle, direction=1, distance=550, screen_res=(800, 600), screen_size=(400, 300)):
@@ -583,6 +583,30 @@ class EyeTracker(object):
                 raise RuntimeError(e)
         else:
             return False
+
+    def record(self, stimuli):
+        """
+        Record stimuli position into data file
+        :param stimuli: dictionary providing stimuli position: for example, dict('stimulus_name'=>[float, float, float])
+        :type stimuli: dict
+        :return: success or failure
+        :rtype: bool
+        """
+        datatowrite = 'STIM '
+        for stimulus, pos in stimuli:
+            datatowrite = ' '.join((datatowrite,
+                                    '{} {}'.format(stimulus.upper(), self.position_to_str(pos))))
+        self.send_message(datatowrite)
+
+    @staticmethod
+    def position_to_str(position):
+        """
+        Convert position to string
+        :param position:
+        :return: string
+        """
+        converted = ' '.join(str(n) for n in position)
+        return converted
 
 
 class EDFfile(object):
