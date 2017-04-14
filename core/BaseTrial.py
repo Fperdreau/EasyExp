@@ -148,8 +148,8 @@ class BaseTrial(StateMachine):
     - BaseTrial.graphics_state_machine(): Slow state machine.
     - BaseTrial.__default_fast_states(): Definition of default state for fast_state_machine
     - BaseTrial.__default_graphic_states(): Definition of default state for graphics_state_machine
-    - BaseTrial.update_graphics(): Render stimuli. More specifically, it check status of stimuli triggers and it a trigger is True, then it renders the corresponding
-    stimulus stored in self.stimuli dictionary.
+    - BaseTrial.update_graphics(): Render stimuli. More specifically, it check status of stimuli triggers and it a 
+    trigger is True, then it renders the corresponding stimulus stored in self.stimuli dictionary.
     """
 
     __homeMsg = 'Welcome!'  # Message prompted at the beginning of the experiment
@@ -174,6 +174,7 @@ class BaseTrial(StateMachine):
         self.screen = exp_core.screen  # Screen instance
         self.trial = exp_core.trial  # Trial instance
         self.user = exp_core.user  # User instance
+        self.parameters = exp_core.parameters  # Experiment parameters
         self.ptw = self.screen.ptw  # Window pointer
         self.logger = exp_core.logger  # EasyExp logger
         self.textToDraw = BaseTrial.__homeMsg  # Default welcome message
@@ -189,18 +190,17 @@ class BaseTrial(StateMachine):
         # State Machine
         # =============
         # Default states duration
-        pause_duration = False if self.trial.settings['setup']['pauseDur'] == 0 \
-            else float(self.trial.settings['setup']['pauseDur'])
         self.durations = {
             'loading': 0.0,
             "quit": 0.0,
             "idle": False,
-            "pause": pause_duration,
+            "pause": self.trial.pause_duration,
             "init": 0.0,
             "end": 0.0
         }
         # Custom states duration specified in parameters.json
-        self.durations = self.trial.parameters['durations']
+        self.durations.update(self.parameters['durations'])
+
         self.state = 'loading'
         self.next_state = 'idle'
 
@@ -228,19 +228,9 @@ class BaseTrial(StateMachine):
         # See BaseTrial.init_stimuli() for documentation about how to add stimuli
         self.stimuli = Stimuli()
 
+        # Default stimuli
         self.default_stimuli = Stimuli()
-        self.default_stimuli.add('loading', visual.TextStim(self.ptw, pos=(0, 0), text="Loading", units="pix",
-                                                            height=40.0))
-        self.default_stimuli.add('welcome', visual.TextStim(self.ptw, pos=(0, 0), text=self.textToDraw, units="pix",
-                                                            height=40.0))
-        self.default_stimuli.add('quit', visual.TextStim(self.ptw, pos=(0, 0), text="Experiment is over", units="pix",
-                                                         height=40.0))
-        self.default_stimuli.add('pause_txt', visual.TextStim(self.ptw, pos=(0, 0), text="Pause", units="pix",
-                                                              height=40.0))
-        self.default_stimuli.add('countdown', visual.TextStim(self.ptw, pos=(0, -50), text="Countdown", units="pix",
-                                                              height=40.0))
-        self.default_stimuli.add('continue', visual.TextStim(self.ptw, pos=(0, -50), text="Click to continue",
-                                                             units="pix", height=40.0))
+        self.__init_default_stimuli()
 
         # Timers
         # ======
@@ -471,15 +461,15 @@ class BaseTrial(StateMachine):
 
             # Update experiment method
             if hasattr(self.trial, 'method') and self.trial.method is not None and hasattr(self.trial.method, 'update'):
-                if 'staircaseID' in self.trial.params:
-                    intensity = self.trial.method.update(int(self.trial.params['staircaseID']),
-                                                         int(self.trial.params['staircaseDir']))
+                if 'staircaseID' in self.trial.parameters:
+                    intensity = self.trial.method.update(int(self.trial.parameters['staircaseID']),
+                                                         int(self.trial.parameters['staircaseDir']))
                     self.data['intensity'] = intensity
 
             # Send START_TRIAL to devices
             for device in self.devices:
                 if hasattr(self.devices[device], 'start_trial'):
-                    self.devices[device].start_trial(self.trial.id, self.trial.params)
+                    self.devices[device].start_trial(self.trial.id, self.trial.parameters)
 
             # Initialize movie if requested
             if self.trial.settings['setup']['movie']:
@@ -624,6 +614,36 @@ class BaseTrial(StateMachine):
         :return:
         """
         raise NotImplementedError('Should implement this')
+
+    def __init_default_stimuli(self):
+        """
+        Add default stimuli.
+        Default stimuli can be customized but they should not be removed.
+        :return: void
+        """
+        # Loading text
+        self.default_stimuli.add('loading', visual.TextStim(self.ptw, pos=(0, 0), text="Loading", units="pix",
+                                                            height=40.0))
+
+        # Welcome message
+        self.default_stimuli.add('welcome', visual.TextStim(self.ptw, pos=(0, 0), text=self.textToDraw, units="pix",
+                                                            height=40.0))
+
+        # Exit message
+        self.default_stimuli.add('quit', visual.TextStim(self.ptw, pos=(0, 0), text="Experiment is over", units="pix",
+                                                         height=40.0))
+
+        # Pause text
+        self.default_stimuli.add('pause_txt', visual.TextStim(self.ptw, pos=(0, 0), text="Pause", units="pix",
+                                                              height=40.0))
+
+        # Countdown text (displayed during breaks)
+        self.default_stimuli.add('countdown', visual.TextStim(self.ptw, pos=(0, -50), text="Countdown", units="pix",
+                                                              height=40.0))
+
+        # Continue message
+        self.default_stimuli.add('continue', visual.TextStim(self.ptw, pos=(0, -50), text="Click to continue",
+                                                             units="pix", height=40.0))
 
     def init_stimuli(self):
         """
