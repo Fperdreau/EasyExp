@@ -666,8 +666,13 @@ class RunTrial(BaseTrial):
                 self.clear_screen()
 
             if self.triggers['feedback']:
-                self.stimuli['feedback'].text = self.storage['Feedback_msg']
-                self.stimuli['feedback'].color = self.storage['Feedback_msg_color']
+                if self.singleshot('feedback_create'):
+                    # For some reasons, text stimuli properties cannot be updated, so we need to create a new one
+                    self.stimuli.add(
+                        'feedback',
+                        visual.TextStim(self.ptw, pos=(0, 0), text=self.storage['Feedback_msg'], units="pix",
+                                        height=40.0, color=self.storage['Feedback_msg_color'])
+                    )
                 self.stimuli['feedback'].draw()
 
         # Update fixation position (body-fixed)
