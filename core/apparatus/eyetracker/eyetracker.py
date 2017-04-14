@@ -47,7 +47,7 @@ import random
 import logging
 import numpy as np
 
-__version__ = '1.3.1'
+__version__ = '1.3.2'
 
 
 def deg2pix(angle, direction=1, distance=550, screen_res=(800, 600), screen_size=(400, 300)):
@@ -248,6 +248,10 @@ class EyeTracker(object):
         self.calibration = None
 
     def unset_display(self):
+        """
+        Unset GUI
+        :return: 
+        """
         del self.__display
         self.__display = None
 
@@ -1101,6 +1105,11 @@ class Calibration(object):
         self.setup_cal_sound()
 
     def set_display(self, new_display=Display):
+        """
+        Set windows pointer
+        :param new_display: 
+        :return: 
+        """
         self.display = new_display
 
     def setup(self):
@@ -1114,20 +1123,61 @@ class Calibration(object):
         # Set display coordinates
         self.getgraphicenv()
 
-        # self.tracker.send_command("calibration_type = {}".format(self.ctype))
+        # Set calibration grid
+        self.tracker.send_command("calibration_type = {}".format(self.ctype))
+
+        # Tracking mode
         self.tracker.send_command("binocular_enabled = {}".format(self.tracker.trackedeye is BINOCULAR))
-        # self.tracker.send_command("enable_automatic_calibration = YES")
 
-        # switch off the randomization of the targets
-        # self.tracker.send_command("randomize_calibration_order = NO")
-        # self.tracker.send_command("randomize_validation_order = NO")
+        # Automatic calibration
+        self.tracker.send_command("enable_automatic_calibration = YES")
 
-        # prevent it from repeating the first calibration point
-        # self.tracker.send_command("cal_repeat_first_target = NO")
-        # self.tracker.send_command("val_repeat_first_target = NO")
+        # Randomization of the targets
+        self.tracker.send_command("randomize_calibration_order = YES")
+        self.tracker.send_command("randomize_validation_order = YES")
+
+        # Repeating the first calibration point
+        self.tracker.send_command("cal_repeat_first_target = YES")
+        self.tracker.send_command("val_repeat_first_target = YES")
 
         # so we can tell it which targets to use
-        # self.tracker.send_command("generate_default_targets = YES")
+        self.tracker.send_command("generate_default_targets = YES")
+
+        # Sets the calibration target and background color
+        setCalibrationColors(self.display.outer_tgcol, self.display.bgcol)
+
+    def setup_custom(self, ctype):
+        """
+        Setup calibration
+        :param ctype: calibration type
+        :type ctype: str
+        :return:
+        """
+        # Calibration settings
+        logging.getLogger('EasyExp').debug('[{0}] Calibration type set to {1}'.format(__name__, self.ctype))
+
+        # Set display coordinates
+        self.getgraphicenv()
+
+        # Set calibration grid
+        self.tracker.send_command("calibration_type = %s" % ctype)
+
+        # Prevent Eye-tracker generating default targets
+        self.tracker.send_command('generate_default_targets = NO')
+
+        # Tracking mode
+        self.tracker.send_command("binocular_enabled = {}".format(self.tracker.trackedeye is BINOCULAR))
+
+        # Automatic calibration
+        self.tracker.send_command("enable_automatic_calibration = YES")
+
+        # Randomization of the targets
+        self.tracker.send_command("randomize_calibration_order = NO")
+        self.tracker.send_command("randomize_validation_order = NO")
+
+        # prevent it from repeating the first calibration point
+        self.tracker.send_command("cal_repeat_first_target = NO")
+        self.tracker.send_command("val_repeat_first_target = NO")
 
         # Sets the calibration target and background color
         setCalibrationColors(self.display.outer_tgcol, self.display.bgcol)
@@ -1155,10 +1205,6 @@ class Calibration(object):
         # Generates validation targets list
         validation_targets = ' '.join(['{0:d},{1:d}'.format(int(x[i]), int(y[i])) for i in range(len(x))])
 
-        print(sequence_index)
-        print(calibration_targets)
-        print(validation_targets)
-
         logging.getLogger('EasyExp').info('[{}] ### Using custom calibration ###'.format(__name__))
         logging.getLogger('EasyExp').info('[{0}] Sequence index: {1}'.format(__name__, sequence_index))
         logging.getLogger('EasyExp').info('[{0}] Calibration targets: {1}'.format(__name__, calibration_targets))
@@ -1166,9 +1212,8 @@ class Calibration(object):
         # Set graphics
         self.getgraphicenv()
 
-        # Prevent Eye-tracker generating default targets
-        self.tracker.send_command("calibration_type = %s" % ctype)
-        self.tracker.send_command('generate_default_targets = NO')
+        # Setup eye-tracker for custom calibration
+        self.setup_custom(ctype=ctype)
 
         # Set calibration sequence
         self.tracker.send_command('calibration_samples = {}'.format(nb_samples))
