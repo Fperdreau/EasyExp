@@ -217,35 +217,29 @@ class Config(object):
         self.__dispatch()
 
     @staticmethod
-    def __merge(source, destination):
+    def merge(source, destination, path=None):
         """
-        Update and override key/value pair of source dictionary with key/value pairs of destination dictionary
+        Recursively Update and override key/value pair of source dictionary with key/value pairs of destination 
+        dictionary
         :param source: referent dictionary
         :type source: dict
         :param destination: dictionary to update
         :type destination: dict
-        :return:
+        :param path: path to key
+        :return: Updated destination dictionary
+        :rtype: dict
         """
-        for key, value in source.iteritems():
-            if key not in destination:
-                destination.update({key: value})
-        return destination
+        if path is None:
+            path = []
 
-    @staticmethod
-    def __match(reference, to_update):
-        """
-        Match key/value pair of 1st dictionary with key/value pairs of 2nd dictionary. Key/value pairs of first
-        dictionary not present in second dictionary will be deleted.
-        :param reference: referent dictionary
-        :type reference: dict
-        :param to_update: dictionary to update
-        :type to_update: dict
-        :return:
-        """
-        for key, value in to_update.iteritems():
-            if key not in reference:
-                del to_update[key]
-        return to_update
+        for key in source:
+            if key not in destination:
+                if isinstance(source[key], dict) and isinstance(destination[key], dict):
+                    Config.merge(source[key], destination[key], path + [str(key)])
+                elif source[key] == destination[key]:
+                    pass  # same leaf value
+                destination.update({key: source[key]})
+        return destination
 
     def __create_folders(self):
         """
@@ -272,7 +266,7 @@ class Config(object):
         :return:
         """
         self.settingsFile.load()
-        self.settingsFile.data = self.__merge(self.__defaults, self.settingsFile.data)
+        self.settingsFile.data = self.merge(self.__defaults, self.settingsFile.data)
 
     def __dispatch(self):
         """
