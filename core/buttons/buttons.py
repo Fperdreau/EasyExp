@@ -21,6 +21,7 @@
 import psychopy
 import pygame
 import time
+import logging
 
 __version__ = '1.1.0'
 
@@ -356,6 +357,20 @@ class Buttons(object):
         else:
             return None
 
+    def set_pos(self, position):
+        """
+        Set cursor position (only for mouse)
+        :param position: tuple providing new coordinates
+        :type position: tuple
+        :return void
+        """
+        if self.device_type == 'mouse':
+            try:
+                self.device.setPos(position)
+            except Exception as e:
+                logging.getLogger('EasyExp').error('[{}] Could not set mouse position [new position: {}]: {}'.format(
+                    __name__, position, e))
+                raise e
 
 if __name__ == '__main__':
     # Example
