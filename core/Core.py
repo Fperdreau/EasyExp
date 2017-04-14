@@ -299,14 +299,15 @@ class Core(object):
         Run callback script
         :return: 
         """
-        import os
         filename = join(self.experimentsFolder, self.expname, 'callback.py')
         if isfile(filename):
             try:
-                os.system("{}".format(filename))
-            except RuntimeError as e:
-                msg = '[{}] Error while executing callback script [file: {}]: {}'.format(__name__, filename, e)
-                self.logger.critical(msg)
-                raise msg
+                sys.path.insert(0, join(self.experimentsFolder, self.expname))
+                import callback
+
+            except ImportError as e:
+                msg = '[{}] Error while executing callback script [path: {}]: {}'.format(__name__, filename, e)
+                self.logger.fatal(msg)
+                raise RuntimeError(msg)
 
 
