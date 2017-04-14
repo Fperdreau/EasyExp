@@ -44,10 +44,9 @@ class Parameters(object):
         """
         if paramsfile is not None:
             paramsfile = ConfigFiles(paramsfile)
-            parameters = paramsfile.load()
+            return paramsfile.load()
         else:
-            parameters = None
-        return parameters
+            return None
 
     def __getitem__(self, item):
         """
@@ -77,6 +76,10 @@ class Parameters(object):
             yield item_id, item
 
     def __str__(self):
+        """
+        Return stringified parameters
+        :return: 
+        """
         out = []
         for key, value in self.iteritems():
             out.append('{}: {}'.format(key, value))
