@@ -68,6 +68,8 @@ class Stimuli(object):
         if name not in self.__container:
             self.__container.update({name: Stimulus(instance)})
             self.__set_id(name)
+        else:
+            self.__container[name] = Stimulus(instance)
 
     def __getitem__(self, name):
         """
