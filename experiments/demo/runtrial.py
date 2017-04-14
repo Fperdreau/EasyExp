@@ -109,23 +109,23 @@ class RunTrial(BaseTrial):
 
         # Experiment settings
         # ===================
-        # Experiment's parameters can accessed by calling self.trial.parameters['parameter_name']
+        # Experiment's parameters can accessed by calling self.parameters['parameter_name']
         # Because parameters are loaded from a JSON file, they are imported as string. Therefore, it might be necessary
         # to convert the parameter's type: e.g. as a float number.
         # Example:
-        # self.storage['my_parameter'] = float(self.trial.parameters['my_parameter'])
+        # self.storage['my_parameter'] = float(self.parameters['my_parameter'])
 
         # Sled settings
         self.storage['pViewer'] = [0.0, 0.0]
-        self.storage['mvtBackDuration'] = float(self.trial.parameters['mvtBackDuration'])  # Returning movement duration (in s)
+        self.storage['mvtBackDuration'] = float(self.parameters['mvtBackDuration'])  # Returning movement duration (in s)
         self.storage['sledHome'] = 0.0  # Sled home position
-        self.storage['sledStart'] = float(self.trial.parameters['sledStart'])  # Sled starting position
-        self.storage['mvtAmplitude'] = float(self.trial.parameters['movDistance'])  # Movement amplitude
-        self.storage['mvtDuration'] = float(self.trial.parameters['movDuration'])  # Movement duration (in s)
+        self.storage['sledStart'] = float(self.parameters['sledStart'])  # Sled starting position
+        self.storage['mvtAmplitude'] = float(self.parameters['movDistance'])  # Movement amplitude
+        self.storage['mvtDuration'] = float(self.parameters['movDuration'])  # Movement duration (in s)
         self.storage['sledFinal'] = 0.0  # Sled final position (trial parameter)
 
         # Feedback message
-        self.storage['Feedback_msg_color'] = self.trial.parameters['Feedback_msg_color_default']
+        self.storage['Feedback_msg_color'] = self.parameters['Feedback_msg_color_default']
         self.storage['Feedback_msg'] = 'Too late'
 
         # Events triggers
@@ -308,27 +308,27 @@ class RunTrial(BaseTrial):
                 self.stimuli['stimulus_name'].ori = 30
         """
         # Probe size
-        probeSizeM = deg2m(float(self.trial.parameters['probeSize']), self.screen.distance/1000.0)*1000.0
+        probeSizeM = deg2m(float(self.parameters['probeSize']), self.screen.distance/1000.0)*1000.0
         probeSize = 0.5 * mm2pix(probeSizeM, probeSizeM, self.screen.resolution, self.screen.size)  # Radius in pixels
 
         # Top probe location
         probe1PosM = deg2m(float(self.data['intensity']), self.screen.distance/1000.0)*1000.0
-        probeTopPos = mm2pix(probe1PosM, float(self.trial.parameters['probeTop']), self.screen.resolution,
+        probeTopPos = mm2pix(probe1PosM, float(self.parameters['probeTop']), self.screen.resolution,
                              self.screen.size)
 
         # bottom probe location
-        probeBottomPos = mm2pix(-probe1PosM, float(self.trial.parameters['probeBottom']), self.screen.resolution,
+        probeBottomPos = mm2pix(-probe1PosM, float(self.parameters['probeBottom']), self.screen.resolution,
                                 self.screen.size)
 
         # Fixation point
-        fixationSizeM = deg2m(float(self.trial.parameters['fixationSize']), self.screen.distance/1000.0)*1000.0
+        fixationSizeM = deg2m(float(self.parameters['fixationSize']), self.screen.distance/1000.0)*1000.0
         fixation = 0.5 * mm2pix(fixationSizeM, fixationSizeM, self.screen.resolution, self.screen.size)
 
         fillColor = (-0.7, -0.7, -0.7)  # Probe fill color: Mid gray
         lineColor = (-0.7, -0.7, -0.7)  # Probe line color: Mid gray
 
         # Make stimuli
-        if self.trial.params['first'] == 'top':
+        if self.trial.parameters['first'] == 'top':
             self.data['probe1'] = probe1PosM  # Save probe coordinates in mm
             self.data['probe2'] = -probe1PosM  # Save probe coordinates in mm
             probe1Pos = probeTopPos
@@ -372,15 +372,15 @@ class RunTrial(BaseTrial):
         """
         # Top probe location
         probe1PosM = deg2m(float(self.data['intensity']), self.screen.distance / 1000.0) * 1000.0
-        probeTopPos = mm2pix(probe1PosM, float(self.trial.parameters['probeTop']), self.screen.resolution,
+        probeTopPos = mm2pix(probe1PosM, float(self.parameters['probeTop']), self.screen.resolution,
                              self.screen.size)
 
         # bottom probe location
-        probeBottomPos = mm2pix(-probe1PosM, float(self.trial.parameters['probeBottom']), self.screen.resolution,
+        probeBottomPos = mm2pix(-probe1PosM, float(self.parameters['probeBottom']), self.screen.resolution,
                                 self.screen.size)
 
         # Make stimuli
-        if self.trial.params['first'] == 'top':
+        if self.trial.parameters['first'] == 'top':
             self.data['probe1'] = probe1PosM  # Save probe coordinates in mm
             self.data['probe2'] = -probe1PosM  # Save probe coordinates in mm
             probe1Pos = probeTopPos
@@ -396,8 +396,8 @@ class RunTrial(BaseTrial):
         self.stimuli['probe2'].setPos(probe2Pos)
 
         # Self motion settings
-        self.storage['side'] = 1 if self.trial.params['side'] == 'right' else -1
-        self.storage['sledStart'] = self.storage['side'] * float(self.trial.parameters['sledStart'])
+        self.storage['side'] = 1 if self.trial.parameters['side'] == 'right' else -1
+        self.storage['sledStart'] = self.storage['side'] * float(self.parameters['sledStart'])
         self.storage['sledFinal'] = self.storage['sledStart'] + self.storage['side'] * self.storage['mvtAmplitude']
 
     def get_response(self):
@@ -443,7 +443,7 @@ class RunTrial(BaseTrial):
         Update fixation point position
         :return:
         """
-        fixation_position = mm2pix(1000 * self.storage['pViewer'][0], float(self.trial.parameters['fixation_y']),
+        fixation_position = mm2pix(1000 * self.storage['pViewer'][0], float(self.parameters['fixation_y']),
                                    self.screen.resolution, self.screen.size)
         self.stimuli['fixation'].setPos(fixation_position)  # Update fixation position
 
@@ -470,10 +470,11 @@ class RunTrial(BaseTrial):
         Record stimuli position in eye-tracker data file
         :return: 
         """
-        # Get all stimuli position
-        positions = self.stimuli.get_positions()
-        positions['sled'] = self.storage['pViewer']
-        self.devices['eyetracker'].record(stimuli=positions)
+        if self.devices['eyetracker'] is not None:
+            # Get all stimuli position
+            positions = self.stimuli.get_positions()
+            positions['sled'] = self.storage['pViewer']
+            self.devices['eyetracker'].record(stimuli=positions)
 
     # =========================================
     # Sled related methods
@@ -569,9 +570,9 @@ class RunTrial(BaseTrial):
                 # Compute states duration
                 screen_latency = 0.050  # Screen latency in ms
                 timings = dict()
-                timings['first'] = float(self.trial.params['timing']) - screen_latency
-                timings['probe1'] = float(self.trial.parameters['probeDuration'])
-                timings['probeInterval'] = float(self.trial.parameters['probeInterval'])
+                timings['first'] = float(self.trial.parameters['timing']) - screen_latency
+                timings['probe1'] = float(self.parameters['probeDuration'])
+                timings['probeInterval'] = float(self.parameters['probeInterval'])
                 timings['probe2'] = timings['probe1']
                 timings['last'] = 0.0
 
