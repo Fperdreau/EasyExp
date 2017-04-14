@@ -8,13 +8,16 @@ increasing with time.
 - Added new stimuli container and removed RunTrial.stimuliTrigger container.
 See RunTrial.init_stimuli() documentation for more information.
 - Added default stimuli callable by RunTrial.default_stimuli[stimulus_name]
+- Added possibility to call callback scripts at the end of the experiment:
+simply add your script 'callback.py' in the experiment folder and it will called automatically.
 
 ### Devices
-- EyeTracker (v1.3.0):
+- EyeTracker (v1.3.2):
     * Fixed display of eye image and handling of key inputs
     * EyeTracker.stop_trial() now complies with Devices interface.
     * Added position validator and velocity estimator for Eye class.
     * Added Eyetracker.calibrate() method
+    * Added EyeTracker.record() method: Record stimuli position into data file
 - Sled (v1.1.5): Added work-around to prevent error when accessing PositionTracker.position property.
 - JoyStick (v1.1.0): Improved JoyStick device and added position validator.
 
