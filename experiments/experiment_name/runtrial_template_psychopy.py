@@ -107,11 +107,11 @@ class RunTrial(BaseTrial):
 
         # Experiment settings
         # ===================
-        # Experiment's parameters can accessed by calling self.trial.parameters['parameter_name']
+        # Experiment's parameters can accessed by calling self.parameters['parameter_name']
         # Because parameters are loaded from a JSON file, they are imported as string. Therefore, it might be necessary
         # to convert the parameter's type: e.g. as a float number.
         # Example:
-        # self.storage['my_parameter'] = float(self.trial.parameters['my_parameter'])
+        # self.storage['my_parameter'] = float(self.parameters['my_parameter'])
 
         # Events triggers
         # ===============
@@ -329,7 +329,7 @@ class RunTrial(BaseTrial):
 
         if self.state == 'start':
             # The START state is dedicated to initialization of parameters/variables used in the current trial.
-            # Trial parameters can be accessed by calling: self.trial.params['parameter_name']
+            # Trial parameters can be accessed by calling: self.trial.parameters['parameter_name']
             # It custom variables needs to be accessed outside this state, then it is recommended to bind them to the
             # current RunTrial instance. For example:
             # self.my_new_variable = something
