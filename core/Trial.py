@@ -90,6 +90,8 @@ class Trial(object):
         self.pauseInt = pause_interval  # Pause interval
         self.pause_time = None
         self.nbPause = 0
+        self.pause_duration = False if self.settings['setup']['pauseDur'] == 0 \
+            else float(self.settings['setup']['pauseDur'])
         self.pause = Pause(mode=settings['setup']['pauseMode'], interval=settings['setup']['pauseInt'])
 
         # Load Trials list
