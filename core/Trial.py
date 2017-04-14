@@ -50,15 +50,16 @@ class Trial(object):
         - showFeedback(): Display a feedback according to the user's response.
     """
 
-    def __init__(self, design=Design, settings=None, userfile='', paramsfile=None, pause_interval=0):
+    def __init__(self, design=Design, settings=None, userfile='', pause_interval=0):
         """
         Constructor of Trial class
-        :param string paramsfile: path to parameter file
         :param Design design: instance of Design class
         :param settings: Experiment's settings
         :type settings: dict
-        :param userfile: user data file's name
+        :param userfile: full path to user data file
+        :type userfile: str
         :param pause_interval: time interval between pauses (in seconds. 0: no pause)
+        :type pause_interval: int
         """
 
         self.design = design
@@ -76,7 +77,7 @@ class Trial(object):
 
         # Lists
         self.played = []  # List of played trials
-        self.params = {}  # Trial's parameters.json
+        self.parameters = {}  # Trial's conditions
         self.__playlist = []  # List of trials to play
         self.__replay_list = []  # List of trials to replay
         self.__default_fields = {}
@@ -98,10 +99,6 @@ class Trial(object):
         self.conditions = design.allconditions
         self.ntrials = design.ntrials  # Total number of trials to play
 
-        # Load experiment's parameters
-        self.__paramsfile = paramsfile
-        self.parameters = Trial.get_params(paramsfile)
-
         # Experiment method
         self.method = MethodContainer(method=self.conditions['method'],
                                       settings_file=self.design.conditionFile.pathtofile, data_file=self.userfile,
@@ -116,7 +113,7 @@ class Trial(object):
                "\tID: {0}\n" \
                "\tPlayed: {1}\{2}\n" \
                "\tReplayed: {3}\n" \
-               "\tParams: {4}\n".format(self.id, self.nplayed, self.ntrials, self.nreplay, self.params)
+               "\tParams: {4}\n".format(self.id, self.nplayed, self.ntrials, self.nreplay, self.parameters)
 
     def run_pause(self, force=False):
         """
@@ -131,20 +128,6 @@ class Trial(object):
             return True
         else:
             return False
-
-    @staticmethod
-    def get_params(paramsfile):
-        """
-        Get experiment's parameters
-        :param string paramsfile: full path to parameters.json file
-        :return:
-        """
-        if paramsfile is not None:
-            paramsfile = ConfigFiles(paramsfile)
-            parameters = paramsfile.load()
-        else:
-            parameters = {}
-        return parameters
 
     def __load_design(self):
         """
@@ -163,7 +146,6 @@ class Trial(object):
         :return self.status: Trial's status (True, False or 'pause')
         """
         self.replayed = True
-        # self.parameters = Trial.get_params(self.__paramsfile)
 
         # Get trial to play
         self.__load_design()
@@ -174,7 +156,7 @@ class Trial(object):
             self.status = 'pause'
         else:
             if self.id is not False:
-                self.params = self.design.get_trial(self.id)
+                self.parameters = self.design.get_trial(self.id)
                 self.start()
                 self.status = True
             else:
@@ -232,9 +214,9 @@ class Trial(object):
         :return:
         """
         i = 0
-        self.params = {}
+        self.parameters = {}
         for condition in self.design.conditions:
-            self.params[condition] = params[i]
+            self.parameters[condition] = params[i]
             i += 1
 
     def start(self):
@@ -302,7 +284,7 @@ class Trial(object):
         :type datatowrite: None|dict
         """
         data = {'TrialID': self.id, 'Replay': self.replayed}
-        data.update(self.params)
+        data.update(self.parameters)
         if datatowrite is not None:
             data.update(datatowrite)
         self.__default_fields = data.keys()
