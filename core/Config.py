@@ -217,7 +217,7 @@ class Config(object):
         self.__dispatch()
 
     @staticmethod
-    def merge(source, destination, path=None):
+    def merge(a, b, path=None):
         """
         Recursively Update and override key/value pair of source dictionary with key/value pairs of destination 
         dictionary
@@ -229,17 +229,15 @@ class Config(object):
         :return: Updated destination dictionary
         :rtype: dict
         """
-        if path is None:
-            path = []
 
-        for key in source:
-            if key not in destination:
-                if isinstance(source[key], dict) and isinstance(destination[key], dict):
-                    Config.merge(source[key], destination[key], path + [str(key)])
-                elif source[key] == destination[key]:
-                    pass  # same leaf value
-                destination.update({key: source[key]})
-        return destination
+        if path is None: path = []
+        for key in a:
+            if key in b:
+                if isinstance(a[key], dict) and isinstance(b[key], dict):
+                    Config.merge(a[key], b[key], path + [str(key)])
+                else:
+                    a[key] = b[key]
+        return a
 
     def __create_folders(self):
         """
