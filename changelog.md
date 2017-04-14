@@ -1,6 +1,9 @@
 # EasyExp - Changelog
 
 ## Version 1.2.0
+- Experiment vs Trial parameters: trial's parameters are now accessible
+by calling Trial.parameters instead of Trial.params. Experiment's
+parameters are now stored in RunTrial.parameters instead of Trial.parameters.
 - Add possibility to not load trial parameters from file
 - Improved thread synchronization
 - Improved memory usage and fixed issue with memory continuously
@@ -20,6 +23,7 @@ simply add your script 'callback.py' in the experiment folder and it will called
     * Added EyeTracker.record() method: Record stimuli position into data file
 - Sled (v1.1.5): Added work-around to prevent error when accessing PositionTracker.position property.
 - JoyStick (v1.1.0): Improved JoyStick device and added position validator.
+- OptoTrack (v1.2.0): Stimuli position can be passed to OptoTrak.record() to record them into the data file.
 
 ## Version 1.1.0
 - Corrected updating of settings dictionary with values specified in settings.json
