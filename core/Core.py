@@ -37,6 +37,7 @@ from User import User
 from Design import Design
 from Trial import Trial
 from Screen import Screen
+from Parameters import Parameters
 
 # Import useful libraries
 import time
@@ -78,6 +79,7 @@ class Core(object):
         :return:
         """
 
+        # Dependencies
         self.config = None
         self.user = None
         self.trial = None
@@ -85,6 +87,7 @@ class Core(object):
         self.design = None
         self.logger = None
         self.devices = None
+        self.parameters = None
 
         self.__cli = False
 
@@ -100,7 +103,8 @@ class Core(object):
         self.expname = None
         self.exp_version = None
 
-    def get_experiment(self, folder, cli=False):
+    @staticmethod
+    def __get_experiment(folder, cli=False):
         """
         Provide the user with a dialog UI to choose the experiment to run
         :return:
@@ -149,7 +153,7 @@ class Core(object):
         """
         # Get experiment
         self.experimentsFolder = "{}/experiments/".format(rootfolder)
-        self.expname = self.get_experiment(self.experimentsFolder, cli=cli)
+        self.expname = self.__get_experiment(self.experimentsFolder, cli=cli)
         self.__import_experiment(self.experimentsFolder, self.expname)
         self.exp_version = RunTrial.version if hasattr(RunTrial, 'version') else '1.0.0'
 
@@ -174,6 +178,9 @@ class Core(object):
         self.settings = self.config.settings
         self.folders = self.config.folders
         self.files = self.config.files
+
+        # Get experiment parameters
+        self.parameters = Parameters(self.files['parameters'])
 
         # Create user
         self.user = User(data_folder=self.folders['data'], expname='{}_v{}'.format(
@@ -244,7 +251,7 @@ class Core(object):
 
         # Instantiate Trial and experiment
         self.trial = Trial(design=self.design, settings=self.settings, userfile=self.user.datafilename,
-                           paramsfile=self.files['parameters'], pause_interval=int(self.settings['setup']['pauseInt']))
+                           pause_interval=int(self.settings['setup']['pauseInt']))
         runtrial = RunTrial(exp_core=self)
 
         # Run experiment
