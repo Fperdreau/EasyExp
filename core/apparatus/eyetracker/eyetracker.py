@@ -227,17 +227,19 @@ class EyeTracker(object):
         if self.__display is None:
             self.__display = Display(self.el, ptw=ptw, **self.graphics)
 
-    def set_calibration(self):
+    def set_calibration(self, custom=False):
         """
         Set calibration
-        :return:
+        :param custom: custom calibration
+        :type custom: bool
+        :return: void
         """
         if self.display is None:
             self.__logger.warning('A window pointer must be specified before instantiating Calibration by calling '
                                   'EyeTracker.set_display(ptw)')
         else:
             if self.calibration is None:
-                self.calibration = Calibration(self, screen=self.display, cal_type=self.caltype)
+                self.calibration = Calibration(self, screen=self.display, cal_type=self.caltype, custom=custom)
 
     def unset_calibration(self):
         """
@@ -565,7 +567,7 @@ class EyeTracker(object):
 
         if not self.dummy_mode:
             try:
-                self.set_calibration()
+                self.set_calibration(custom=custom is not None)
 
                 if custom is not None:
                     # Set custom calibration
@@ -1084,7 +1086,7 @@ class Calibration(object):
     sequence of presentation
     """
 
-    def __init__(self, tracker, screen=Display, cal_type='HV5'):
+    def __init__(self, tracker, screen=Display, cal_type='HV5', custom=False):
         """
         Calibration class constructor
         :param tracker: EyeTracker class instance
@@ -1093,6 +1095,8 @@ class Calibration(object):
         :type screen Display
         :param cal_type: calibration type (e.g.: HV5, H3)
         :type cal_type str
+        :param custom: custom calibration
+        :type custom: bool
         """
         self.tracker = tracker
         self.display = screen
@@ -1100,9 +1104,9 @@ class Calibration(object):
         self.last = time.time()
         self.lost = 0
 
-        # Setup calibration
-        self.setup()
-        self.setup_cal_sound()
+        if not custom:
+            # Automatically start calibration setup if not in custom mode
+            self.setup()
 
     def set_display(self, new_display=Display):
         """
@@ -1146,6 +1150,9 @@ class Calibration(object):
         # Sets the calibration target and background color
         setCalibrationColors(self.display.outer_tgcol, self.display.bgcol)
 
+        # Setup calibration sound
+        self.setup_cal_sound()
+
     def setup_custom(self, ctype):
         """
         Setup calibration
@@ -1181,6 +1188,9 @@ class Calibration(object):
 
         # Sets the calibration target and background color
         setCalibrationColors(self.display.outer_tgcol, self.display.bgcol)
+
+        # Setup calibration sound
+        self.setup_cal_sound()
 
     def custom_calibration(self, x, y, ctype=None):
         """
