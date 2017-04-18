@@ -97,6 +97,22 @@ class InputDevice(object):
         else:
             return None
 
+    def set_position(self, position):
+        """
+        Get device position (only for mouse; otherwise returns None)
+        position: tuple
+        :param position: new device position
+        :type position: tuple
+        :return: cursor position (mouse only)
+        :rtype: tuple, None
+        """
+        if hasattr(self.instance, 'setPos'):
+            self.instance.setPos(position)
+            return True
+        else:
+            print('Cannot set position for this device')
+            return False
+
 
 class UserInput(object):
     """
@@ -211,7 +227,7 @@ class UserInput(object):
             return status
         else:
             raise Exception('"{}" is not present in the listeners list. You must add it by calling '
-                            'UserInput.add_listener() method')
+                            'UserInput.add_listener() method'.format(name))
 
     def get_position(self, name):
         """
@@ -224,7 +240,21 @@ class UserInput(object):
             return self._devices[self._listeners[name]['device']].position
         else:
             raise Exception('"{}" is not present in the listeners list. You must add it by calling '
-                            'UserInput.add_listener() method')
+                            'UserInput.add_listener() method'.format(name))
+
+    def set_position(self, name, position):
+        """
+        Get listener position
+        :param position: new position
+        :param name: name of listener
+        :return: position of listener
+        :rtype: bool
+        """
+        if name in self._devices:
+            return self._devices[name].set_position(position)
+        else:
+            raise Exception('"{}" is not present in the listeners list. You must add it by calling '
+                            'UserInput.add_listener() method'.format(name))
 
     def _trigger(self, name):
         """
