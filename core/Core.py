@@ -154,13 +154,15 @@ class Core(object):
         # Get experiment
         self.experimentsFolder = "{}/experiments/".format(rootfolder)
         self.expname = self.__get_experiment(self.experimentsFolder, cli=cli)
-        self.__import_experiment(self.experimentsFolder, self.expname)
-        self.exp_version = RunTrial.version if hasattr(RunTrial, 'version') else '1.0.0'
 
         # Get logger
         if not isdir('{}/logs'.format(rootfolder)):
             mkdir('{}/logs'.format(rootfolder))
         self.logger = self.get_logger(rootfolder, self.expname)
+
+        # Import experiment
+        self.__import_experiment(self.experimentsFolder, self.expname)
+        self.exp_version = RunTrial.version if hasattr(RunTrial, 'version') else '1.0.0'
 
         # Print welcome message
         print("\n##############################\n")
