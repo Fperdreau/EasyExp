@@ -1285,16 +1285,20 @@ class Calibration(object):
 
             # Does drift correction and handles the re-do camera setup situations
             try:
-                error = self.tracker.el.doDriftCorrect(x, y, draw, 0)
+                drift_error = self.tracker.el.doDriftCorrect(x, y, draw, 0)
             except Exception as e:
                 logging.getLogger('EasyExp').warning("[{}] Drift correction failed: {}".format(__name__, e))
+                break
             else:
-                logging.getLogger('EasyExp').info("[{0}] Drift result: {1}".format(__name__, error))
-                if error != 27:
+                logging.getLogger('EasyExp').info("[{0}] Drift result: {1}".format(__name__, drift_error))
+                if drift_error == 0:
+                    logging.getLogger('EasyExp').info("[{}] Drift correction successfully performed".format(__name__))
+                    break
+                elif drift_error == 27:
+                    logging.getLogger('EasyExp').warning("[{}] Drift correction canceled by user".format(__name__))
                     break
                 else:
                     self.calibrate()
-        logging.getLogger('EasyExp').info("[{}] Drift correction successfully performed".format(__name__))
 
     def generate_cal_targets(self, radius, n, shape='rect'):
         """
