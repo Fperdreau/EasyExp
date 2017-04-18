@@ -267,14 +267,18 @@ class Core(object):
         except (KeyboardInterrupt, SystemExit) as e:
             msg = '[{0}] Exit requested: {1}'.format(__name__, e)
             self.logger.exception(msg)
+
+            # Quit experiment and close all devices
+            runtrial.quit()
         except (RuntimeError, Exception) as e:
             msg = '[{0}] An unexpected error has occurred: {1}'.format(__name__, e)
             self.logger.exception(msg)
-            raise Exception(msg)
-        finally:
+
             # Quit experiment and close all devices
             runtrial.quit()
-
+            
+            raise Exception(msg)
+        finally:
             # Stop experiment
             self.stop()
 
