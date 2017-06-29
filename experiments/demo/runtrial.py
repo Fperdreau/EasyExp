@@ -36,7 +36,7 @@ import pygame
 
 # EasyExp modules
 from core.Core import Core
-from core.BaseTrial import BaseTrial
+from core.BaseTrial_std import BaseTrialStd
 from core.events.timer import Timer
 
 # Custom imports
@@ -46,7 +46,7 @@ from core.events.timer import Timer
 from core.misc.conversion import pol2cart, mm2pix, deg2m
 
 
-class RunTrial(BaseTrial):
+class RunTrial(BaseTrialStd):
     """
     RunTrial class
     This class handles experiment's trials procedure
@@ -544,7 +544,6 @@ class RunTrial(BaseTrial):
                 # Move the sled back to its default position
                 if 'sled' in self.devices and self.devices['sled'] is not None:
                     self.devices['sled'].move(self.storage['sledHome'], self.storage['mvtBackDuration'])
-                    time.sleep(self.storage['mvtBackDuration'])
                     self.devices['sled'].lights(True)  # Turn the lights off
 
         elif self.state == 'calibration':
