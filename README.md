@@ -1,7 +1,7 @@
 # EasyExp - A Simple way of coding behavioral experiments in Python
 **Version**: 1.2.0
 
-**Status**: Production
+**Status**: Development
 
 ## Author:
 Florian Perdreau - [www.florianperdreau.fr](http://www.florianperdreau.fr)
