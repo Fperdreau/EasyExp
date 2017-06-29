@@ -126,6 +126,8 @@ class Screen(object):
                     waitBlanking=True,
                     fullscr=self.fullscreen)
                 self.ptw.setMouseVisible(False)
+                self.ptw.recordFrameIntervals = True
+
         except Exception as e:
             msg = Exception('[{}] Could not open a "{}" window: {}'.format(__name__, self.display_type, e))
             logging.getLogger('EasyExp').critical(msg)
@@ -141,7 +143,12 @@ class Screen(object):
                 self.ptw.quit()
             elif self.display_type == 'psychopy':
                 self.ptw.setMouseVisible(True)
+                logging.getLogger('EasyExp').info('Overall, %i frames were dropped.' % self.ptw.nDroppedFrames)
+                import matplotlib.pyplot as plt
+                plt.plot(self.ptw.frameIntervals)
                 self.ptw.close()
+                plt.show()
+
         except Exception as e:
             msg = Exception('[{}] Could not close a "{}" window: {}'.format(__name__, self.display_type, e))
             logging.getLogger('EasyExp').critical(msg)
