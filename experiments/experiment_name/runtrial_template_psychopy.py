@@ -30,13 +30,12 @@ from __future__ import division
 from psychopy import prefs
 prefs.general['audioLib'] = ['pygame']
 from psychopy import visual, sound
-import time
 import numpy as np
 
 # EasyExp modules
 from core.Core import Core
-from core.BaseTrial import BaseTrial
-from core.events.timer import Timer
+from core.BaseTrial_threaded import BaseTrialThreaded
+
 
 # Custom imports
 #################################
@@ -44,7 +43,7 @@ from core.events.timer import Timer
 #################################
 
 
-class RunTrial(BaseTrial):
+class RunTrial(BaseTrialThreaded):
     """
     RunTrial class
     This class handles experiment's trials procedure
