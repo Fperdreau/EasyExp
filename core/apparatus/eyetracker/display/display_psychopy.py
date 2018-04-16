@@ -80,6 +80,7 @@ class EyeLinkCoreGraphicsPsychopy(pylink.EyeLinkCustomDisplay):
         pylink.EyeLinkCustomDisplay.__init__(self)
         self.tracker = tracker
         self.ptw = ptw
+        self.dummy = dummy
 
         __FOLDER__ = dirname(dirname(inspect.getfile(self.__class__)))
 
@@ -256,35 +257,30 @@ class EyeLinkCoreGraphicsPsychopy(pylink.EyeLinkCustomDisplay):
         Draw fixation point
         Parameters
         ----------
-        :param x: horizontal coordinate
-        :param y: vertical coordinate
+        :param x: horizontal coordinate (pixels)
+        :param y: vertical coordinate (pixels)
         :param flip: do we flip the screen
 
         Returns
         -------
         void
         """
-        outer_target = visual.PatchStim(self.ptw, tex=None, mask='circle',
-                                        units=self.units, pos=(x, y),
-                                        size=self.targetsize_out,
-                                        color=self.outer_tgcol)
-        inner_target = visual.PatchStim(self.ptw, tex=None, mask='circle',
-                                        units=self.units, pos=(x, y),
-                                        size=self.targetsize_in,
-                                        color=self.inner_tgcol)
+        outer_target =  visual.Circle(self.ptw, units=self.units, pos=(x, y),
+                                      radius=self.targetsize_out, fillColor=None,
+                                      lineColor=self.outer_tgcol)
+        inner_target =  visual.Circle(self.ptw, units=self.units, pos=(x, y),
+                                      radius=self.targetsize_in, fillColor=self.inner_tgcol,
+                                      lineColor=self.inner_tgcol)
         outer_target.draw()
         inner_target.draw()
-
-        if flip:
-            self.ptw.flip()
 
     def draw_eye(self, x, y, flip=True):
         """
         Renders a circle to simulate gaze position on the screen
         Parameters
         ----------
-        :param x: horizontal coordinate
-        :param y: vertical coordinate
+        :param x: horizontal coordinate in eyelink coordinates
+        :param y: vertical coordinate in eyelink coordinates
         flip: do we flip the screen
         :type flip bool
 
@@ -292,12 +288,19 @@ class EyeLinkCoreGraphicsPsychopy(pylink.EyeLinkCustomDisplay):
         -------
         void
         """
+        # Transform coordinates to eye-tracker coordinates system
+        pos = self.el2Screen([x, y],False)
+
         eye = visual.PatchStim(self.ptw, tex=None, mask='circle',
-                               units=self.units, pos=(x, y),
+                               units=self.units, pos=pos,
                                size=(20, 20), color='red')
         eye.draw()
         if flip:
             self.ptw.flip()
+
+    def play_beep(self, beepid):
+        """ Play a sound during calibration/drift correct."""
+        pass
 
     def getColorFromIndex(self, colorindex):
         """Return psychopy colors for varius objects"""
@@ -320,64 +323,86 @@ class EyeLinkCoreGraphicsPsychopy(pylink.EyeLinkCustomDisplay):
 
     def get_mouse_state(self):
         """Get the current mouse position and status"""
-        pygame.event.pump()
         pos = self.mouse.getPos()
+        updated_pos = self.el2Screen(pos, True)
         state = self.mouse.getPressed()[0]
-        mt = MouseInput(pos, state)
+        mt = MouseInput(updated_pos, state)
         return mt
+
+    def el2Screen(self, pos, toEl=False):
+        """
+        Maps mouse position to Eyelink coordinates
+        :param pos: position in original coordinates
+        :type pos: list
+        :param toEl: True(map screen coordinates to Eyelink from psychopy), False (map Eyelink to psychopy)
+        :type toEl: bool
+        :return: updatePos: updated coordinates
+        :rtype: list
+        """
+        if not self.dummy:
+            updatedPos = np.empty(2)
+            if toEl:
+                updatedPos[0] = pos[0] + 0.5*self.sizeX
+                updatedPos[1] = (self.displaySize[1] * 0.5) - pos[1]
+            else:
+                updatedPos[0] = pos[0] - self.displaySize[0] * 0.5
+                updatedPos[1] = -(pos[1] - self.displaySize[1] * 0.5)
+            return updatedPos
+        else:
+            return pos
 
     def key_mapping(self, event):
         """
         Maps key input to Eyelink standards
         :rtype : object
         """
-        if event.type == KEYDOWN:
-            if event.key == pygame.K_F1:
+        if event:
+            if event == 'f1':
                 key = pylink.F1_KEY
-            elif event.key == pygame.K_F2:
+            elif event == 'f2':
                 key = pylink.F2_KEY
-            elif event.key == pygame.K_F3:
+            elif event == 'f3':
                 key = pylink.F3_KEY
-            elif event.key == pygame.K_F4:
+            elif event == 'f4':
                 key = pylink.F4_KEY
-            elif event.key == pygame.K_F5:
+            elif event == 'f5':
                 key = pylink.F5_KEY
-            elif event.key == pygame.K_F6:
+            elif event == 'f6':
                 key = pylink.F6_KEY
-            elif event.key == pygame.K_F7:
+            elif event == 'f7':
                 key = pylink.F7_KEY
-            elif event.key == pygame.K_8:
+            elif event == 'f8':
                 key = pylink.F8_KEY
-            elif event.key == pygame.K_F9:
+            elif event == 'f9':
                 key = pylink.F9_KEY
-            elif event.key == pygame.K_F10:
+            elif event == 'f10':
                 key = pylink.F10_KEY
-            elif event.key == pygame.K_PAGEUP:
+            elif event == 'pageup':
                 key = pylink.PAGE_UP
-            elif event.key == pygame.K_PAGEDOWN:
+            elif event == 'pagedown':
                 key = pylink.PAGE_DOWN
-            elif event.key == pygame.K_UP:
+            elif event == 'up':
                 key = pylink.CURS_UP
-            elif event.key == pygame.K_DOWN:
+            elif event == 'down':
                 key = pylink.CURS_DOWN
-            elif event.key == pygame.K_LEFT:
+            elif event == 'left':
                 key = pylink.CURS_LEFT
-            elif event.key == pygame.K_RIGHT:
+            elif event == 'right':
                 key = pylink.CURS_RIGHT
-            elif event.key == pygame.K_BACKSPACE:
+            elif event == 'backspace':
                 key = '\b'
-            elif event.key == pygame.K_RETURN:
+            elif event == 'return':
                 key = pylink.ENTER_KEY
-            elif event.key == pygame.K_ESCAPE:
+            elif event == 'escape':
                 key = pylink.ESC_KEY
-            elif event.key == K_TAB:
+            elif event == 'tab':
                 key = '\t'
-            elif event.key == pygame.K_c:
+            elif event == 'c':
                 key = pygame.K_c
-            elif event.key == pygame.K_v:
+            elif event == 'v':
                 key = pygame.K_v
             else:
-                key = event.key
+                key = event
 
             if key == pylink.JUNK_KEY:
                 return 0
@@ -386,17 +411,20 @@ class EyeLinkCoreGraphicsPsychopy(pylink.EyeLinkCustomDisplay):
         return 0
 
     def get_input_key(self):
+        """
+        Get input key
+        :return: list of pressed key
+        :rtype: list
+        """
         ky = []
-        pygame.event.pump()
-        for key in pygame.event.get([KEYDOWN]):
+        for key in event.getKeys():
             tkey = self.key_mapping(key)
-            # getKeys does not retrun key modifiers, this workaround doe not work
             if tkey in ['lshift', 'rshift']:
                 mod = 1
             else:
                 mod = 0
             ky.append(pylink.KeyInput(tkey, mod))
-        pygame.event.clear()
+        event.clearEvents()
         return ky
 
     def exit_image_display(self):
@@ -591,14 +619,16 @@ class EyeLinkCoreGraphicsPsychopy(pylink.EyeLinkCustomDisplay):
                                       radius=(w, h), lineWidth=2)
         self.loz_circ.draw()
 
-    def showmsg(self, msg, color=(255, 255, 255)):
+    def showmsg(self, msg, color=(255, 255, 255), flip=True):
         """
         Display a message (used by fixation test)
         :param msg: string
         :param color: text color
+        :param flip: flip the screen or not
         :return:
         """
         text = visual.TextStim(self.ptw, text=msg, color=color, alignHoriz='center',
-                               alignVert=self.yc - 50)
+                               alignVert='top')
         text.draw()
-        self.ptw.flip()
+        if flip:
+            self.ptw.flip()

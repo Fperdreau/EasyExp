@@ -20,6 +20,7 @@
 
 # Example with QT application
 import sys
+
 from PyQt4 import QtCore, QtGui
 from eyetracker import EyeTracker
 

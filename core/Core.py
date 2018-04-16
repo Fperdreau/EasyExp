@@ -20,7 +20,7 @@
 
 from __future__ import print_function
 
-from core.Devices import Devices
+from Devices import Devices
 
 """
 EasyExp is a Python framework designed to ease the implementation of behavioral experiments.

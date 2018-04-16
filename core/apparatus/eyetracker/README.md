@@ -1,11 +1,15 @@
-# Optotrack Wrapper
-## Author:
+# Eyelink wrapper class
+
+## Author
+
 Florian Perdreau - [www.florianperdreau.fr](http://www.florianperdreau.fr)
 
-## Description:
+## Description
+
 This is a wrapper class handling routines of the SR-Research(R) EyeLink series.
 
-## License:
+## License
+
 Copyright (C) 2015 Florian Perdreau, Radboud University Nijmegen
 
 This program is free software: you can redistribute it and/or modify
@@ -21,18 +25,20 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-### Dependencies
-* Qeyelink: Copyright &copy; 2012-2015 Wilbert van Ham, licenced under the [GNU GPL 3.0 ](http://www.gnu.org/licenses/).
+## Dependencies
 
-# Issues:
-- the method draw_image_line() (in display_psychopy.py) used to display of eye image sometimes (not always) throws the following error:
->
-`
-File "display\display_psychopy.py", line 366, in draw_image_line
-    self.imagebuffer.tostring(), self.size, 'RGBX')
-ValueError: String length does not equal format and resolution size
-`
+* PyLink (for SR Research Eyelink eye-tracking system)
 
-# To do
-- Write commands on the Calibration startup screen
+* Qeyelink: Copyright &copy; 2012-2015 Wilbert van Ham, licenced under the [GNU GPL 3.0](http://www.gnu.org/licenses/).
 
+## How to use
+
+See example in example_pygame.py
+
+## Issues
+
+* There is some latency when listening to key presses, and sometimes pressing the key multiple times in a row to trigger to wanted action (e.g. start calibration by pressing C)
+
+## To do
+
+* Complete implementation for pyQt.

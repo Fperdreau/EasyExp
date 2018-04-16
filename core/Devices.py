@@ -30,7 +30,7 @@ from os.path import isfile
 from Config import ConfigFiles
 import logging
 
-from core.gui.gui_wrapper import GuiWrapper
+from gui.gui_wrapper import GuiWrapper
 
 __status__ = "Development"
 

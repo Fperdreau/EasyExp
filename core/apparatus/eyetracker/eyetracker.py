@@ -40,6 +40,7 @@ except ImportError as e:
     raise ImportError('[{}] EyeTracker wrapper class requires pylink (Eyelink) module to work: {}'.format(__name__, e))
 
 from pygame import *
+from misc.conversion import *
 import time
 import gc
 import math
@@ -47,65 +48,7 @@ import random
 import logging
 import numpy as np
 
-__version__ = '1.3.2'
-
-
-def deg2pix(angle, direction=1, distance=550, screen_res=(800, 600), screen_size=(400, 300)):
-    """
-    Convert visual angle to pixels or pixels to visual angle.
-    Parameters
-    ----------
-    :param angle: size to convert
-    :type angle: float
-    :param direction: direction of the conversion (1: Visual angle to
-     pixels; 2= pixels to visual angle).
-    :type direction: int
-    :param distance: distance eye-screen in mm
-    :type distance: int
-    :param screen_res: screen resolution (width, height) in pixels
-    :type screen_res: tuple
-    :param screen_size: screen dimension (width, height) in mm
-    :type screen_size: tuple
-
-    Returns
-    -------
-    :return: converted size in pixels or visual angles [width, height].
-    :rtype: tuple
-    """
-
-    widthscr, heightscr = [float(i) for i in screen_size]
-    widthres, heightres = [float(i) for i in screen_res]
-
-    if direction == 1:
-        wdth = round(math.tan(deg2rad(angle/2))*2*distance*(widthres/widthscr))
-        hght = round(math.tan(deg2rad(angle/2))*2*distance*(heightres/heightscr))
-    else:
-        wdth = rad2deg(math.atan(((angle/2)/(distance*(widthres/widthscr)))))*2
-        hght = rad2deg(math.atan(((angle/2)/(distance*(heightres/heightscr)))))*2
-
-    return [wdth, hght]
-
-
-def deg2rad(angle):
-    """
-    Convert degrees to radians
-    :param angle: angle to convert (in degree)
-    :type angle: float
-
-    :return: converted angle in radians
-    """
-    return float(angle*(math.pi/180))
-
-
-def rad2deg(angle):
-    """
-    Convert radians to degrees
-    :param angle: angle to convert (in radians)
-    :type angle: float
-
-    :return: converted angle in degrees
-    """
-    return float(angle/(math.pi/180))
+__version__ = '1.4.0'
 
 
 # Constant
@@ -127,7 +70,7 @@ class EyeTracker(object):
     def __init__(self, link='10.0.0.20', dummy_mode=False, user_file='X', sprate=1000, thresvel=35, thresacc=9500, illumi=2, caltype='H3',
                  dodrift=False, trackedeye='RIGHT', display_type='pygame', ptw=None, bgcol=(127, 127, 127), distance=550,
                  resolution=(800, 600), winsize=(800, 600), inner_tgcol=(127, 127, 127), outer_tgcol=(255, 255, 255),
-                 targetsize_out=1.5, targetsize_in=0.5):
+                 targetsize_out=1.5, targetsize_in=0.5, markers_coord=None):
 
         """
         EyeTracker constructor
@@ -174,13 +117,14 @@ class EyeTracker(object):
         self.illumi = illumi  # Illumination of the infrared (1:100% 2:75% 3:50%)
         self.dodrift = dodrift  # Drift correction
         self.trackedeye = trackedeye  # Tracked eye
+        self.markers_coord = markers_coord  # Markers coordinates (for head-mounted eye-tracker)
 
         self.status = None
         self.vs = None  # EyeLink version string
         self.softvs = None  # software version
-        self.recording = False  # Recording status
         self.trial = None  # Current trial ID
-        self.eye = None
+        self.recording = False  # Recording status
+        self.eye = None  # Eye instance
 
         # Connect to Eye Tracker
         # ======================
@@ -206,7 +150,7 @@ class EyeTracker(object):
         }
 
         if ptw is not None:
-            self.set_display(ptw)
+            self.display = ptw
 
         # Calibration
         # ===========
@@ -218,7 +162,8 @@ class EyeTracker(object):
     def display(self):
         return self.__display
 
-    def set_display(self, ptw):
+    @display.setter
+    def display(self, ptw):
         """
         Set display
         :param ptw:
@@ -236,7 +181,7 @@ class EyeTracker(object):
         """
         if self.display is None:
             self.__logger.warning('A window pointer must be specified before instantiating Calibration by calling '
-                                  'EyeTracker.set_display(ptw)')
+                                  'EyeTracker.display = ptw')
         else:
             if self.calibration is None:
                 self.calibration = Calibration(self, screen=self.display, cal_type=self.caltype, custom=custom)
@@ -563,7 +508,7 @@ class EyeTracker(object):
         :rtype: bool
         """
         if ptw is not None:
-            self.set_display(ptw)
+            self.display = ptw
 
         if not self.dummy_mode:
             try:
@@ -582,7 +527,6 @@ class EyeTracker(object):
                     self.calibration.driftcorrection(**drift)
 
                 # Unset display and calibration instance
-                self.unset_display()
                 self.unset_calibration()
 
                 return True
@@ -644,22 +588,35 @@ class EDFfile(object):
         try:
             self.tracker.el.openDataFile(self.edfname)
         except Exception as e:
-            raise e
+            logging.getLogger('EasyExp').critical('[{0}] Could not open data file {1}: {2}'.format(__name__,
+                                                                                                   self.edfname, e))
+            raise RuntimeError(e)
 
     def close(self):
         """
         Close data file
         """
         logging.getLogger('EasyExp').info('[{0}] Closing data file {1}'.format(__name__, self.edfname))
-        self.tracker.el.closeDataFile()
-        self.retrieve()
+        try:
+            self.tracker.el.closeDataFile()
+        except Exception as e:
+            logging.getLogger('EasyExp').critical('[{0}] Could not close data file {1}: {2}'.format(__name__,
+                                                                                                    self.edfname, e))
+            raise RuntimeError(e)
+        else:
+            self.retrieve()
 
     def retrieve(self):
         """
         Retrieve file from eyetracker computer
         :return:
         """
-        self.tracker.el.receiveDataFile(self.edfname, self.name)
+        try:
+            self.tracker.el.receiveDataFile(self.edfname, self.name)
+        except Exception as e:
+            logging.getLogger('EasyExp').critical(
+                '[{0}] Could not retrieve EDF data file from Eye-tracker {1}: {2}'.format(__name__, self.edfname, e))
+            raise RuntimeError(e)
 
 
 # Constants
@@ -846,7 +803,7 @@ class Eye(object):
         """
         Return eye position
         :return: horizontal and vertical position of the gaze
-        :rtype: list
+        :rtype: ndarray
         """
         return np.array([self.x, self.y])
 
@@ -855,12 +812,14 @@ class Eye(object):
         """
         Return eye velocity
         :return: eye velocity in m/s
+        :rtype: float
         """
         return self.__position_tracker.velocity
 
     def validate(self, position, radius, duration):
         """
-        Validate end position of sensor: sensor must not move for a given duration to be considered as stable
+        Validate eye position relative to reference position: The eye must not
+        move for a given duration to be considered as stable
         :param position: reference position
         :type position: ndarray
         :param radius: tolerance radius (in pixels)
@@ -878,12 +837,27 @@ class Eye(object):
         """
         self.__fixation_checker.reset()
 
-    def draw(self):
+    def draw(self, flip=False):
         """
         Draw eye
         :return:
         """
-        self.tracker.display.gui.draw_eye(self.x, self.y, flip=False)
+        self.tracker.display.gui.draw_eye(self.x, self.y, flip=flip)
+
+    def on_position(self, position, radius):
+        """
+        Check if gaze is within a particular range from a reference position
+        :param position: reference position (in screen coordinates, pixels)
+        :type position: ndarray
+        :param radius: tolerance radius
+        :type radius: int (radius in pixels)
+        :return: eye is on position (true)
+        :rtype: bool
+        """
+        # Convert position to eyelink coordinates system
+        position = el2Screen(position, self.tracker.display.ptw.size, self.tracker.display.ptw.size[0], toEl=True)
+        r = math.sqrt((self.position[0] - position[0]) ** 2 + (self.position[1] - position[1]) ** 2)
+        return r <= radius
 
 
 class PositionTracker(object):
@@ -1051,11 +1025,9 @@ class Display(object):
         if self.ptw is None:
             RuntimeError('You must provide a window/Qt application pointer')
 
-        print(self)
-
         # Convert target size from visual angles to pixels
-        targetsize_out = deg2pix(self.targetsize_out, 1, self.distance, self.resolution, self.winsize)
-        targetsize_in = deg2pix(self.targetsize_in, 1, self.distance, self.resolution, self.winsize)
+        targetsize_out = deg2pix(self.targetsize_out, self.winsize[0], self.distance, self.resolution[0])
+        targetsize_in = deg2pix(self.targetsize_in, self.winsize[0], self.distance, self.resolution[0])
 
         if self.display_type == 'pygame':
             from display.display_pygame import DisplayPygame
@@ -1240,10 +1212,45 @@ class Calibration(object):
         Get graphical environment (screen resolution, size)
         :return:
         """
-        self.tracker.send_command('screen_pixel_coords = {0:d} {1:d} {2:d} {3:d}'
+        if self.tracker.vs == 2 and self.tracker.markers_coord is not None:
+            # Set marker coordinates (from screen's center in mm: top-left, bottom-left, top-right, bottom right)
+            self.tracker.send_command('marker_phys_coords = {0} {1} {2} {3}'
+                                      .format(self.__format_coord(self.tracker.markers_coord['top_left']),
+                                              self.__format_coord(self.tracker.markers_coord['bottom_left']),
+                                              self.__format_coord(self.tracker.markers_coord['top_right']),
+                                              self.__format_coord(self.tracker.markers_coord['bottom_right'])))
+            self.tracker.send_message('MARKERS_COORDS {0} {1} {2} {3}'
+                                      .format(self.__format_coord(self.tracker.markers_coord['top_left']),
+                                              self.__format_coord(self.tracker.markers_coord['bottom_left']),
+                                              self.__format_coord(self.tracker.markers_coord['top_right']),
+                                              self.__format_coord(self.tracker.markers_coord['bottom_right'])))
+
+        # Set screen physical coordinates (from screen's center in mm: left, top, right, bottom)
+        self.tracker.send_command('screen_phys_coords = {0:.3f} {1:.3f} {2:.3f} {3:.3f}'
+                                  .format(-int(self.display.winsize[0])/2, int(self.display.winsize[1])/2,
+                                          int(self.display.winsize[0])/2, -int(self.display.winsize[1]) / 2))
+        self.tracker.send_message('SCREEN_COORDS = {0:.3f} {1:.3f} {2:.3f} {3:.3f}'
+                                  .format(-int(self.display.winsize[0]) / 2, int(self.display.winsize[1]) / 2,
+                                          int(self.display.winsize[0]) / 2, -int(self.display.winsize[1]) / 2))
+
+        # Set screen pixels coordinates
+        self.tracker.send_command('screen_pixel_coords = {0:.2f} {1:.2f} {2:.2f} {3:.2f}'
                                   .format(0, 0, int(self.display.resolution[0])-1, int(self.display.resolution[1])-1))
-        self.tracker.el.sendMessage('DISPLAY_COORDS {0:d} {1:d} {2:d} {3:d}'
-                                    .format(0, 0, int(self.display.resolution[0])-1, int(self.display.resolution[1])-1))
+
+        self.tracker.send_message('DISPLAY_COORDS {0:d} {1:d} {2:d} {3:d}'
+                                  .format(0, 0, int(self.display.resolution[0])-1, int(self.display.resolution[1])-1))
+
+    @staticmethod
+    def __format_coord(coords):
+        """
+        Stringify markers coordinates
+        :param coords: list of coordinates (x, y)
+        :type coords: list
+        :return: coordinates converted to string
+        :rtype: str
+        """
+        str_coord = ['{0:.2f}'.format(c) for c in coords]
+        return ','.join(str_coord)
 
     def setup_cal_sound(self):
         """
@@ -1388,15 +1395,18 @@ class Checking(object):
         self.fixation_duration = 0.200
 
         # Convert radius from visual angles to pixels
-        self.radius = deg2pix(self.radius, 1, self.display.distance, self.display.resolution, self.display.winsize)[0]
+        self.radius = deg2pix(self.radius, self.display.winsize[0], self.display.distance, self.display.resolution[0])
 
-    def fixationtest(self, opt='fix', fixation_duration=0.2, time_to_fixate=1, radius=None, rx=0, ry=0):
+    def fixationtest(self, isfix=True, opt='fix', fixation_duration=0.2, time_to_fixate=1, radius=None, rx=0, ry=0,
+                     draw_fix=True):
         """
         Draw a fixation dot till the subject has fixated at it during a specific
         time. The dot is either drawn on the screen center (opt: "fix"), or at a
         position randomly chosen across the screen at the beginning of every
         presentation (opt: "rnd"). "w" is the tolerance radius around
         the fixation point (in pixels).
+        :param isfix: reset timer if fixation has been broken
+        :type isfix: bool
         :param time_to_fixate:
         :type time_to_fixate: int
         :param str opt:
@@ -1406,13 +1416,15 @@ class Checking(object):
         :param rx: horizontal coordinate of fixation point
         :param ry: vertical coordinate of fixation point
         :return bool fix:
+        :param draw_fix: draw fixation target
+        :type draw_fix: bool
         """
         logging.getLogger('EasyExp').info('[{}] Start fixation test'.format(__name__))
         self.tracker.el.sendMessage('EVENT_FIXATION_TEST_START')
 
         if radius is not None:
-            self.radius = deg2pix(radius, 1, self.display.distance, self.display.resolution,
-                                  self.display.winsize)[0]  # Radius (in deg) of the fixation area
+            # Radius (in deg) of the fixation area
+            self.radius = deg2pix(radius, self.display.winsize[0], self.display.distance, self.display.resolution[0])
         if self.display.display_type == 'psychopy' and self.display.ptw.units == 'norm':
             self.radius = float(self.radius)/float(self.display.resolution[0])
 
@@ -1420,16 +1432,18 @@ class Checking(object):
         msg_duration = 0.5
         quit = False
 
-        # Clear the screen
-        self.display.gui.clear_cal_display()
+        try:
+            self.time
+        except AttributeError:
+            self.time = time.time()
+
+        if not isfix:
+            self.time = time.time()  # if fixating is broken we reinitialize the fixation time
 
         # start fixation loop
         if not fix and not quit:
-            if opt == 'manual':
+            if opt == 'fix':
                 pass
-            elif opt == 'fix':
-                rx = self.display.center[0]
-                ry = self.display.center[1]
             elif opt == 'rnd':
                 rx = random.choice(range(0, self.display.resolution[0], 10))
                 ry = random.choice(range(0, self.display.resolution[1], 10))
@@ -1438,43 +1452,44 @@ class Checking(object):
                                      'Please, choose either "fix" or "rnd"'.format(__name__, opt))
 
             # Draw Fixation Point
-            self.display.gui.draw_cal_target(rx, ry)
+            if draw_fix == True:
+                self.display.gui.draw_fixation(rx, ry, flip=False)
+
+            # Convert Fixation Point to Eyelink coordinates
+            eyePos = self.display.gui.el2Screen([rx, ry], True)
 
             testtime_end = time_to_fixate + time.time()
             fixating = False
-            if time.time() < testtime_end and not fixating and not quit:
+            if self.time < testtime_end and not fixating and not quit:
                 quit = self.checkforcalibration()
 
                 # Test whether the target eye is within the fixation window (radius from fixation point)
-                fixating = self.fixationcheck(rx, ry)
-
+                fixated = self.fixationcheck(eyePos[0], eyePos[1])
+                if not fixated:
+                    self.time = time.time() # if fixating is broken we reinitialize the fixation time
             # If yes, we add an extra time of fixation, just to make sure the eye
             # did not fall within the fixation window by accident
-            if fixating:
-                fixtime_end = time.time() + fixation_duration
+            if fixated:
+                fixtime_end = self.time + fixation_duration
                 fixating = False
-                if time.time() < fixtime_end and not quit:
+                if time.time() > fixtime_end and not quit:
                     quit = self.checkforcalibration()
-
                     # Test whether the target eye is within the fixation window (radius from fixation point)
-                    fixating = self.fixationcheck(rx, ry)
+                    fixating = self.fixationcheck(eyePos[0], eyePos[1])
 
             if fixating:
                 fix = True
-
-            # If participant did not fixate the target, we ask him/her to do so
-            if not fix:
-                self.display.gui.draw_cal_target(rx, ry)
-                self.display.gui.showmsg(msg='Fixate', color=(1, 1, 1))
-                msgtime_end = time.time() + msg_duration
-                if time.time() < msgtime_end and not quit:
-                    quit = self.checkforcalibration()
-
-            # Blank the screen out
-            self.display.gui.clear_cal_display()
+            # If participant did not fixate the target, we ask him/her to do
+            if draw_fix == True:
+                if not fixating :
+                    self.display.gui.draw_fixation(rx, ry, flip=False)
+                    self.display.gui.showmsg(msg='Fixate', color=(1, 1, 1), flip=False)
+                    msgtime_end = time.time() + msg_duration
+                    if time.time() < msgtime_end and not quit:
+                        quit = self.checkforcalibration()
 
         self.tracker.el.sendMessage('EVENT_FIXATION_TEST_END')
-        return fix
+        return fix, fixated
 
     def fixationcheck(self, cx=0, cy=0):
         """
@@ -1531,6 +1546,7 @@ class Checking(object):
                 return False
             else:
                 return False
+        return False
 
 
 class FixationChecker(object):

@@ -33,6 +33,13 @@ from psychopy import visual
 from psychopy import sound
 import pygame
 import time
+import numpy as np
+
+# Multi-threading
+import threading
+
+# Loger
+import logging
 
 # EasyExp modules
 from Core import Core
@@ -40,7 +47,10 @@ from movie.moviemaker import MovieMaker
 from buttons.buttons import UserInput
 from events.timer import Timer
 from StateMachine import StateMachine
-from core.stimuli.stimuli import Stimuli
+from stimuli.stimuli import Stimuli
+
+# Define globals
+Lock = threading.RLock()
 
 
 class Loading(object):
@@ -101,7 +111,7 @@ class TimeUp(object):
         return "Experiment will continue in {0:1.1f} s".format(self.__timer.countdown)
 
 
-class BaseTrialStd(StateMachine):
+class BaseTrial(StateMachine):
     """
     BaseTrial class
     Abstract class handling trial's procedure
@@ -158,7 +168,7 @@ class BaseTrialStd(StateMachine):
         ##################################
         # DO NOT MODIFY THE LINES BELLOW #
         ##################################
-        super(BaseTrialStd, self).__init__()
+        super(BaseTrial, self).__init__()
 
         self.core = exp_core  # EasyExp Core instance
         self.screen = exp_core.screen  # Screen instance
@@ -167,12 +177,15 @@ class BaseTrialStd(StateMachine):
         self.parameters = exp_core.parameters  # Experiment parameters
         self.ptw = self.screen.ptw  # Window pointer
         self.logger = exp_core.logger  # EasyExp logger
-        self.textToDraw = BaseTrialStd.__homeMsg  # Default welcome message
+        self.textToDraw = BaseTrial.__homeMsg  # Default welcome message
 
         self.status = True  # Experiment status (True=running)
         self._running = False  # First Experiment initialization completed
         self._initialized = False  # First trial initialization completed
         self.validTrial = True  # Trial validity
+        self.threads = dict()  # Thread container
+        self.lock = Lock  # Thread Lock
+        self.add_syncer(2, self.lock)  # Add sync manager
 
         # State Machine
         # =============
@@ -304,12 +317,42 @@ class BaseTrialStd(StateMachine):
         Application main loop
         DO NOT MODIFY
         """
-        self.main_loop()
+        self.threads['fast'] = threading.Thread(target=self.fast_loop, name='fast')
+        self.threads['fast'].daemon = False
+        self.threads['fast'].start()
+        self.graphics_loop()
         self.quit()
 
-    def main_loop(self):
+    def graphics_loop(self):
         """
         Graphic state machine loop
+        :return:
+        """
+        counter = 0
+        init_time = time.time()
+        while self.status:
+            # Default states for this state machine
+            self.__default_graphic_states()
+
+            # Custom Graphics state
+            self.graphics_state_machine()
+
+            # Add state to watcher
+            self._syncer.count('graphics', self.state)
+
+            # Update display
+            self.update_graphics()
+
+            # Increment loop counter
+            counter += 1
+
+        # Compute average looping time
+        lapses = (time.time() - init_time) / float(counter)
+        self.logger.debug('Average lapse for GRAPHICS: {} ms'.format(lapses * 1000))
+
+    def fast_loop(self):
+        """
+        Fast state machine loop
         :return:
         """
         counter = 0
@@ -329,26 +372,20 @@ class BaseTrialStd(StateMachine):
                         self.devices[device].send_message('EVENT_STATE_{}'.format(self.state))
 
             # Default states for this state machine
-            self.__default_states()
-
-            # Default states for this state machine
-            self.__default_graphic_states()
+            self.__default_fast_states()
 
             # Custom Fast states
             self.fast_state_machine()
 
-            # Custom Graphics state
-            self.graphics_state_machine()
-
-            # Update display
-            self.update_graphics()
+            # Add state to watcher
+            self._syncer.count('fast', self.state)
 
             # Increment loop counter
             counter += 1
 
         # Compute average looping time
         lapses = (time.time() - init_time) / float(counter)
-        self.logger.debug('Average lapse for Main loop: {} ms'.format(lapses * 1000))
+        self.logger.debug('Average lapse for FAST: {} ms'.format(lapses * 1000))
 
     def quit(self):
         """
@@ -363,6 +400,11 @@ class BaseTrialStd(StateMachine):
         self.devices.close_all()
 
         self.status = False
+
+        # Quit all opened threads
+        for t in self.threads:
+            if self.threads[t].isAlive():
+                self.threads[t].join()
 
     def go_next(self):
         """
@@ -435,11 +477,13 @@ class BaseTrialStd(StateMachine):
 
             # Reset all stimuli triggers
             if not self._initialized or self.clearAll:
-                self.stimuli.remove_all()
-                self.init_stimuli()
+                with self.lock:
+                    self.stimuli.remove_all()
+                    self.init_stimuli()
 
             # Update stimuli based on trial parameters
-            self.update_stimuli()
+            with self.lock:
+                self.update_stimuli()
 
             return True
 
@@ -497,12 +541,13 @@ class BaseTrialStd(StateMachine):
         """
         Clear screen: set all stimuli triggers to False
         """
-        # Clear screen
-        for key, stimulus in self.stimuli.iteritems():
-            self.stimuli[key].setAutoDraw(False)
+        with self.lock:
+            # Clear screen
+            for key, stimulus in self.stimuli.iteritems():
+                self.stimuli[key].setAutoDraw(False)
 
-        # Reset all triggers
-        self.stimuli.reset()
+            # Reset all triggers
+            self.stimuli.reset()
 
     ################################
     # CUSTOMIZATION STARTS HERE    #
@@ -649,7 +694,7 @@ class BaseTrialStd(StateMachine):
         """
         raise NotImplementedError('Should implement this')
 
-    def __default_states(self):
+    def __default_fast_states(self):
         """
         Define default fast states
         Default flow is:
@@ -756,7 +801,6 @@ class BaseTrialStd(StateMachine):
                     self.__countdown = TimeUp(self.durations['pause'])
 
             self.default_stimuli['pause_txt'].draw()
-
             # Show countdown if experiment starts automatically after some delay
             if self.__countdown is not None:
                 self.default_stimuli['countdown'].setText(self.__countdown.text)

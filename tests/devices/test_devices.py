@@ -1,6 +1,5 @@
 from os.path import dirname, abspath
 import sys
-import numpy as np
 
 # Environmental settings
 root_folder = dirname(dirname(abspath('__dir__')))

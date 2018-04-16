@@ -28,6 +28,7 @@ This file is for Design class.
 # =======
 # Core
 from Config import ConfigFiles
+from methods.MethodContainer import MethodContainer
 
 # Import useful libraries
 import sys
@@ -107,7 +108,6 @@ class Design(object):
         if 'method' not in self.allconditions:
             self.allconditions['method'] = "Constant"
 
-        from core.methods.MethodContainer import MethodContainer
         self.design, self.conditions = MethodContainer.make_design(self.allconditions['method'], self.factors,
                                                                    self.allconditions['options'], self.conditions)
 

@@ -25,8 +25,8 @@ from __future__ import print_function
 # Core
 from Design import Design
 from Config import ConfigFiles
-from core.events.pause import Pause
-from core.methods.MethodContainer import MethodContainer
+from events.pause import Pause
+from methods.MethodContainer import MethodContainer
 
 # Import useful libraries
 import time

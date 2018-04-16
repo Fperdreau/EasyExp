@@ -221,16 +221,17 @@ class Config(object):
         """
         Recursively Update and override key/value pair of source dictionary with key/value pairs of destination 
         dictionary
-        :param source: referent dictionary
-        :type source: dict
-        :param destination: dictionary to update
-        :type destination: dict
+        :param a: referent dictionary
+        :type a: dict
+        :param b: dictionary to update
+        :type b: dict
         :param path: path to key
         :return: Updated destination dictionary
         :rtype: dict
         """
 
-        if path is None: path = []
+        if path is None:
+            path = []
         for key in a:
             if key in b:
                 if isinstance(a[key], dict) and isinstance(b[key], dict):
@@ -246,7 +247,6 @@ class Config(object):
         """
         self.folders['data'] = join(self.folders['rootFolder'], 'data')
         self.folders['libs'] = join(self.folders['rootFolder'], 'libs')
-        self.folders['analyses'] = join(self.folders['rootFolder'], 'analyses')
 
         for key, folder in self.folders.iteritems():
             if isdir(folder) == 0:

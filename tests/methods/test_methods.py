@@ -4,9 +4,11 @@
 # Date: 18/01/2015
 
 # Import libraries
-from os.path import dirname, abspath
 import sys
 import numpy as np
+import json
+
+from os.path import dirname, abspath, join
 
 # Environmental settings
 root_folder = dirname((abspath('__dir__')))
@@ -144,7 +146,7 @@ def run_easyexp_simulation(conditions=None):
     # New experiment
     Exp = Core()
 
-    Exp.init(root_folder, custom=False, conditions=conditions)
+    Exp.init(root_folder, conditions=conditions)
 
     # Instantiate Trial and experiment
     trial = Trial(design=Exp.design, settings=Exp.config.settings, userfile=Exp.user.datafilename)
@@ -163,16 +165,16 @@ def run_easyexp_simulation(conditions=None):
         trial.setup()
 
         if trial.status is True:
-            intensity = Method.update(int(trial.params['staircaseID']), int(trial.params['staircaseDir']))
+            intensity = Method.update(int(trial.parameters['staircaseID']), int(trial.parameters['staircaseDir']))
 
-            mu = stairs[(trial.params['staircaseID'])]['true']
-            sd = 0.1  # std
+            mu = stairs[(trial.parameters['staircaseID'])]['true']
+            sd = 0.05*mu  # std
 
             internal_rep = intensity + sd * np.random.normal()
             resp_curr = internal_rep > mu
 
             logging.getLogger('EasyExp').info('ID: {} mu: {} intensity: {} internal: {} response: {}'.format(
-                trial.params['staircaseID'], mu, intensity, internal_rep, resp_curr))
+                trial.parameters['staircaseID'], mu, intensity, internal_rep, resp_curr))
 
             # Simulate lapse
             valid = np.random.uniform(0.0, 1.0) <= 1.0
@@ -264,16 +266,16 @@ if __name__ == '__main__':
         "method": "StaircaseASA",
         "options": {
             "stimRange": [
-                -2.8,
-                2.8
+                -70,
+                70
             ],
-            "maxInitialStepSize": 3.0,
+            "maxInitialStepSize": 60.0,
             "stoppingStep": 0.1,
             "threshold": 0.50,
-            "nTrials": 40,
+            "nTrials": 60,
             "limits": True,
             "nbStairs": 1,
-            "warm_up": 5,
+            "warm_up": 2,
             "response_field": "correct",
             "intensity_field": "intensity"
         }
@@ -310,11 +312,16 @@ if __name__ == '__main__':
         }
 
     condition_name = sys.argv[1] if len(sys.argv) > 1 else 'asa'
-    print(condition_name)
     if condition_name == 'asa':
         conditions = asa
     elif condition_name == 'psi':
         conditions = psi
+    elif condition_name == 'exp':
+        # Get conditions file
+        path_to_conditions = join(root_folder, 'experiments', 'Disp', 'conditions.json')
+        json_info = open(path_to_conditions, 'r')
+        conditions = json.load(json_info)
+        json_info.close()
     else:
         raise Exception('Unknown method')
 

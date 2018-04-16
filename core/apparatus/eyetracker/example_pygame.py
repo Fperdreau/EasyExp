@@ -21,74 +21,9 @@
 # Imports
 from __future__ import print_function
 import time
-import pygame
-from pygame.constants import *
-import numpy as np
 from eyetracker import EyeTracker, Checking
-import math
-
-
-def normalize(x_input, y_input, resolution):
-    """
-    Normalize coordinates to Psychopy coordinate system (0,0 = screen center)
-    :param float x_input:
-    :param float y_input:
-    :param tuple resolution: window resolution in pixels
-    :return:
-    """
-    x_output = (x_input - 0.5*resolution[0])/(0.5*resolution[0])
-    y_output = (0.5*resolution[1]-y_input)/(0.5*resolution[1])
-    return x_output, y_output
-
-
-def cart2pol(x_input, y_input):
-    """
-    Converts cartesian to polar coordinates
-    Parameters
-    ----------
-    x_input
-    y_input
-
-    Returns
-    -------
-
-    """
-    rho = np.sqrt(x_input**2 + y_input**2)
-    phi = np.arctan2(y_input, x_input)
-    return rho, phi
-
-
-def pol2cart(rho, phi):
-    """
-    Converts polar to cartesian
-    Parameters
-    ----------
-    rho
-    phi
-
-    Returns
-    -------
-    :rtype: ndarray
-    """
-    x_output = rho * np.cos(phi)
-    y_output = rho * np.sin(phi)
-    return x_output, y_output
-
-
-def deg2pix(size, height, distance, resolution):
-    """
-    Convert degrees to pixels
-    :param size: size to convert to degrees (in pixels)
-    :param height: screen height (in cm)
-    :param distance: distance eye-screen (in cm)
-    :param resolution: screen vertical resolution (in pixels)
-    :return: converted size in degrees
-    """
-    deg_per_px = math.degrees(math.atan2(.5 * height, distance)) / (.5 * resolution)
-    size_in_px = size / deg_per_px
-    print('The size of the stimulus is %s pixels and %s visual degrees' \
-          % (size_in_px, size))
-    return size_in_px
+from misc.conversion import deg2pix
+from psychopy import event
 
 
 def stop_exp():
@@ -96,54 +31,47 @@ def stop_exp():
     Exit example if ESCAPE is pressed
     :return:
     """
-    pygame.event.pump()
-    keys = pygame.key.get_pressed()
-    return keys[pygame.K_ESCAPE]
+    allKeys = event.getKeys()
+    quit = False
+    for thisKey in allKeys:
+        if thisKey in ['q', 'escape']:
+            quit =True
+    return quit
 
 
 display_type = 'psychopy'  # window's type (pygame, psychopy, qt)
-resolution = 1680, 1050  # Screen resolution
-screen_size = 480, 300
-distance = 570  # Distance eye-screen (in mm)
+screen_size = 480, 300 # todo construct from psychopy attributes
 center = 0, 0  # Screen's center in pixels
-normCenter = np.array(center, dtype='float32')/np.array(resolution, dtype='float32')  # Normalized screen's center
+use_dummy = True  # flag for using dummy mode (mouse simulates eye position)
 
 link = "100.1.1.1"  # Eyetracker IP (100.1.1.1 = localhost)
 
 if display_type is 'psychopy':
     # If we use a psychopy window
-    from psychopy import visual
+    from psychopy import visual, monitors
     # Window
+    mon = monitors.Monitor('testMonitor')
     win = visual.Window(
-        size=resolution,
-        monitor='TestMonitor',
-        color=(-1, -1, -1),
+        monitor=mon,
+        color=(0, 0, 0),
         pos=(0, 0),
         units='pix',
-        winType='pygame',
-        fullscr=True)
-
-elif display_type is 'pygame':
-    # If we use a pygame window
-    # Initialize and open a Pygame window
-    pygame.init()
-    pygame.display.init()
-    pygame.mixer.init()
-    pygame.display.set_mode(resolution, DOUBLEBUF | RLEACCEL, 32)
-    pygame.mouse.set_visible(False)
-    win = pygame.display  # Pointer to the pygame windows
+        fullscr=False)
+    resolution = win.size
+    normRatio = (resolution[1]/float(resolution[0]))
+    distance = win.scrDistCM
 else:
     raise Exception('Oops. If you want to try out the Qt version, you might use example_Qt.py')
 
 # From this point, the EyeTracker wrapper class works the same whatever we are using a pygame or a psychopy window
-eyetracker = EyeTracker(link=link, dummy_mode=False, sprate=1000, thresvel=35, thresacc=9500, illumi=2,
-                        caltype='HV9', dodrift=False, trackedeye='left', display_type=display_type, ptw=win,
+eyetracker = EyeTracker(link=link, dummy_mode=use_dummy, sprate=1000, thresvel=35, thresacc=9500, illumi=2,
+                        caltype='HV9', dodrift=False, trackedeye='right', display_type=display_type, ptw=win,
                         bgcol=(0, 0, 0), distance=distance, resolution=resolution, winsize=screen_size,
                         inner_tgcol=(0, 0, 0), outer_tgcol=(1, 1, 1), targetsize_out=1.0,
                         targetsize_in=0.25)
 
 # Checking methods (fixationtest, checkfixation)
-checking = Checking(eyetracker, eyetracker.display, radius=1.5)
+checking = Checking(eyetracker, eyetracker.display, radius=2)
 
 # Run Eyelink and do a calibration
 eyetracker.run()
@@ -168,28 +96,51 @@ eyetracker.calibration.calibrate()
 # Start trials
 stopexp = False
 radius_px = deg2pix(size=1.5, height=screen_size[1], distance=distance, resolution=resolution[1])
+
 for trialID in range(5):
     # Starting routine
     eyetracker.start_trial(trialID+1)
 
-    # Fixation test before we start the trial
+    # Test Fixation test
     fix = False
+    isfix=False
+    while not fix and not stopexp:
+        # Test fixation
+        fix = checking.fixationtest(opt='fix', isfix=False, fixation_duration=2, time_to_fixate=2, radius=1, rx=200, ry=200)
+
+        # Draw eye position
+        eyetracker.eye.draw(flip=False)
+
+        # Get eye position
+        eyetracker.eye.get_position()
+
+        # Flip screen
+        win.flip()
+
+        stopexp = stop_exp()
+        if stopexp:
+           break
+
+    print('Fixation test passed')
+
+    # Test fixation validation
+    fix = False
+    radiusCircle = visual.Circle(win, units='pix', pos=center, radius=checking.radius, fillColor=None)
     while not fix and not stop_exp():
         # Draw radius
-        radiusCircle = visual.Circle(win, units='pix', pos=normCenter, radius=checking.radius, fillColor=None)
         radiusCircle.draw()
 
         # Draw target
-        eyetracker.display.gui.draw_fixation(normCenter[0], normCenter[1], flip=False)
-
-        # Draw eye-position
-        eyetracker.display.gui.draw_eye(x=eyetracker.eye.x - 0.5*resolution[0],
-                                        y=-eyetracker.eye.y + 0.5*resolution[1], flip=False)
+        eyetracker.display.gui.draw_fixation(center[0], center[1], flip=False)
 
         # Check fixation
         eyetracker.eye.get_position()
+
+        # Draw eye position
+        eyetracker.eye.draw(flip=False)
+
+        # Test fixation
         fix = eyetracker.eye.validate(position=[0.5*resolution[0], 0.5*resolution[1]], radius=radius_px, duration=0.200)
-        print(eyetracker.eye)
 
         # Flip screen
         win.flip()
@@ -200,7 +151,7 @@ for trialID in range(5):
 
     if stopexp:
         break
-    print('Fixated: {}'.format(fix))
+    print('Fixation validation passed')
 
     # Start trial
     # Here, we simply draw a black dot at the current gaze location. YAY, our first gaze-contingent experiment!
@@ -210,12 +161,14 @@ for trialID in range(5):
         # Get eye position
         eyetracker.eye.get_position()
         eyeposition = (eyetracker.eye.x, eyetracker.eye.y)
+
+        # Print eye position
         print(eyetracker.eye)
 
         # Draw eye-position
-        eyetracker.display.gui.draw_eye(x=eyetracker.eye.x - 0.5*resolution[0],
-                                        y=-eyetracker.eye.y + 0.5*resolution[1], flip=False)
+        eyetracker.eye.draw(flip=False)
 
+        # Flip screen
         win.flip()
 
         stopexp = stop_exp()

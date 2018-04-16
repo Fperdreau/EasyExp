@@ -25,13 +25,6 @@ from __future__ import print_function
 # Import useful libraries
 import sys
 
-# Dialog UI
-import signal
-from display.qtwindow import QtWindow
-
-# PyQt (package python-qt4-gl on Ubuntu)
-from PyQt4.QtGui import *
-
 # Logger
 import logging
 
@@ -106,6 +99,13 @@ class Screen(object):
         """
         try:
             if self.display_type == 'qt':
+                # Dialog UI
+                import signal
+                from display.qtwindow import QtWindow
+
+                # PyQt (package python-qt4-gl on Ubuntu)
+                from PyQt4.QtGui import QApplication
+
                 # Build Qt application
                 sys.path.append(self.expfolder)
                 self.QTapp = QApplication(sys.argv)

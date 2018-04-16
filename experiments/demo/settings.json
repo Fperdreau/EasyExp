@@ -1,19 +1,15 @@
 {
     "setup": {
+        "max_trials": {
+            "type": "text",
+            "value": 30,
+            "label": "# practice trials"
+        },
         "pauseInt": {
             "type": "text", 
             "value": 3, 
             "label": "Break interval"
-        }, 
-        "movie": {
-            "type": "checkbox", 
-            "options": [
-                true, 
-                false
-            ], 
-            "value": false, 
-            "label": "Movie"
-        }, 
+        },
         "practice": {
             "type": "checkbox", 
             "options": [
@@ -22,12 +18,7 @@
             ], 
             "value": false, 
             "label": "Practice"
-        }, 
-        "max_trials": {
-            "type": "text", 
-            "value": 30, 
-            "label": "# practice trials"
-        }, 
+        },
         "session": {
             "type": "text", 
             "value": 1, 
@@ -42,6 +33,15 @@
             "value": true, 
             "label": "Demo"
         }, 
+        "movie": {
+            "type": "checkbox",
+            "options": [
+                true,
+                false
+            ],
+            "value": false,
+            "label": "Movie"
+        },
         "pauseMode": {
             "type": "select", 
             "options": [
@@ -55,6 +55,15 @@
             "type": "text", 
             "value": 10, 
             "label": "Break duration"
+        },
+        "custom": {
+            "type": "checkbox",
+            "options": [
+                true,
+                false
+            ],
+            "value": true,
+            "label": "Custom design"
         }
     }, 
     "display": {
@@ -69,7 +78,7 @@
                 true, 
                 false
             ], 
-            "value": false, 
+            "value": true,
             "label": "Full screen"
         }, 
         "bgcolor": {
