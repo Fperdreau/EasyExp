@@ -536,6 +536,23 @@ class EyeTracker(object):
         else:
             return False
 
+    def drifCorrection(self, position):
+        """
+        Perform drift correction
+        :param position: x and y coordinates of target
+        :type position: list 
+        """
+        
+        if not self.dummy_mode:
+            # Set calibration instance
+            self.set_calibration()
+            
+            # Perform drift correction
+            self.calibration.driftcorrection(position[0], position[1])
+
+            # Unset calibration instance
+            self.unset_calibration()
+
     def record(self, stimuli):
         """
         Record stimuli position into data file
