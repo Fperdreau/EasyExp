@@ -1,5 +1,14 @@
 # EasyExp - Changelog
 
+## Version 1.2.1
+
+- minor bug fixes
+
+### Devices
+
+- EyeTracker (v1.4.1):
+    - Added DriftCorrection() method to perform drift correction independently from calibration
+
 ## Version 1.2.0
 
 - Experiment vs Trial parameters: trial's parameters are now accessible by calling Trial.parameters instead of Trial.params. Experiment's parameters are now stored in RunTrial.parameters instead of Trial.parameters.

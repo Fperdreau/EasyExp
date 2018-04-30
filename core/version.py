@@ -21,9 +21,9 @@
 
 __app_name__ = "EasyExp"
 __author__ = "Florian Perdreau"
-__copyright__ = "Copyright 2016, Florian Perdreau"
+__copyright__ = "Copyright 2016-2018, Florian Perdreau"
 __license__ = "GPL"
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 __maintainer__ = "Florian Perdreau"
 __email__ = "f.perdreau@donders.ru.nl"
 __status__ = "Production"
