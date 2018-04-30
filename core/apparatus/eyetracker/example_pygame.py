@@ -40,9 +40,10 @@ def stop_exp():
 
 
 display_type = 'psychopy'  # window's type (pygame, psychopy, qt)
-screen_size = 480, 300 # todo construct from psychopy attributes
+screen_size = 480, 300  # todo construct from psychopy attributes
+resolution = 1920, 1080  # Screen resolution
 center = 0, 0  # Screen's center in pixels
-use_dummy = True  # flag for using dummy mode (mouse simulates eye position)
+use_dummy = False  # flag for using dummy mode (mouse simulates eye position)
 
 link = "100.1.1.1"  # Eyetracker IP (100.1.1.1 = localhost)
 
@@ -55,6 +56,7 @@ if display_type is 'psychopy':
         monitor=mon,
         color=(0, 0, 0),
         pos=(0, 0),
+        size=resolution,
         units='pix',
         fullscr=False)
     resolution = win.size
