@@ -18,30 +18,31 @@ from core.Trial import Trial
 import logging
 import matplotlib.pyplot as plt
 from core.methods.MethodContainer import MethodContainer
+import time
 
 
 def plot_staircase(intensities, responses, mu):
     """
     Plot intensities and responses for every trial
     :param intensities: list of intensities
-    :type intensities: array-like
+    :type intensities: numpy array
     :param responses: list of responses ('True', 'False')
-    :type responses: (str, str)
+    :type responses: numpy array
     :param mu: list of true means
     """
 
     # Plot intensities
-    plt.plot(intensities)
+    plt.plot(intensities, '-')
 
     # Plot responses
-    for i in range(len(intensities)):
-        if responses[i] == 'True':
-            plt.plot(i, intensities[i], 'o')
+    for i in range(intensities.shape[1]):
+        if responses[:, i]:
+            plt.plot(i, intensities[:, i], 'o')
         else:
-            plt.plot(i, intensities[i], 'x')
+            plt.plot(i, intensities[:, i], 'x')
 
     # Plot hidden state
-    state = np.ones((1, len(intensities))) * float(mu)
+    state = np.ones((1, intensities.shape[1])) * float(mu)
     plt.plot(state[0], '--')
     plt.xlabel('Trial')
     plt.ylabel('Stimulus intensity')
@@ -61,15 +62,40 @@ def plot_correlation(trues, estimates):
     plt.show()
 
 
-def fit(xdata, ydata):
+
+def plot_curve(intensities, response):
+    """
+    Plot psychometric curve
+    :param intensities:
+    :param response:
+    :return:
+    """
+    # Bin intensities
+
+    n_bins = 10
+    bin_edges = np.linspace(np.min(intensities), np.max(intensities), n_bins)
+    pY = np.zeros([1, n_bins])
+    n = np.zeros([1, n_bins])
+
+    for i in range(n_bins-1):
+        idx = ((intensities >= bin_edges[i]) & (intensities < bin_edges[i+1]))
+        pY[:, i] = np.sum(response[idx])/np.sum(idx)
+        n[:, i] = np.sum(idx)
+
+    idx = n > 0
+    bin_edges = bin_edges[idx[0, :]]
+    pY = pY[idx]
+
+    fit(bin_edges, pY, n)
+
+
+def fit(xdata, ydata, n):
     """
     Fit data
     :param xdata:
     :param ydata:
     :return:
     """
-    import numpy as np
-    import pylab
     from scipy.optimize import curve_fit
 
     def sigmoid(x, x0, k):
@@ -77,16 +103,18 @@ def fit(xdata, ydata):
         return y
 
     popt, pcov = curve_fit(sigmoid, xdata, ydata)
-    print(popt)
 
-    x = np.linspace(-1, 15, 50)
+    x = np.linspace(np.min(xdata), np.max(xdata), 1000)
     y = sigmoid(x, *popt)
 
-    pylab.plot(xdata, ydata, 'o', label='data')
-    pylab.plot(x, y, label='fit')
-    pylab.ylim(0, 1.05)
-    pylab.legend(loc='best')
-    pylab.show()
+    dot_sizes = (n/float(np.max(n))) * 10
+    for i in range(xdata.shape[0]):
+        plt.plot(xdata[i], ydata[i], 'o', markersize=dot_sizes[:, i], label='data')
+
+    plt.plot(x, y, label='fit')
+    plt.ylim(-0.05, 1.05)
+    plt.legend(loc='best')
+    plt.show()
 
 
 def run_simulation(options, method):
@@ -100,40 +128,41 @@ def run_simulation(options, method):
 
     Method = MethodContainer(method=method, options=options)
 
-    run = True
-    if run:
-        stairs = {}
-        nSim = 10
-        sd = 0.1  # std
-        trues = np.random.uniform(options['stimRange'][0], options['stimRange'][1], (1, nSim)).flatten()
-        estimates = []
-        for s in range(nSim):
+    stairs = {}
+    nSim = 10
+    sd = 0.1 * (options['stimRange'][1] - options['stimRange'][0])  # std
+    trues = np.random.uniform(options['stimRange'][0], options['stimRange'][1], (1, nSim)).flatten()
+    estimates = []
+    for s in range(nSim):
 
-            responses = []
-            intensities = []
-            resp_curr = None
-            intensity = None
-            for t in range(options['nTrials']):
-                intensity = Method.update(s, 1, load=False, response=str(resp_curr), intensity=intensity)
-                stairs.update({str(s): {'true': trues[s]}})
+        responses = np.zeros([1, options['nTrials']])
+        intensities = np.zeros([1, options['nTrials']])
+        resp_curr = None
+        intensity = None
+        for t in range(options['nTrials']):
+            init_time = time.time()
+            intensity = Method.update(s, 1, load=False, response=str(resp_curr), intensity=intensity)
+            stairs.update({str(s): {'true': trues[s]}})
+            lapse_time = time.time() - init_time
 
-                mu = trues[s]
-                internal_rep = intensity + sd * np.random.normal()
-                resp_curr = internal_rep > mu
+            mu = trues[s]
+            internal_rep = intensity + sd * np.random.normal()
+            resp_curr = internal_rep > mu
 
-                logging.info('ID: {} mu: {} intensity: {} internal: {} response: {}'.format(
-                    str(s), mu, intensity, internal_rep, resp_curr))
+            logging.info('ID: {0} mu: {1: 1.2f} sd: {2: 1.2f} intensity: {3: 1.2f} '
+                         'internal: {4:1.2f} response: {5} [lapse: {6: 1.2f}s]'.format(
+                            str(s), mu, sd, intensity, internal_rep, resp_curr, lapse_time))
 
-                intensities.append(intensity)
-                responses.append(resp_curr)
+            intensities[:, t] = intensity
+            responses[:, t] = resp_curr
 
-            responses = ['True' if i == True else 'False' for i in responses]
-
+        if s == 1:
             plot_staircase(intensities, responses, trues[s])
+            plot_curve(intensities, responses)
 
-            estimates.append(intensities[-1])
+        estimates.append(intensities[:, -1])
 
-        plot_correlation(trues, estimates)
+    plot_correlation(trues, estimates)
 
 
 def run_easyexp_simulation(conditions=None):
@@ -161,6 +190,8 @@ def run_easyexp_simulation(conditions=None):
             stairs.update({str(t['staircaseID']): {'true': np.random.uniform(options['stimRange'][0],
                                                                              options['stimRange'][1])}})
 
+    sd = 0.10 * (options['stimRange'][1] - options['stimRange'][0])  # std
+
     while trial.status is not False:
         trial.setup()
 
@@ -168,7 +199,6 @@ def run_easyexp_simulation(conditions=None):
             intensity = Method.update(int(trial.parameters['staircaseID']), int(trial.parameters['staircaseDir']))
 
             mu = stairs[(trial.parameters['staircaseID'])]['true']
-            sd = 0.05*mu  # std
 
             internal_rep = intensity + sd * np.random.normal()
             resp_curr = internal_rep > mu
@@ -311,14 +341,15 @@ if __name__ == '__main__':
             }
         }
 
-    condition_name = sys.argv[1] if len(sys.argv) > 1 else 'asa'
-    if condition_name == 'asa':
+    method_name = sys.argv[1] if len(sys.argv) > 1 else 'asa'
+    if method_name == 'asa':
         conditions = asa
-    elif condition_name == 'psi':
+    elif method_name == 'psi':
         conditions = psi
-    elif condition_name == 'exp':
+    elif method_name == 'exp':
         # Get conditions file
-        path_to_conditions = join(root_folder, 'experiments', 'Disp', 'conditions.json')
+        condition_name = sys.argv[2]
+        path_to_conditions = join(root_folder, 'experiments', condition_name, 'conditions.json')
         json_info = open(path_to_conditions, 'r')
         conditions = json.load(json_info)
         json_info.close()
